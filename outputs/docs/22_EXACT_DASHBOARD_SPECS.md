@@ -8,14 +8,13 @@
 
 ### Query 1: KPI Metrics
 
-**SQL Query:**
+**SQL Query:** *(✅ VERIFIED & CORRECTED)*
 ```sql
 SELECT
     'Total Assets' as metric_name,
     CONCAT('$', ROUND(SUM(current_balance)/1e9, 1), 'B') as value,
     '+1.8%' as change
-FROM cfo_banking_demo.silver_finance.loan_portfolio
-WHERE is_current = true
+FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
 
 UNION ALL
 
@@ -23,8 +22,7 @@ SELECT
     'Total Deposits',
     CONCAT('$', ROUND(SUM(current_balance)/1e9, 1), 'B'),
     '-0.5%'
-FROM cfo_banking_demo.silver_finance.deposit_portfolio
-WHERE is_current = true
+FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
 
 UNION ALL
 
@@ -38,9 +36,13 @@ UNION ALL
 
 SELECT
     'LCR Ratio',
-    CONCAT(ROUND(AVG(lcr_ratio) * 100, 1), '%'),
-    'Compliant'
-FROM cfo_banking_demo.gold_finance.liquidity_coverage_ratio
+    CONCAT(ROUND(AVG(lcr_ratio), 1), '%'),
+    CASE
+        WHEN AVG(lcr_ratio) >= 100 THEN 'Pass'
+        ELSE 'Fail'
+    END
+FROM cfo_banking_demo.gold_regulatory.lcr_daily
+WHERE calculation_date = (SELECT MAX(calculation_date) FROM cfo_banking_demo.gold_regulatory.lcr_daily)
 ```
 
 **Visualization Type:** **COUNTER** (create 4 separate counters, one for each row)
@@ -108,12 +110,12 @@ ORDER BY tenor_years
 
 ### Query 3: Portfolio Analysis
 
-**SQL Query:**
+**SQL Query:** *(✅ VERIFIED & CORRECTED)*
 ```sql
 SELECT
     security_type,
     ROUND(SUM(market_value)/1e9, 2) as value_billions,
-    ROUND(AVG(ytm) * 100, 2) as avg_yield_pct,
+    ROUND(AVG(ytm), 2) as avg_yield_pct,
     ROUND(AVG(effective_duration), 1) as duration_years
 FROM cfo_banking_demo.silver_finance.securities
 WHERE is_current = true
@@ -159,12 +161,12 @@ ORDER BY value_billions DESC
 
 ### Query 4: Deposit Products
 
-**SQL Query:**
+**SQL Query:** *(✅ VERIFIED & CORRECTED)*
 ```sql
 SELECT
     product_type,
     ROUND(SUM(current_balance)/1e9, 1) as balance_billions,
-    ROUND(AVG(interest_rate) * 100, 2) as rate_pct,
+    ROUND(AVG(interest_rate), 2) as rate_pct,
     CASE product_type
         WHEN 'MMDA' THEN 0.85
         WHEN 'DDA' THEN 0.20
@@ -265,7 +267,7 @@ SELECT * FROM capital_calcs
 
 ### Query 6: LCR Components
 
-**SQL Query:**
+**SQL Query:** *(✅ VERIFIED & CORRECTED)*
 ```sql
 SELECT
     'Level 1 HQLA' as component,
@@ -284,7 +286,7 @@ SELECT
     'source',
     2
 FROM cfo_banking_demo.silver_finance.securities
-WHERE security_type IN ('Agency CMO', 'GSE Debt')
+WHERE security_type IN ('Agency')
     AND is_current = true
 
 UNION ALL
