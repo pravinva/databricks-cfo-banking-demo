@@ -181,3 +181,12 @@ INFO:     127.0.0.1:59026 - "GET /api/data/summary HTTP/1.1" 200 OK
 INFO:     127.0.0.1:59322 - "GET /api/data/summary HTTP/1.1" 200 OK
 INFO:     127.0.0.1:59501 - "GET /api/data/summary HTTP/1.1" 200 OK
 INFO:     127.0.0.1:59788 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60135 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60378 - "GET /api/data/yield-curve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60380 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60642 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60926 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61187 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61452 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61791 - "GET /api/data/yield-curve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61792 - "GET /api/data/summary HTTP/1.1" 200 OK

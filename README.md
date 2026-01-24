@@ -830,20 +830,41 @@ databricks-cfo-banking-demo/
 │   ├── WS3_Regulatory_Reporting_Demo.py      # Regulatory automation
 │   └── End_to_End_CFO_Demo.py         # Executive presentation
 │
-├── outputs/                            # Generated scripts and data
-│   ├── 01_create_catalog_structure.py # Unity Catalog setup
-│   ├── 03_generate_loan_portfolio.py  # Loan data generator
-│   ├── 04_generate_deposit_portfolio.py # Deposit data generator
-│   ├── 05_generate_securities_portfolio.py # Securities generator
-│   ├── 06_generate_treasury_yields.py # Market data generator
-│   ├── 18_create_missing_tables.py    # Gold layer tables
-│   ├── 24_loan_origination_event_generator.py # Streaming events
-│   ├── 26_complete_remaining_tasks.py # Regulatory tables
-│   ├── agent_tools_library.py         # AI assistant tools
-│   ├── 22_EXACT_DASHBOARD_SPECS.md    # Lakeview dashboard guide
-│   ├── 23_GAP_ANALYSIS.md             # Project completion analysis
-│   ├── 25_DEMO_NOTEBOOKS_SUMMARY.md   # Notebooks usage guide
-│   └── 27_FINAL_COMPLETION_SUMMARY.md # Final status report
+├── outputs/                            # Generated scripts and documentation
+│   ├── scripts/                        # Executable Python scripts
+│   │   ├── agents/                     # AI agent implementations
+│   │   ├── dashboards/                 # Dashboard generation scripts
+│   │   ├── data_generation/            # Data population scripts
+│   │   ├── frontend/                   # Frontend setup scripts
+│   │   ├── models/                     # ML model scripts
+│   │   ├── pipelines/                  # Data pipeline scripts
+│   │   └── utilities/                  # Utility and setup scripts
+│   ├── docs/                           # Documentation and guides
+│   │   ├── 17_LAKEVIEW_DASHBOARD_GUIDE.md
+│   │   ├── 22_EXACT_DASHBOARD_SPECS.md
+│   │   ├── 23_GAP_ANALYSIS.md
+│   │   ├── 25_DEMO_NOTEBOOKS_SUMMARY.md
+│   │   ├── 27_FINAL_COMPLETION_SUMMARY.md
+│   │   └── WS6_REACT_FRONTEND_SUMMARY.md
+│   ├── config/                         # Configuration and audit files
+│   └── README.md                       # Outputs directory guide
+│
+├── prompts/                            # Ralph-Wiggum agent prompts
+│   ├── ralph_ws1_01_prompt.txt         # WS1: Unity Catalog setup
+│   ├── ralph_ws1_02_prompt.txt         # WS1: Securities portfolio
+│   ├── ralph_ws1_03_prompt.txt         # WS1: Loan portfolio
+│   ├── ralph_ws1_04_prompt.txt         # WS1: Deposit portfolio
+│   ├── ralph_ws1_05_prompt.txt         # WS1: Balance sheet
+│   ├── ralph_ws1_06_prompt.txt         # WS1: GL and subledger
+│   ├── ralph_ws2_01_prompt.txt         # WS2: Loan origination
+│   ├── ralph_ws2_02_prompt.txt         # WS2: DLT pipeline
+│   ├── ralph_ws3_01_prompt.txt         # WS3: Deposit beta model
+│   ├── ralph_ws3_02_lcr.txt            # WS3: LCR calculator
+│   ├── ralph_ws4_01_agent.txt          # WS4: CFO agent
+│   ├── ralph_ws5_dashboards.txt        # WS5: Lakeview dashboards
+│   ├── ralph_ws6_react_app.txt         # WS6: React frontend
+│   ├── start_ralph.sh                  # Ralph-Wiggum launcher
+│   └── README.md                       # Prompts documentation
 │
 ├── frontend_app/                       # React frontend
 │   ├── app/                            # Next.js 14 app directory
