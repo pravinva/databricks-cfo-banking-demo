@@ -206,7 +206,7 @@ hqla_analysis = spark.sql("""
     SELECT
         CASE
             WHEN security_type IN ('UST', 'Agency MBS') THEN 'Level 1 HQLA'
-            WHEN security_type IN ('Agency CMO', 'GSE Debt') THEN 'Level 2A HQLA'
+            WHEN security_type = 'Agency' THEN 'Level 2A HQLA'
             WHEN security_type IN ('Corporate Bond', 'Municipal Bond') THEN 'Level 2B HQLA'
             ELSE 'Non-HQLA'
         END as hqla_level,
@@ -399,7 +399,8 @@ lcr_calc = spark.sql("""
             WHEN AVG(lcr_ratio) * 100 >= 100.0 THEN 'Compliant'
             ELSE 'Non-Compliant'
         END as status
-    FROM cfo_banking_demo.gold_finance.liquidity_coverage_ratio
+    FROM cfo_banking_demo.gold_regulatory.lcr_daily
+    WHERE calculation_date = (SELECT MAX(calculation_date) FROM cfo_banking_demo.gold_regulatory.lcr_daily)
 """)
 lcr_calc.display()
 

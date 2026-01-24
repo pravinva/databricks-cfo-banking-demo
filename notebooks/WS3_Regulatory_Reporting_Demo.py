@@ -426,7 +426,7 @@ lcr_calculation = spark.sql("""
         SELECT
             SUM(CASE
                 WHEN security_type IN ('UST', 'Agency MBS') THEN market_value * 1.00  -- Level 1: 100% eligible
-                WHEN security_type IN ('Agency CMO', 'GSE Debt') THEN market_value * 0.85  -- Level 2A: 85% eligible
+                WHEN security_type = 'Agency' THEN market_value * 0.85  -- Level 2A: 85% eligible
                 WHEN security_type IN ('Corporate Bond', 'Municipal Bond') THEN market_value * 0.50  -- Level 2B: 50% eligible
                 ELSE 0
             END) as total_hqla
@@ -471,7 +471,7 @@ lcr_detail = spark.sql("""
     SELECT
         CASE
             WHEN security_type IN ('UST', 'Agency MBS') THEN 'Level 1 HQLA (100%)'
-            WHEN security_type IN ('Agency CMO', 'GSE Debt') THEN 'Level 2A HQLA (85%)'
+            WHEN security_type = 'Agency' THEN 'Level 2A HQLA (85%)'
             WHEN security_type IN ('Corporate Bond', 'Municipal Bond') THEN 'Level 2B HQLA (50%)'
             ELSE 'Non-HQLA'
         END as hqla_category,
@@ -479,7 +479,7 @@ lcr_detail = spark.sql("""
         ROUND(SUM(market_value)/1e9, 2) as market_value_billions,
         ROUND(SUM(CASE
             WHEN security_type IN ('UST', 'Agency MBS') THEN market_value * 1.00
-            WHEN security_type IN ('Agency CMO', 'GSE Debt') THEN market_value * 0.85
+            WHEN security_type = 'Agency' THEN market_value * 0.85
             WHEN security_type IN ('Corporate Bond', 'Municipal Bond') THEN market_value * 0.50
             ELSE 0
         END)/1e9, 2) as eligible_hqla_billions

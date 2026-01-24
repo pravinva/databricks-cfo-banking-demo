@@ -522,7 +522,7 @@ lcr = spark.sql("""
     WITH hqla AS (
         SELECT SUM(CASE
             WHEN security_type IN ('UST', 'Agency MBS') THEN market_value * 1.00
-            WHEN security_type IN ('Agency CMO', 'GSE Debt') THEN market_value * 0.85
+            WHEN security_type = 'Agency' THEN market_value * 0.85
             WHEN security_type IN ('Corporate Bond', 'Municipal Bond') THEN market_value * 0.50
             ELSE 0
         END) as total_hqla
