@@ -1,0 +1,110 @@
+[2026-01-24 23:26:25] INFO: ================================================================================
+[2026-01-24 23:26:25] INFO: WS4-01: CFO Agent Demo with Observability
+[2026-01-24 23:26:25] INFO: ================================================================================
+[2026-01-24 23:26:25] INFO: ✓ Connected to Databricks
+[2026-01-24 23:26:25] INFO: ✓ Using SQL Warehouse: 4b9b953939869799
+[2026-01-24 23:26:25] INFO: 
+Initializing CFO Agent Tools with audit trail...
+[2026-01-24 23:26:25] INFO: ✓ Agent tools initialized
+[2026-01-24 23:26:25] INFO: 
+================================================================================
+[2026-01-24 23:26:25] INFO: AGENT SCENARIO 1: Rate Shock Impact Analysis
+[2026-01-24 23:26:25] INFO: Question: What's the impact of a 50 bps rate increase on MMDA deposits?
+[2026-01-24 23:26:25] INFO: ================================================================================
+[2026-01-24 23:26:25] INFO: 
+[AGENT REASONING] Need to query deposit beta model for MMDA @ +50 bps
+[2026-01-24 23:26:25] INFO:   [TOOL] get_deposit_beta_prediction: MMDA @ +50 bps
+[2026-01-24 23:26:25] INFO:   [TOOL] query_unity_catalog
+[2026-01-24 23:26:27] INFO: 
+[AGENT RESPONSE]
+[2026-01-24 23:26:27] INFO:   Product: MMDA
+[2026-01-24 23:26:27] INFO:   Current Balance: $4,942,935,058
+[2026-01-24 23:26:27] INFO:   Beta: 0.6495
+[2026-01-24 23:26:27] INFO:   Rate Shock: +50 bps
+[2026-01-24 23:26:27] INFO:   Predicted Runoff: $16,052,767 (0.32%)
+[2026-01-24 23:26:27] INFO:   Model: deposit_beta_v1
+[2026-01-24 23:26:27] INFO:   Data Lineage: cfo_banking_demo.gold_analytics.deposit_runoff_predictions
+[2026-01-24 23:26:27] INFO: 
+================================================================================
+[2026-01-24 23:26:27] INFO: AGENT SCENARIO 2: Liquidity Stress Test
+[2026-01-24 23:26:27] INFO: Question: What's our LCR ratio under 1.5x deposit runoff stress?
+[2026-01-24 23:26:27] INFO: ================================================================================
+[2026-01-24 23:26:27] INFO: 
+[AGENT REASONING] Need to calculate LCR with 1.5x stress multiplier
+[2026-01-24 23:26:27] INFO:   [TOOL] calculate_lcr_scenario: 1.5x stress
+[2026-01-24 23:26:27] INFO:   [TOOL] query_unity_catalog
+[2026-01-24 23:26:28] INFO: 
+[AGENT RESPONSE]
+[2026-01-24 23:26:28] INFO:   Calculation Date: 2026-01-24
+[2026-01-24 23:26:28] INFO:   HQLA: $13,036,229,427
+[2026-01-24 23:26:28] INFO:   Base Outflows: $1,114,201,109
+[2026-01-24 23:26:28] INFO:   Stressed Outflows (1.5x): $1,671,301,663
+[2026-01-24 23:26:28] INFO:   Stressed Net Outflows: $1,615,768,841
+[2026-01-24 23:26:28] INFO:   Stressed LCR Ratio: 806.81%
+[2026-01-24 23:26:28] INFO:   Regulatory Status: Pass
+[2026-01-24 23:26:28] INFO:   Buffer: 706.81%
+[2026-01-24 23:26:28] INFO:   Framework: Basel III LCR (12 CFR Part 249)
+[2026-01-24 23:26:28] INFO: 
+================================================================================
+[2026-01-24 23:26:28] INFO: AGENT SCENARIO 3: Multi-Tool Analysis
+[2026-01-24 23:26:28] INFO: Question: What's the current yield curve and balance sheet position?
+[2026-01-24 23:26:28] INFO: ================================================================================
+[2026-01-24 23:26:28] INFO: 
+[AGENT REASONING] Need to fetch yields and balance sheet (2 tools)
+[2026-01-24 23:26:28] INFO: 
+[STEP 1/2] Getting current Treasury yields...
+[2026-01-24 23:26:28] INFO:   [TOOL] get_current_treasury_yields
+[2026-01-24 23:26:28] INFO:   [TOOL] query_unity_catalog
+[2026-01-24 23:26:29] INFO: 
+[STEP 2/2] Getting balance sheet summary...
+[2026-01-24 23:26:29] INFO:   [TOOL] get_balance_sheet_summary
+[2026-01-24 23:26:29] INFO:   [TOOL] query_unity_catalog
+[2026-01-24 23:26:30] INFO: 
+[AGENT RESPONSE]
+[2026-01-24 23:26:30] INFO: 
+Treasury Yield Curve (as of 2026-01-22):
+[2026-01-24 23:26:30] INFO:   3M: 3.71%
+[2026-01-24 23:26:30] INFO:   2Y: 3.61%
+[2026-01-24 23:26:30] INFO:   5Y: 3.85%
+[2026-01-24 23:26:30] INFO:   10Y: 4.26%
+[2026-01-24 23:26:30] INFO:   30Y: 4.84%
+[2026-01-24 23:26:30] INFO: 
+Balance Sheet Summary:
+[2026-01-24 23:26:30] INFO:   Total Assets: $55,412,728,064
+[2026-01-24 23:26:30] INFO:   Total Liabilities: $50,285,477,122
+[2026-01-24 23:26:30] INFO:   Total Equity: $4,000,000,000
+[2026-01-24 23:26:30] INFO:   Balanced: ✗ No
+[2026-01-24 23:26:30] INFO: 
+================================================================================
+[2026-01-24 23:26:30] INFO: SAVING AUDIT TRAIL
+[2026-01-24 23:26:30] INFO: ================================================================================
+[2026-01-24 23:26:30] INFO: 
+✓ Audit trail saved to: outputs/cfo_agent_audit_trail.json
+[2026-01-24 23:26:30] INFO:   Total tool executions: 8
+[2026-01-24 23:26:30] INFO:   Session duration: 2026-01-24T23:26:27.929170 to 2026-01-24T23:26:30.470612
+[2026-01-24 23:26:30] INFO: 
+Audit Trail Summary:
+[2026-01-24 23:26:30] INFO:   calculate_lcr_scenario: 1 executions
+[2026-01-24 23:26:30] INFO:   get_balance_sheet_summary: 1 executions
+[2026-01-24 23:26:30] INFO:   get_current_treasury_yields: 1 executions
+[2026-01-24 23:26:30] INFO:   get_deposit_beta_prediction: 1 executions
+[2026-01-24 23:26:30] INFO:   query_unity_catalog: 4 executions
+[2026-01-24 23:26:30] INFO: 
+Total execution time: 9.15 seconds
+[2026-01-24 23:26:30] INFO: 
+================================================================================
+[2026-01-24 23:26:30] INFO: ✅ WS4-01 Complete: CFO Agent Demo Successful
+[2026-01-24 23:26:30] INFO: ================================================================================
+[2026-01-24 23:26:30] INFO: 
+Agent Capabilities Demonstrated:
+[2026-01-24 23:26:30] INFO:   ✓ Deposit beta predictions with rate shock scenarios
+[2026-01-24 23:26:30] INFO:   ✓ LCR calculations with stress testing
+[2026-01-24 23:26:30] INFO:   ✓ Treasury yield curve queries
+[2026-01-24 23:26:30] INFO:   ✓ Balance sheet analysis
+[2026-01-24 23:26:30] INFO:   ✓ Multi-tool orchestration
+[2026-01-24 23:26:30] INFO:   ✓ Complete audit trail with data lineage
+[2026-01-24 23:26:30] INFO:   ✓ Regulatory compliance tracking
+[2026-01-24 23:26:30] INFO: 
+Audit Trail: outputs/cfo_agent_audit_trail.json
+[2026-01-24 23:26:30] INFO: 
+Ready for production deployment with MLflow integration

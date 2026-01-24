@@ -1,0 +1,956 @@
+# Task: WS6-01 World-Class React Frontend for Databricks Apps
+
+## Environment Status
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Databricks: e2-demo-field-eng.cloud.databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Task Objective
+Build a production-grade React + TypeScript frontend with modern design system, deployed to Databricks Apps. Visually stunning, enterprise-grade interface suitable for Fortune 500 banking executives.
+
+## Architecture
+
+**Hybrid Databricks App:**
+```
+┌─────────────────────────────────────────────┐
+│         DATABRICKS APP                      │
+├─────────────────────────────────────────────┤
+│                                             │
+│  React Frontend (Node.js)                   │
+│  ├─ Next.js 14 (App Router)                │
+│  ├─ TypeScript                              │
+│  ├─ Tailwind CSS                            │
+│  ├─ shadcn/ui components                    │
+│  ├─ Recharts / Plotly.js                    │
+│  └─ Deployed as static build                │
+│                                             │
+│  FastAPI Backend (Python)                   │
+│  ├─ Serves React static files               │
+│  ├─ /api/chat → Agent endpoint              │
+│  ├─ /api/data → Unity Catalog queries       │
+│  ├─ /api/models → Model Serving calls       │
+│  └─ MLflow tracing on all endpoints         │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+## Design System Specification
+
+### Visual Aesthetic
+**Target:** Linear.app meets Bloomberg Terminal meets Modern SaaS
+
+**Design Principles:**
+- Sophisticated, minimal, data-dense
+- Navy/Slate color palette with strategic accent colors
+- Smooth animations (60fps)
+- Micro-interactions on hover/click
+- Glass-morphism effects (subtle)
+- Professional typography (Inter font)
+- Consistent 8px spacing grid
+- Subtle shadows and depth
+
+### Color Palette (Banking Professional)
+```typescript
+export const colors = {
+  // Primary (Navy)
+  primary: {
+    50: '#f0f4ff',
+    100: '#e0e7ff',
+    200: '#c7d2fe',
+    500: '#3b82f6',
+    700: '#1e40af',
+    900: '#0c1e3d',
+  },
+  
+  // Slate (Neutral)
+  slate: {
+    50: '#f8fafc',
+    100: '#f1f5f9',
+    200: '#e2e8f0',
+    500: '#64748b',
+    700: '#334155',
+    900: '#0f172a',
+  },
+  
+  // Semantic
+  success: '#059669',
+  warning: '#d97706',
+  danger: '#dc2626',
+  
+  // Charts
+  chart: {
+    blue: ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd'],
+    green: ['#065f46', '#059669', '#10b981', '#34d399', '#6ee7b7'],
+    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+  }
+}
+```
+
+## Instructions
+
+### 1. Create React Frontend Structure
+
+**Initialize Next.js project:**
+
+```bash
+# In your repo
+cd ~/Documents/Demo/databricks-cfo-banking-demo
+
+# Create frontend directory
+npx create-next-app@latest frontend --typescript --tailwind --app --no-src-dir
+
+cd frontend
+
+# Install dependencies
+npm install recharts
+npm install plotly.js-dist-min
+npm install @tanstack/react-query
+npm install axios
+npm install framer-motion
+npm install lucide-react
+npm install date-fns
+npm install clsx tailwind-merge
+
+# Install shadcn/ui
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add card button badge tabs dialog
+```
+
+### 2. Create Professional Layout Component
+
+```typescript
+// app/layout.tsx
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'Databricks CFO Platform',
+  description: 'AI-Powered Financial Management',
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en" className="dark">
+      <body className={inter.className}>
+        <div className="min-h-screen bg-slate-50">
+          {children}
+        </div>
+      </body>
+    </html>
+  )
+}
+```
+
+### 3. Create Main Dashboard Page (Stunning Design)
+
+```typescript
+// app/page.tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TrendingUp, TrendingDown, Activity, Shield } from 'lucide-react'
+import YieldCurveChart from '@/components/charts/YieldCurveChart'
+import LiquidityWaterfall from '@/components/charts/LiquidityWaterfall'
+import PortfolioHeatmap from '@/components/charts/PortfolioHeatmap'
+import MetricCard from '@/components/MetricCard'
+
+export default function Dashboard() {
+  const [data, setData] = useState(null)
+  
+  useEffect(() => {
+    // Fetch data from FastAPI backend
+    fetch('/api/data/summary')
+      .then(res => res.json())
+      .then(setData)
+  }, [])
+  
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">
+                CFO Platform
+              </h1>
+              <p className="text-sm text-slate-600">
+                Databricks Financial Services
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-4 text-sm text-slate-600">
+              <span>Last updated: {new Date().toLocaleTimeString()}</span>
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-green-600 font-medium">Live</span>
+            </div>
+          </div>
+        </div>
+      </header>
+      
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-8">
+        
+        {/* KPI Cards Row */}
+        <div className="grid grid-cols-4 gap-6 mb-8">
+          <MetricCard
+            title="Total Assets"
+            value="$45.0B"
+            change="+2.1%"
+            trend="up"
+            icon={<TrendingUp className="h-5 w-5" />}
+          />
+          <MetricCard
+            title="Total Deposits"
+            value="$22.0B"
+            change="+1.8%"
+            trend="up"
+            icon={<Activity className="h-5 w-5" />}
+          />
+          <MetricCard
+            title="Net Interest Margin"
+            value="2.69%"
+            change="-12 bps"
+            trend="down"
+            icon={<TrendingDown className="h-5 w-5" />}
+          />
+          <MetricCard
+            title="LCR"
+            value="104.9%"
+            change="Compliant"
+            trend="neutral"
+            icon={<Shield className="h-5 w-5" />}
+            highlight
+          />
+        </div>
+        
+        {/* Charts Grid */}
+        <div className="grid grid-cols-2 gap-6 mb-8">
+          <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-slate-900">
+                US Treasury Yield Curve
+              </CardTitle>
+              <p className="text-sm text-slate-600">Live market data</p>
+            </CardHeader>
+            <CardContent>
+              <YieldCurveChart />
+            </CardContent>
+          </Card>
+          
+          <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-slate-900">
+                30-Day Liquidity Analysis
+              </CardTitle>
+              <p className="text-sm text-slate-600">Stressed scenario</p>
+            </CardHeader>
+            <CardContent>
+              <LiquidityWaterfall />
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Tabs Section */}
+        <Tabs defaultValue="portfolio" className="space-y-6">
+          <TabsList className="bg-white border border-slate-200">
+            <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
+            <TabsTrigger value="risk">Risk Analysis</TabsTrigger>
+            <TabsTrigger value="activity">Recent Activity</TabsTrigger>
+            <TabsTrigger value="ai">AI Assistant</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="portfolio" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Portfolio Risk-Return Matrix</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PortfolioHeatmap />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Other tabs... */}
+        </Tabs>
+      </main>
+    </div>
+  )
+}
+```
+
+### 4. Create Sophisticated Chart Components
+
+```typescript
+// components/charts/YieldCurveChart.tsx
+'use client'
+
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts'
+import { useEffect, useState } from 'react'
+
+export default function YieldCurveChart() {
+  const [data, setData] = useState([])
+  
+  useEffect(() => {
+    fetch('/api/data/yield-curve')
+      .then(res => res.json())
+      .then(result => {
+        const formatted = [
+          { maturity: '3M', yield: result.rate_3m, order: 1 },
+          { maturity: '2Y', yield: result.rate_2y, order: 2 },
+          { maturity: '5Y', yield: result.rate_5y, order: 3 },
+          { maturity: '10Y', yield: result.rate_10y, order: 4 },
+          { maturity: '30Y', yield: result.rate_30y, order: 5 },
+        ]
+        setData(formatted)
+      })
+  }, [])
+  
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id="yieldGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#1e40af" stopOpacity={0.3}/>
+            <stop offset="95%" stopColor="#1e40af" stopOpacity={0}/>
+          </linearGradient>
+        </defs>
+        
+        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+        
+        <XAxis 
+          dataKey="maturity" 
+          stroke="#64748b"
+          fontSize={12}
+          tickLine={false}
+        />
+        
+        <YAxis 
+          stroke="#64748b"
+          fontSize={12}
+          tickLine={false}
+          tickFormatter={(value) => `${value.toFixed(2)}%`}
+        />
+        
+        <Tooltip 
+          contentStyle={{
+            backgroundColor: 'white',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+          }}
+          formatter={(value) => [`${value.toFixed(2)}%`, 'Yield']}
+        />
+        
+        <Area
+          type="monotone"
+          dataKey="yield"
+          stroke="#1e40af"
+          strokeWidth={3}
+          fill="url(#yieldGradient)"
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+}
+```
+
+```typescript
+// components/MetricCard.tsx
+'use client'
+
+import { Card, CardContent } from '@/components/ui/card'
+import { motion } from 'framer-motion'
+import { LucideIcon } from 'lucide-react'
+
+interface MetricCardProps {
+  title: string
+  value: string
+  change: string
+  trend: 'up' | 'down' | 'neutral'
+  icon: React.ReactNode
+  highlight?: boolean
+}
+
+export default function MetricCard({ 
+  title, 
+  value, 
+  change, 
+  trend,
+  icon,
+  highlight = false 
+}: MetricCardProps) {
+  
+  const trendColors = {
+    up: 'text-green-600 bg-green-50',
+    down: 'text-red-600 bg-red-50',
+    neutral: 'text-slate-600 bg-slate-50'
+  }
+  
+  return (
+    <motion.div
+      whileHover={{ y: -4, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card className={`border-slate-200 ${highlight ? 'ring-2 ring-primary-500' : ''}`}>
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className={`p-2 rounded-lg ${trendColors[trend]}`}>
+              {icon}
+            </div>
+            <div className={`text-xs font-medium px-2 py-1 rounded ${trendColors[trend]}`}>
+              {change}
+            </div>
+          </div>
+          
+          <div>
+            <p className="text-sm text-slate-600 mb-1">{title}</p>
+            <p className="text-3xl font-bold text-slate-900">{value}</p>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+}
+```
+
+```typescript
+// components/charts/LiquidityWaterfall.tsx
+'use client'
+
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts'
+import { useEffect, useState } from 'react'
+
+export default function LiquidityWaterfall() {
+  const [data, setData] = useState([])
+  
+  useEffect(() => {
+    fetch('/api/data/lcr')
+      .then(res => res.json())
+      .then(result => {
+        const waterfall = [
+          { 
+            name: 'HQLA', 
+            value: result.total_hqla / 1e9, 
+            fill: '#10b981',
+            cumulative: 0
+          },
+          { 
+            name: 'Outflows', 
+            value: -result.total_outflows / 1e9, 
+            fill: '#dc2626',
+            cumulative: result.total_hqla / 1e9
+          },
+          { 
+            name: 'Inflows', 
+            value: result.total_inflows_capped / 1e9, 
+            fill: '#3b82f6',
+            cumulative: (result.total_hqla - result.total_outflows) / 1e9
+          },
+          { 
+            name: 'Net', 
+            value: result.net_outflows / 1e9, 
+            fill: '#64748b',
+            cumulative: 0
+          }
+        ]
+        setData(waterfall)
+      })
+  }, [])
+  
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+        
+        <XAxis 
+          dataKey="name"
+          stroke="#64748b"
+          fontSize={12}
+          tickLine={false}
+        />
+        
+        <YAxis 
+          stroke="#64748b"
+          fontSize={12}
+          tickLine={false}
+          tickFormatter={(value) => `$${value.toFixed(1)}B`}
+        />
+        
+        <Tooltip 
+          contentStyle={{
+            backgroundColor: 'white',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px'
+          }}
+          formatter={(value) => `$${Math.abs(value).toFixed(2)}B`}
+        />
+        
+        <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={2} />
+        
+        <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.fill} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+```
+
+### 5. Create AI Chat Interface (Modern)
+
+```typescript
+// app/assistant/page.tsx
+'use client'
+
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Send, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import ReactMarkdown from 'react-markdown'
+
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+}
+
+export default function AIAssistant() {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+  
+  useEffect(scrollToBottom, [messages])
+  
+  const handleSend = async () => {
+    if (!input.trim()) return
+    
+    const userMessage: Message = {
+      role: 'user',
+      content: input,
+      timestamp: new Date()
+    }
+    
+    setMessages(prev => [...prev, userMessage])
+    setInput('')
+    setLoading(true)
+    
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          query: input,
+          session_id: 'demo_session'
+        })
+      })
+      
+      const data = await response.json()
+      
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date()
+      }
+      
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (error) {
+      console.error('Error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="max-w-4xl mx-auto">
+        
+        <Card className="border-slate-200 shadow-lg">
+          <div className="border-b border-slate-200 bg-white p-6">
+            <h1 className="text-2xl font-semibold text-slate-900">AI Assistant</h1>
+            <p className="text-sm text-slate-600 mt-1">
+              Powered by Claude Sonnet 4.5 with MLflow tracing
+            </p>
+          </div>
+          
+          {/* Example Queries */}
+          <div className="bg-slate-50 p-4 border-b border-slate-200">
+            <p className="text-xs font-medium text-slate-600 mb-2">Quick queries:</p>
+            <div className="flex gap-2 flex-wrap">
+              {[
+                'Current 10Y Treasury yield',
+                'Rate shock: +50 bps',
+                'LCR status',
+                'Portfolio summary'
+              ].map(query => (
+                <button
+                  key={query}
+                  onClick={() => setInput(query)}
+                  className="text-xs px-3 py-1.5 rounded-md bg-white border border-slate-300 hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                >
+                  {query}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Messages */}
+          <div className="h-[500px] overflow-y-auto p-6 space-y-4">
+            <AnimatePresence>
+              {messages.map((message, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[80%] rounded-lg p-4 ${
+                    message.role === 'user' 
+                      ? 'bg-primary-500 text-white' 
+                      : 'bg-white border border-slate-200 text-slate-900'
+                  }`}>
+                    <ReactMarkdown className="prose prose-sm">
+                      {message.content}
+                    </ReactMarkdown>
+                    <p className="text-xs mt-2 opacity-70">
+                      {message.timestamp.toLocaleTimeString()}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            
+            {loading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex justify-start"
+              >
+                <div className="bg-white border border-slate-200 rounded-lg p-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
+                </div>
+              </motion.div>
+            )}
+            
+            <div ref={messagesEndRef} />
+          </div>
+          
+          {/* Input */}
+          <div className="border-t border-slate-200 bg-white p-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                placeholder="Ask about Treasury, Risk, or Regulatory metrics..."
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                disabled={loading}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+                className="bg-primary-500 hover:bg-primary-600"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+}
+```
+
+### 6. Create FastAPI Backend (Serves React + API)
+
+```python
+# backend/main.py
+from fastapi import FastAPI, Depends
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from databricks.sdk import WorkspaceClient
+from cfo_agent import CFOAgentWithObservability
+import mlflow
+import os
+
+# Initialize FastAPI
+app = FastAPI(title="CFO Platform API")
+
+# Initialize agent
+agent = CFOAgentWithObservability()
+
+class ChatRequest(BaseModel):
+    query: str
+    session_id: str = "default"
+
+class ChatResponse(BaseModel):
+    response: str
+    mlflow_run_id: str
+    execution_time: float
+
+@app.post("/api/chat", response_model=ChatResponse)
+@mlflow.trace(name="api_chat_endpoint", span_type="API")
+async def chat(request: ChatRequest):
+    """
+    Agent chat endpoint with MLflow tracing
+    All calls automatically logged for audit
+    """
+    
+    import time
+    start = time.time()
+    
+    # Call agent (automatically traces with MLflow)
+    response = agent.query(request.query, session_id=request.session_id)
+    
+    execution_time = time.time() - start
+    
+    # Get current MLflow run ID for audit trail
+    run_id = mlflow.active_run().info.run_id if mlflow.active_run() else "N/A"
+    
+    return ChatResponse(
+        response=response,
+        mlflow_run_id=run_id,
+        execution_time=execution_time
+    )
+
+@app.get("/api/data/summary")
+@mlflow.trace(name="api_data_summary", span_type="API")
+async def get_summary():
+    """Get portfolio summary data"""
+    result = agent.tools.get_portfolio_summary()
+    return result
+
+@app.get("/api/data/yield-curve")
+@mlflow.trace(name="api_yield_curve", span_type="API")
+async def get_yield_curve():
+    """Get current Treasury yield curve"""
+    result = agent.tools.get_current_treasury_yields()
+    return result['yields'] if result['success'] else {}
+
+@app.get("/api/data/lcr")
+@mlflow.trace(name="api_lcr", span_type="API")
+async def get_lcr():
+    """Get current LCR calculation"""
+    result = agent.tools.calculate_lcr()
+    return result
+
+# Serve React static files
+# After running 'npm run build' in frontend/, this serves the production build
+app.mount("/", StaticFiles(directory="frontend/out", html=True), name="frontend")
+
+# Fallback route for SPA routing
+@app.get("/{full_path:path}")
+async def serve_react_app(full_path: str):
+    """Serve React app for all non-API routes"""
+    return FileResponse("frontend/out/index.html")
+```
+
+### 7. Databricks App Configuration
+
+```yaml
+# databricks.yml
+name: cfo-platform-react
+display_name: CFO Platform (React)
+description: World-class React frontend with AI agent backend
+
+resources:
+  - name: app
+    type: custom
+    
+    # Build React frontend first
+    build:
+      - npm install --prefix frontend
+      - npm run build --prefix frontend
+    
+    # Start FastAPI server
+    start:
+      command: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+      
+config:
+  warehouse_id: "4b9b953939869799"
+  
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: "4b9b953939869799"
+  - name: MLFLOW_TRACKING_URI
+    value: "databricks"
+
+permissions:
+  - user: pravin.varma@databricks.com
+    permission: CAN_MANAGE
+```
+
+### 8. Professional Tailwind Config
+
+```typescript
+// tailwind.config.ts
+import type { Config } from 'tailwindcss'
+
+const config: Config = {
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#f0f4ff',
+          100: '#e0e7ff',
+          200: '#c7d2fe',
+          500: '#3b82f6',
+          700: '#1e40af',
+          900: '#0c1e3d',
+        },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      boxShadow: {
+        'soft': '0 2px 8px rgba(0, 0, 0, 0.05)',
+        'card': '0 1px 3px rgba(0, 0, 0, 0.1)',
+        'card-hover': '0 10px 25px rgba(0, 0, 0, 0.15)',
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.3s ease-in-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+      },
+    },
+  },
+  plugins: [],
+}
+
+export default config
+```
+
+## Visual Quality Standards
+
+**Must achieve:**
+- ✅ Linear.app level polish (smooth animations, modern aesthetic)
+- ✅ Stripe Dashboard sophistication (data visualization)
+- ✅ Bloomberg Terminal density (information-rich)
+- ✅ Vercel website quality (professional, fast)
+- ✅ 60fps animations throughout
+- ✅ Responsive design (desktop + tablet)
+- ✅ Professional color system
+- ✅ Consistent micro-interactions
+
+**Specific requirements:**
+- All transitions: 200-300ms with easing
+- Hover states: Subtle elevation changes
+- Loading states: Skeleton loaders, not spinners
+- Charts: Smooth animations on render
+- Cards: Subtle shadows with hover effects
+- Typography: Consistent hierarchy (2xl/xl/lg/base/sm/xs)
+- Spacing: 8px grid system (p-2, p-4, p-6, p-8)
+
+## Deployment to Databricks Apps
+
+### Build Process
+
+```bash
+# Build React frontend
+cd frontend
+npm run build
+# This creates frontend/out/ with static files
+
+# FastAPI will serve these static files
+cd ..
+```
+
+### Deploy to Databricks
+
+```bash
+# Using Databricks CLI
+databricks apps deploy cfo-platform-react \
+  --source-path ~/Documents/Demo/databricks-cfo-banking-demo \
+  --config-file databricks.yml
+```
+
+## Success Criteria
+
+- [ ] React app builds successfully
+- [ ] FastAPI serves static files + API endpoints
+- [ ] All charts render with animations
+- [ ] Agent chat interface works end-to-end
+- [ ] MLflow tracing works through API calls
+- [ ] Deploys to Databricks Apps
+- [ ] Visual quality matches Linear/Stripe standard
+- [ ] Smooth 60fps animations
+- [ ] Professional, modern aesthetic
+- [ ] Mobile-responsive
+- [ ] Load time < 2 seconds
+
+## Expected Visual Quality
+
+**Opening the app:**
+- Smooth fade-in animation
+- Clean, modern interface loads
+- Live data populates with skeleton loaders
+- Charts animate into view
+- Micro-interactions on hover
+- Professional banking aesthetic
+
+**When executives see it:**
+- "This looks like a modern SaaS product"
+- "Polished and professional"
+- "Bloomberg meets Stripe"
+- "Production-ready"
+
+## Deliverables
+
+**Frontend (React):**
+- `frontend/app/page.tsx` - Main dashboard
+- `frontend/app/assistant/page.tsx` - AI chat
+- `frontend/components/charts/*.tsx` - Chart components
+- `frontend/components/ui/*.tsx` - shadcn components
+- `frontend/tailwind.config.ts` - Design system
+
+**Backend (FastAPI):**
+- `backend/main.py` - API server + static file serving
+- `backend/requirements.txt` - Python dependencies
+
+**Deployment:**
+- `databricks.yml` - App configuration
+- `.gitignore` - Exclude node_modules, build files
+
+## Estimated Duration
+⏱️ 8-12 hours (world-class frontend development)
+
+## When Complete
+You'll have a stunning, production-grade React app deployed to Databricks Apps that rivals any modern SaaS product.
+
+Begin execution now.

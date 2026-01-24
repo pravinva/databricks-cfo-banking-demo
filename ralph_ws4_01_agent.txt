@@ -1,0 +1,1129 @@
+# Task: Execute WS4-01 Agentic CFO Co-Pilot with MLflow Observability
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ ALL WS1 Complete - Complete data foundation
+✅ ALL WS2 Complete - Real-time pipelines operational
+✅ ALL WS3 Complete - Models and calculators deployed
+
+## Foundation Model API Configuration
+
+**Claude Sonnet 4.5 Endpoint:**
+```
+URL: https://e2-demo-field-eng.cloud.databricks.com/serving-endpoints/databricks-claude-sonnet-4-5/invocations
+Model: Claude Sonnet 4.5
+Authentication: Databricks workspace token
+```
+
+## CRITICAL: Banking Regulatory Requirements
+
+**This is a banking CFO demo - observability and governance are MANDATORY:**
+
+✅ **MLflow Tracing**: Every agent interaction logged
+✅ **Audit Trail**: Complete lineage from query → tools → response
+✅ **Model Tracking**: All ML model calls traced
+✅ **Data Lineage**: Unity Catalog lineage for regulatory compliance
+✅ **Reproducibility**: Every decision can be audited and reproduced
+✅ **Explainability**: Why the agent made each decision
+
+**For regulatory purposes, we must demonstrate:**
+- SR 11-7 Model Risk Management compliance
+- Complete audit trail for OCC/Fed examiners
+- Data governance (Unity Catalog)
+- Model governance (MLflow Model Registry)
+- Decision transparency (MLflow Tracing)
+
+## Task Objective
+Build a production-grade agentic AI system with comprehensive MLflow observability suitable for banking regulatory requirements.
+
+## Instructions
+
+### 1. Setup MLflow Tracking
+
+```python
+import mlflow
+from mlflow.tracking import MlflowClient
+from datetime import datetime
+import json
+
+# Configure MLflow
+mlflow.set_tracking_uri("databricks")
+mlflow.set_experiment("/Users/pravin.varma@databricks.com/cfo_agent_audit_trail")
+
+# Initialize MLflow client for logging
+mlflow_client = MlflowClient()
+
+print("✓ MLflow tracking configured")
+print(f"  Experiment: /Users/pravin.varma@databricks.com/cfo_agent_audit_trail")
+```
+
+### 2. Create Instrumented Agent Tools Library
+
+```python
+from typing import Dict, Any
+from pyspark.sql import SparkSession
+from databricks.sdk import WorkspaceClient
+import requests
+import json
+import mlflow
+
+class CFOAgentTools:
+    """Tool library with complete MLflow instrumentation for audit trail"""
+    
+    def __init__(self, warehouse_id="4b9b953939869799"):
+        self.spark = SparkSession.builder \
+            .config("spark.databricks.sql.warehouse.id", warehouse_id) \
+            .getOrCreate()
+        self.warehouse_id = warehouse_id
+        self.w = WorkspaceClient()
+    
+    @mlflow.trace(name="query_unity_catalog", span_type="TOOL")
+    def query_unity_catalog(self, query: str, max_rows: int = 100) -> Dict[str, Any]:
+        """
+        Execute SQL query against Unity Catalog with full tracing
+        
+        Logs:
+        - Query text
+        - Execution time
+        - Row count
+        - Data lineage (Unity Catalog metadata)
+        """
+        
+        # Log query metadata
+        mlflow.log_param("query", query)
+        mlflow.log_param("warehouse_id", self.warehouse_id)
+        mlflow.log_param("max_rows", max_rows)
+        
+        start_time = datetime.now()
+        
+        try:
+            df = self.spark.sql(query).limit(max_rows)
+            row_count = df.count()
+            data = df.toPandas().to_dict('records')
+            
+            # Log execution metrics
+            execution_time = (datetime.now() - start_time).total_seconds()
+            mlflow.log_metric("query_execution_time_seconds", execution_time)
+            mlflow.log_metric("rows_returned", row_count)
+            
+            # Log data lineage from Unity Catalog
+            # Get table lineage metadata
+            tables_used = self._extract_tables_from_query(query)
+            mlflow.log_param("tables_accessed", json.dumps(tables_used))
+            
+            result = {
+                "success": True,
+                "data": data,
+                "columns": df.columns,
+                "row_count": row_count,
+                "execution_time": execution_time,
+                "lineage": tables_used
+            }
+            
+            mlflow.log_dict(result, "query_result_metadata.json")
+            
+            return result
+            
+        except Exception as e:
+            mlflow.log_param("error", str(e))
+            mlflow.log_metric("success", 0)
+            
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def _extract_tables_from_query(self, query: str) -> list:
+        """Extract table names from SQL query for lineage tracking"""
+        import re
+        
+        # Simple regex to find table references (cfo_banking_demo.schema.table)
+        pattern = r'cfo_banking_demo\.\w+\.\w+'
+        tables = list(set(re.findall(pattern, query.lower())))
+        
+        return tables
+    
+    @mlflow.trace(name="call_deposit_beta_model", span_type="TOOL")
+    def call_deposit_beta_model(self, rate_change_bps: float, product_type: str = "MMDA") -> Dict[str, Any]:
+        """
+        Call deposit beta model with full MLflow tracing
+        
+        Logs:
+        - Input parameters
+        - Model endpoint called
+        - Model version used
+        - Prediction result
+        - Inference latency
+        """
+        
+        # Log input parameters
+        mlflow.log_param("rate_change_bps", rate_change_bps)
+        mlflow.log_param("product_type", product_type)
+        mlflow.log_param("model_endpoint", "deposit-beta-model")
+        
+        start_time = datetime.now()
+        
+        try:
+            # Get current portfolio balance
+            balance_query = f"""
+                SELECT SUM(current_balance) as total_balance
+                FROM cfo_banking_demo.silver_treasury.deposit_portfolio
+                WHERE product_type = '{product_type}'
+                AND is_current = true
+            """
+            
+            balance_result = self.query_unity_catalog(balance_query)
+            current_balance = balance_result['data'][0]['total_balance']
+            
+            mlflow.log_metric("portfolio_balance", current_balance)
+            
+            # Get average beta (simplified - in production would call actual model serving)
+            beta_query = f"""
+                SELECT AVG(beta) as avg_beta
+                FROM cfo_banking_demo.silver_treasury.deposit_portfolio
+                WHERE product_type = '{product_type}'
+                AND is_current = true
+            """
+            
+            beta_result = self.query_unity_catalog(beta_query)
+            avg_beta = beta_result['data'][0]['avg_beta']
+            
+            # Calculate prediction (simplified formula for demo)
+            balance_change_pct = -avg_beta * (rate_change_bps / 100)
+            runoff_amount = current_balance * (balance_change_pct / 100)
+            
+            # Log model prediction
+            mlflow.log_metric("predicted_balance_change_pct", balance_change_pct)
+            mlflow.log_metric("predicted_runoff_amount", runoff_amount)
+            mlflow.log_metric("beta_used", avg_beta)
+            
+            inference_time = (datetime.now() - start_time).total_seconds()
+            mlflow.log_metric("model_inference_time_seconds", inference_time)
+            
+            result = {
+                "success": True,
+                "product_type": product_type,
+                "current_balance": current_balance,
+                "rate_change_bps": rate_change_bps,
+                "predicted_balance_change_pct": round(balance_change_pct, 2),
+                "predicted_runoff_amount": round(runoff_amount, 2),
+                "beta_used": round(avg_beta, 4),
+                "model_version": "deposit_beta_v1",
+                "inference_time": inference_time
+            }
+            
+            # Log complete result for audit
+            mlflow.log_dict(result, "deposit_beta_prediction.json")
+            
+            return result
+            
+        except Exception as e:
+            mlflow.log_param("error", str(e))
+            return {"success": False, "error": str(e)}
+    
+    @mlflow.trace(name="calculate_lcr", span_type="TOOL")
+    def calculate_lcr(self, deposit_runoff_multiplier: float = 1.0) -> Dict[str, Any]:
+        """
+        Calculate LCR with full regulatory audit trail
+        
+        Logs:
+        - Stress scenario parameters
+        - HQLA components and sources
+        - Cash flow calculations
+        - Regulatory compliance status
+        - Data lineage for all inputs
+        """
+        
+        mlflow.log_param("stress_multiplier", deposit_runoff_multiplier)
+        mlflow.log_param("calculation_date", datetime.now().date())
+        
+        try:
+            # Get latest LCR calculation
+            query = """
+                SELECT *
+                FROM cfo_banking_demo.gold_regulatory.lcr_daily
+                ORDER BY calculation_timestamp DESC
+                LIMIT 1
+            """
+            
+            result = self.query_unity_catalog(query)
+            
+            if not result['success'] or result['row_count'] == 0:
+                return {"success": False, "error": "No LCR data available"}
+            
+            lcr_data = result['data'][0]
+            
+            # Log base LCR components
+            mlflow.log_metric("base_hqla", lcr_data['total_hqla'])
+            mlflow.log_metric("base_outflows", lcr_data['total_outflows'])
+            mlflow.log_metric("base_lcr_ratio", lcr_data['lcr_ratio'])
+            
+            # Apply stress scenario
+            stressed_outflows = lcr_data['total_outflows'] * deposit_runoff_multiplier
+            stressed_net_outflows = max(
+                stressed_outflows - lcr_data['total_inflows_capped'],
+                stressed_outflows * 0.25
+            )
+            
+            stressed_lcr = (lcr_data['total_hqla'] / stressed_net_outflows) * 100
+            
+            # Log stressed scenario results
+            mlflow.log_metric("stressed_outflows", stressed_outflows)
+            mlflow.log_metric("stressed_net_outflows", stressed_net_outflows)
+            mlflow.log_metric("stressed_lcr_ratio", stressed_lcr)
+            mlflow.log_metric("lcr_buffer_pct", stressed_lcr - 100)
+            
+            # Log compliance status
+            compliance_status = "Pass" if stressed_lcr >= 100 else "Fail"
+            mlflow.log_param("regulatory_status", compliance_status)
+            
+            # Log data lineage for regulatory audit
+            lineage = {
+                "hqla_source": "cfo_banking_demo.gold_regulatory.hqla_inventory",
+                "outflows_source": "cfo_banking_demo.gold_regulatory.cash_outflows_30day",
+                "inflows_source": "cfo_banking_demo.gold_regulatory.cash_inflows_30day",
+                "calculation_logic": "Basel III LCR Framework (simplified)",
+                "regulatory_reference": "12 CFR Part 249"
+            }
+            mlflow.log_dict(lineage, "lcr_data_lineage.json")
+            
+            result = {
+                "success": True,
+                "lcr_ratio": round(stressed_lcr, 2),
+                "hqla": lcr_data['total_hqla'],
+                "net_outflows": stressed_net_outflows,
+                "status": compliance_status,
+                "buffer": round(stressed_lcr - 100, 2),
+                "stress_multiplier": deposit_runoff_multiplier,
+                "lineage": lineage
+            }
+            
+            # Complete audit record
+            mlflow.log_dict(result, "lcr_calculation_audit.json")
+            
+            return result
+            
+        except Exception as e:
+            mlflow.log_param("error", str(e))
+            return {"success": False, "error": str(e)}
+    
+    @mlflow.trace(name="get_treasury_yields", span_type="TOOL")
+    def get_current_treasury_yields(self) -> Dict[str, Any]:
+        """Get latest Treasury yields with data provenance tracking"""
+        
+        try:
+            query = """
+                SELECT 
+                    date,
+                    rate_3m, rate_2y, rate_5y, rate_10y, rate_30y,
+                    ingestion_timestamp
+                FROM cfo_banking_demo.silver_treasury.yield_curves
+                ORDER BY date DESC
+                LIMIT 1
+            """
+            
+            result = self.query_unity_catalog(query)
+            
+            if result['success'] and result['row_count'] > 0:
+                data = result['data'][0]
+                
+                # Log data freshness for regulatory audit
+                data_age_hours = (datetime.now() - datetime.fromisoformat(str(data['ingestion_timestamp']))).total_seconds() / 3600
+                mlflow.log_metric("market_data_age_hours", data_age_hours)
+                
+                # Log data source for audit trail
+                mlflow.log_param("data_source", "Alpha Vantage API")
+                mlflow.log_param("data_table", "cfo_banking_demo.silver_treasury.yield_curves")
+                mlflow.log_param("data_date", str(data['date']))
+                
+                return {
+                    "success": True,
+                    "date": data['date'],
+                    "yields": {
+                        "3M": data['rate_3m'],
+                        "2Y": data['rate_2y'],
+                        "5Y": data['rate_5y'],
+                        "10Y": data['rate_10y'],
+                        "30Y": data['rate_30y']
+                    },
+                    "last_updated": data['ingestion_timestamp'],
+                    "data_age_hours": data_age_hours,
+                    "source": "Alpha Vantage",
+                    "lineage": {
+                        "source_table": "cfo_banking_demo.silver_treasury.yield_curves",
+                        "bronze_table": "cfo_banking_demo.bronze_market_data.treasury_yields_raw",
+                        "external_api": "Alpha Vantage TREASURY_YIELD"
+                    }
+                }
+            else:
+                return {"success": False, "error": "No yield data available"}
+                
+        except Exception as e:
+            mlflow.log_param("error", str(e))
+            return {"success": False, "error": str(e)}
+```
+
+### 3. Create Agent with Full MLflow Tracing
+
+```python
+import mlflow
+import requests
+import json
+from databricks.sdk import WorkspaceClient
+from datetime import datetime
+
+class CFOAgentWithObservability:
+    """
+    Production-grade CFO Agent with comprehensive MLflow tracing
+    for banking regulatory compliance and audit requirements
+    """
+    
+    def __init__(self, warehouse_id="4b9b953939869799"):
+        self.tools = CFOAgentTools(warehouse_id)
+        self.w = WorkspaceClient()
+        self.claude_endpoint = "https://e2-demo-field-eng.cloud.databricks.com/serving-endpoints/databricks-claude-sonnet-4-5/invocations"
+        
+        # MLflow configuration
+        mlflow.set_experiment("/Users/pravin.varma@databricks.com/cfo_agent_audit_trail")
+        
+        print("✓ Agent initialized with MLflow observability")
+        print("  All interactions logged for regulatory audit")
+    
+    @mlflow.trace(name="agent_query", span_type="AGENT")
+    def query(self, user_query: str, session_id: str = None) -> str:
+        """
+        Main agent entry point with complete observability
+        
+        Creates MLflow run for each interaction with:
+        - User query logged
+        - Tool calls traced
+        - LLM calls traced  
+        - Final response logged
+        - Complete execution timeline
+        - Data lineage documentation
+        """
+        
+        # Start MLflow run for this interaction
+        with mlflow.start_run(run_name=f"cfo_query_{datetime.now().strftime('%Y%m%d_%H%M%S')}") as run:
+            
+            # Log query metadata
+            mlflow.log_param("user_query", user_query)
+            mlflow.log_param("session_id", session_id or "default")
+            mlflow.log_param("timestamp", datetime.now().isoformat())
+            mlflow.log_param("user", "pravin.varma@databricks.com")
+            mlflow.set_tag("use_case", "cfo_banking_demo")
+            mlflow.set_tag("environment", "field_engineering")
+            
+            try:
+                # STEP 1: Route query to tools (with tracing)
+                routing = self._route_query(user_query)
+                
+                mlflow.log_param("tool_selected", routing.get("tool", "none"))
+                mlflow.log_param("routing_reasoning", routing.get("reasoning", ""))
+                
+                # STEP 2: Execute tools (with tracing)
+                tool_results = self._execute_tools(routing)
+                
+                mlflow.log_dict(tool_results, "tool_execution_results.json")
+                
+                # STEP 3: Synthesize response (with tracing)
+                final_answer = self._synthesize_response(user_query, tool_results)
+                
+                mlflow.log_param("final_response", final_answer)
+                mlflow.log_metric("success", 1)
+                
+                # Log complete interaction for audit
+                audit_record = {
+                    "timestamp": datetime.now().isoformat(),
+                    "user": "pravin.varma@databricks.com",
+                    "query": user_query,
+                    "tools_called": routing.get("tool"),
+                    "tool_results": tool_results,
+                    "response": final_answer,
+                    "mlflow_run_id": run.info.run_id
+                }
+                
+                mlflow.log_dict(audit_record, "complete_audit_trail.json")
+                
+                return final_answer
+                
+            except Exception as e:
+                mlflow.log_param("error", str(e))
+                mlflow.log_metric("success", 0)
+                raise
+    
+    @mlflow.trace(name="route_query_with_claude", span_type="LLM")
+    def _route_query(self, user_query: str) -> dict:
+        """Use Claude to determine which tool to call - fully traced"""
+        
+        system_prompt = """You are a query router for a banking CFO assistant.
+
+Available tools:
+
+1. get_treasury_yields
+   Use when: User asks about rates, yields, market conditions
+   
+2. call_deposit_beta_model
+   Use when: User asks about rate shock scenarios, deposit impact
+   Parameters: rate_change_bps (-200 to +200), product_type (DDA, Savings, MMDA, CD)
+   
+3. calculate_lcr
+   Use when: User asks about liquidity, LCR, compliance
+   Parameters: stress_multiplier (1.0 = base, >1.0 = stressed)
+   
+4. query_portfolio_summary
+   Use when: User asks about portfolio, assets, overview
+   
+5. get_loan_originations
+   Use when: User asks about recent loans, loan volume
+   Parameters: days (default: 1)
+
+Respond with ONLY valid JSON:
+{
+  "tool": "tool_name",
+  "params": {"param1": value1},
+  "reasoning": "Brief explanation"
+}
+"""
+        
+        # Log LLM call details
+        mlflow.log_param("llm_model", "Claude Sonnet 4.5")
+        mlflow.log_param("llm_endpoint", self.claude_endpoint)
+        mlflow.log_param("llm_purpose", "query_routing")
+        
+        # Call Claude for routing
+        response = self._call_claude(f"{system_prompt}\n\nUser query: {user_query}")
+        
+        mlflow.log_param("llm_routing_response", response)
+        
+        # Parse JSON from response
+        import re
+        json_match = re.search(r'\{[^}]*"tool"[^}]*\}', response, re.DOTALL)
+        
+        if json_match:
+            routing = json.loads(json_match.group())
+            return routing
+        else:
+            return {"tool": "none", "reasoning": "Could not parse routing", "raw_response": response}
+    
+    @mlflow.trace(name="execute_tools", span_type="CHAIN")
+    def _execute_tools(self, routing: dict) -> dict:
+        """Execute tools based on routing - all tool calls traced by @mlflow.trace decorators"""
+        
+        tool_name = routing.get("tool", "none")
+        params = routing.get("params", {})
+        
+        mlflow.log_param("executing_tool", tool_name)
+        
+        if tool_name == "get_treasury_yields":
+            return self.tools.get_current_treasury_yields()
+            
+        elif tool_name == "call_deposit_beta_model":
+            result = self.tools.call_deposit_beta_model(
+                rate_change_bps=params.get("rate_change_bps", 50),
+                product_type=params.get("product_type", "MMDA")
+            )
+            # Also calculate LCR impact for complete analysis
+            lcr_result = self.tools.calculate_lcr(deposit_runoff_multiplier=1.0)
+            result["lcr_impact"] = lcr_result
+            return result
+            
+        elif tool_name == "calculate_lcr":
+            return self.tools.calculate_lcr(
+                deposit_runoff_multiplier=params.get("stress_multiplier", 1.0)
+            )
+            
+        elif tool_name == "query_portfolio_summary":
+            return self.tools.get_portfolio_summary()
+            
+        elif tool_name == "get_loan_originations":
+            return self.tools.get_loan_origination_summary(
+                days=params.get("days", 1)
+            )
+        else:
+            return {"success": False, "error": f"Unknown tool: {tool_name}"}
+    
+    @mlflow.trace(name="synthesize_response_with_claude", span_type="LLM")
+    def _synthesize_response(self, user_query: str, tool_results: dict) -> str:
+        """Use Claude to synthesize final response - fully traced"""
+        
+        synthesis_prompt = f"""You are a CFO assistant for a US regional bank.
+
+User's question: {user_query}
+
+Data retrieved from systems: {json.dumps(tool_results, indent=2)}
+
+Provide a clear, professional answer using this data.
+
+Guidelines:
+- Be concise and data-focused
+- Include specific numbers with proper formatting ($XX.XB, XX.X%)
+- Highlight compliance status if relevant  
+- Provide context and implications for banking operations
+- Use professional financial terminology
+- If scenario analysis, include risk mitigation recommendations
+- State data sources for transparency
+
+Response:"""
+        
+        mlflow.log_param("llm_purpose", "response_synthesis")
+        mlflow.log_param("tool_results_provided", json.dumps(tool_results))
+        
+        final_answer = self._call_claude(synthesis_prompt)
+        
+        mlflow.log_param("synthesized_response", final_answer)
+        
+        return final_answer
+    
+    @mlflow.trace(name="call_claude_fmapi", span_type="LLM")
+    def _call_claude(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.3) -> str:
+        """
+        Direct call to Claude Sonnet 4.5 via Databricks FMAPI
+        All calls traced with MLflow
+        """
+        
+        mlflow.log_param("llm_prompt_length", len(prompt))
+        mlflow.log_param("llm_max_tokens", max_tokens)
+        mlflow.log_param("llm_temperature", temperature)
+        
+        headers = {
+            "Authorization": f"Bearer {self.w.config.token}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        
+        start_time = datetime.now()
+        
+        response = requests.post(
+            self.claude_endpoint,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        llm_latency = (datetime.now() - start_time).total_seconds()
+        mlflow.log_metric("llm_latency_seconds", llm_latency)
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            # Parse response based on format
+            if "choices" in result:
+                content = result["choices"][0]["message"]["content"]
+            elif "content" in result:
+                content = result["content"][0].get("text", str(result["content"])) if isinstance(result["content"], list) else result["content"]
+            else:
+                content = str(result)
+            
+            mlflow.log_param("llm_response_length", len(content))
+            
+            # Log token usage if available
+            if "usage" in result:
+                mlflow.log_metric("llm_prompt_tokens", result["usage"].get("prompt_tokens", 0))
+                mlflow.log_metric("llm_completion_tokens", result["usage"].get("completion_tokens", 0))
+                mlflow.log_metric("llm_total_tokens", result["usage"].get("total_tokens", 0))
+            
+            return content
+        else:
+            error_msg = f"FMAPI error: {response.status_code} - {response.text}"
+            mlflow.log_param("llm_error", error_msg)
+            raise Exception(error_msg)
+
+# Initialize and test agent with full observability
+agent = CFOAgentWithObservability()
+
+print("\n" + "="*60)
+print("TESTING CFO AGENT WITH MLFLOW OBSERVABILITY")
+print("="*60)
+
+test_queries = [
+    "What is the current 10-year Treasury yield?",
+    "What happens if interest rates rise 50 basis points?",
+    "What is our current Liquidity Coverage Ratio?",
+    "Show me our portfolio summary"
+]
+
+for i, query in enumerate(test_queries, 1):
+    print(f"\n--- Test {i}/4 ---")
+    print(f"Query: {query}")
+    
+    try:
+        # Each query creates a separate MLflow run with complete tracing
+        answer = agent.query(query, session_id=f"test_session_{i}")
+        print(f"Answer: {answer[:200]}...")  # Truncate for display
+        print("Status: SUCCESS")
+        print(f"MLflow: Trace logged to experiment")
+        
+    except Exception as e:
+        print(f"Status: FAILED - {e}")
+
+print("\n" + "="*60)
+print("AGENT TESTING COMPLETE")
+print("="*60)
+print("\nView traces in MLflow:")
+print("  Databricks UI > Machine Learning > Experiments")
+print("  Experiment: /Users/pravin.varma@databricks.com/cfo_agent_audit_trail")
+print("\nEach trace shows:")
+print("  • Complete query execution timeline")
+print("  • All tool calls with parameters")
+print("  • All LLM calls with prompts and responses")
+print("  • Data lineage for regulatory audit")
+print("  • Performance metrics")
+```
+
+### 4. Create Audit Trail Query Functions
+
+```python
+# Functions to query audit trail for regulatory purposes
+
+def get_agent_audit_trail(run_id: str = None, days: int = 7):
+    """
+    Retrieve complete audit trail for agent interactions
+    For regulatory compliance and model risk management
+    """
+    
+    from mlflow.tracking import MlflowClient
+    client = MlflowClient()
+    
+    # Get experiment
+    experiment = client.get_experiment_by_name("/Users/pravin.varma@databricks.com/cfo_agent_audit_trail")
+    
+    if run_id:
+        # Get specific run
+        run = client.get_run(run_id)
+        
+        audit_record = {
+            "run_id": run.info.run_id,
+            "timestamp": datetime.fromtimestamp(run.info.start_time / 1000).isoformat(),
+            "user_query": run.data.params.get("user_query"),
+            "tool_called": run.data.params.get("tool_selected"),
+            "response": run.data.params.get("final_response"),
+            "success": run.data.metrics.get("success", 0) == 1,
+            "artifacts": client.list_artifacts(run_id)
+        }
+        
+        return audit_record
+    else:
+        # Get recent runs
+        runs = client.search_runs(
+            experiment_ids=[experiment.experiment_id],
+            max_results=100,
+            order_by=["start_time DESC"]
+        )
+        
+        audit_trail = []
+        for run in runs:
+            audit_trail.append({
+                "run_id": run.info.run_id,
+                "timestamp": datetime.fromtimestamp(run.info.start_time / 1000).isoformat(),
+                "user_query": run.data.params.get("user_query", "N/A"),
+                "tool_called": run.data.params.get("tool_selected", "N/A"),
+                "success": run.data.metrics.get("success", 0) == 1
+            })
+        
+        return audit_trail
+
+# Test audit retrieval
+print("\n=== Agent Audit Trail ===")
+recent_interactions = get_agent_audit_trail(days=1)
+
+print(f"Total interactions logged: {len(recent_interactions)}")
+for interaction in recent_interactions[:5]:
+    print(f"\n  Run ID: {interaction['run_id']}")
+    print(f"  Time: {interaction['timestamp']}")
+    print(f"  Query: {interaction['user_query']}")
+    print(f"  Tool: {interaction['tool_called']}")
+    print(f"  Success: {interaction['success']}")
+```
+
+### 5. Create Governance Documentation Generator
+
+```python
+def generate_model_governance_report():
+    """
+    Generate Model Risk Management documentation for banking regulators
+    Demonstrates SR 11-7 compliance
+    """
+    
+    report = {
+        "report_date": datetime.now().isoformat(),
+        "bank_name": "Demo Regional Bank",
+        "report_type": "Model Inventory and Governance",
+        
+        "models_in_production": [
+            {
+                "model_name": "deposit_beta_v1",
+                "model_type": "Deposit Sensitivity Model",
+                "use_case": "Asset-Liability Management, Interest Rate Risk",
+                "criticality": "High",
+                "model_registry": "mlflow://deposit_beta_v1",
+                "serving_endpoint": "deposit-beta-model",
+                "validation_status": "Approved",
+                "last_validation_date": "2026-01-24",
+                "validator": "Model Risk Management Team",
+                "training_data": "cfo_banking_demo.bronze_core_banking.deposit_behavior_history",
+                "training_period": "2023-01 to 2025-12 (36 months)",
+                "performance_metrics": {
+                    "r_squared": 0.78,
+                    "rmse": 0.042,
+                    "validation_method": "Time-series holdout"
+                },
+                "monitoring": {
+                    "drift_detection": "Enabled",
+                    "performance_tracking": "MLflow",
+                    "alert_threshold": "R² < 0.70"
+                },
+                "data_lineage": {
+                    "source_tables": [
+                        "cfo_banking_demo.bronze_core_banking.deposit_behavior_history",
+                        "cfo_banking_demo.silver_treasury.yield_curves"
+                    ],
+                    "governance": "Unity Catalog",
+                    "lineage_tool": "Unity Catalog Lineage"
+                }
+            }
+        ],
+        
+        "calculators_in_production": [
+            {
+                "calculator_name": "LCR Calculator",
+                "calculator_type": "Regulatory Capital Calculator",
+                "regulatory_framework": "Basel III - 12 CFR Part 249",
+                "use_case": "Liquidity Risk Management, Regulatory Reporting",
+                "criticality": "Critical",
+                "code_location": "outputs/13_lcr_calculator.py",
+                "validation_status": "Approved",
+                "validation_method": "Regulatory formula verification",
+                "data_sources": {
+                    "hqla": "cfo_banking_demo.gold_regulatory.hqla_inventory",
+                    "outflows": "cfo_banking_demo.gold_regulatory.cash_outflows_30day",
+                    "inflows": "cfo_banking_demo.gold_regulatory.cash_inflows_30day"
+                },
+                "calculation_frequency": "Daily",
+                "audit_trail": "MLflow tracing + Unity Catalog lineage"
+            }
+        ],
+        
+        "ai_agents_in_production": [
+            {
+                "agent_name": "CFO Co-Pilot",
+                "agent_type": "Conversational AI with Tool Calling",
+                "llm_model": "Claude Sonnet 4.5",
+                "llm_provider": "Anthropic via Databricks FMAPI",
+                "use_case": "Executive decision support, scenario analysis",
+                "criticality": "Medium",
+                "observability": {
+                    "tracing": "MLflow Tracing (all interactions logged)",
+                    "audit_trail": "Complete interaction history",
+                    "data_lineage": "Unity Catalog for all data access",
+                    "explainability": "Tool selection reasoning logged"
+                },
+                "governance_controls": {
+                    "input_validation": "Query sanitization",
+                    "output_validation": "Financial calculation verification",
+                    "access_control": "Databricks RBAC",
+                    "data_access": "Unity Catalog permissions"
+                },
+                "tools_available": [
+                    "query_unity_catalog",
+                    "call_deposit_beta_model",
+                    "calculate_lcr",
+                    "get_treasury_yields",
+                    "get_portfolio_summary"
+                ]
+            }
+        ],
+        
+        "data_governance": {
+            "platform": "Databricks Unity Catalog",
+            "cataloging": "Complete metadata catalog",
+            "lineage": "Full lineage from source to ML model to agent decision",
+            "access_control": "Role-based access control (RBAC)",
+            "audit_logging": "Complete audit log via Unity Catalog + MLflow",
+            "data_quality": "Delta Lake ACID guarantees + DLT expectations",
+            "retention": "Configurable retention policies"
+        },
+        
+        "regulatory_compliance": {
+            "model_risk_management": "SR 11-7 compliant",
+            "data_governance": "Unity Catalog provides complete lineage",
+            "audit_trail": "MLflow provides complete decision audit trail",
+            "explainability": "All agent decisions traceable and explainable",
+            "reproducibility": "All runs can be reproduced from logged parameters",
+            "validation": "Independent validation process documented"
+        }
+    }
+    
+    # Save governance report
+    with open("outputs/18_model_governance_report.json", "w") as f:
+        json.dump(report, f, indent=2)
+    
+    print("\n✓ Model Governance Report generated")
+    print("  Location: outputs/18_model_governance_report.json")
+    
+    return report
+
+# Generate governance documentation
+governance_report = generate_model_governance_report()
+
+print("\n" + "="*60)
+print("MODEL GOVERNANCE & REGULATORY COMPLIANCE")
+print("="*60)
+print(f"Models in Production: {len(governance_report['models_in_production'])}")
+print(f"Calculators in Production: {len(governance_report['calculators_in_production'])}")
+print(f"AI Agents in Production: {len(governance_report['ai_agents_in_production'])}")
+print("\nAll components have:")
+print("  ✓ Complete MLflow tracing")
+print("  ✓ Unity Catalog data lineage")
+print("  ✓ Audit trail for regulators")
+print("  ✓ Explainability documentation")
+print("="*60)
+```
+
+### 6. Create Lineage Visualization
+
+```python
+def visualize_decision_lineage(run_id: str):
+    """
+    Create visual representation of decision lineage
+    For regulatory presentations and documentation
+    """
+    
+    from mlflow.tracking import MlflowClient
+    client = MlflowClient()
+    
+    # Get run details
+    run = client.get_run(run_id)
+    
+    # Download artifacts
+    artifacts = client.list_artifacts(run_id)
+    
+    # Create lineage diagram
+    lineage = f"""
+AGENT DECISION LINEAGE
+Run ID: {run_id}
+Timestamp: {datetime.fromtimestamp(run.info.start_time / 1000).isoformat()}
+
+USER QUERY
+│
+├─ Query: {run.data.params.get('user_query')}
+│
+▼
+QUERY ROUTING (Claude Sonnet 4.5)
+│
+├─ Tool Selected: {run.data.params.get('tool_selected')}
+├─ Reasoning: {run.data.params.get('routing_reasoning')}
+│
+▼
+TOOL EXECUTION
+│
+├─ Tool: {run.data.params.get('tool_selected')}
+├─ Parameters: {run.data.params.get('tool_parameters', 'N/A')}
+│
+├─ Data Sources Accessed:
+│  ├─ Tables: {run.data.params.get('tables_accessed', 'See artifacts')}
+│  ├─ Unity Catalog: Full lineage available
+│  └─ Governance: All access logged
+│
+├─ Models Called:
+│  ├─ deposit_beta_v1 (if applicable)
+│  └─ MLflow tracking: Complete inference log
+│
+├─ Execution Time: {run.data.metrics.get('query_execution_time_seconds', 'N/A')} seconds
+│
+▼
+RESPONSE SYNTHESIS (Claude Sonnet 4.5)
+│
+├─ Tool Results Provided to LLM
+├─ Synthesis Time: {run.data.metrics.get('llm_latency_seconds', 'N/A')} seconds
+│
+▼
+FINAL RESPONSE
+│
+└─ Response: {run.data.params.get('final_response', 'See artifacts')[:100]}...
+
+AUDIT & COMPLIANCE
+├─ Complete trace: MLflow UI
+├─ Data lineage: Unity Catalog
+├─ Artifacts: {len(artifacts)} files stored
+└─ Reproducible: Yes (all parameters logged)
+"""
+    
+    print(lineage)
+    
+    # Save lineage diagram
+    with open(f"outputs/lineage_{run_id}.txt", "w") as f:
+        f.write(lineage)
+    
+    return lineage
+
+# Example: Generate lineage for last agent call
+print("\n=== Sample Decision Lineage ===")
+print("(This would show complete trace from user query to final answer)")
+print("Available in MLflow UI after agent execution")
+```
+
+### 7. Save All Outputs
+
+Save to outputs/:
+- `14_agent_tools_library.py` - Instrumented tool library
+- `14_cfo_agent_observable.py` - Agent with MLflow tracing
+- `18_model_governance_report.json` - Regulatory documentation
+- `19_audit_trail_queries.py` - Functions to query audit logs
+
+## MLflow Tracing Benefits for Banking
+
+### What Gets Logged (Automatically)
+
+**For Every Agent Interaction:**
+1. **Query Details**: User query, timestamp, user identity
+2. **Tool Routing**: Which tool was selected and why
+3. **Data Access**: All tables queried with Unity Catalog lineage
+4. **Model Calls**: Model endpoint, version, input params, predictions
+5. **LLM Calls**: Prompts sent, responses received, token usage, latency
+6. **Final Response**: Complete answer provided to user
+7. **Performance**: End-to-end latency, component timings
+
+**For Regulatory Audit:**
+- Complete reproducibility (can replay any interaction)
+- Data provenance (where did each number come from)
+- Model governance (which model version was used)
+- Access control (who ran what query)
+- Explainability (why did agent make this decision)
+
+### Viewing Traces
+
+**In Databricks UI:**
+1. Navigate to: Machine Learning > Experiments
+2. Find: `/Users/pravin.varma@databricks.com/cfo_agent_audit_trail`
+3. Click any run to see:
+   - Complete execution graph
+   - All spans (query → route → tool → synthesize)
+   - Parameters, metrics, artifacts
+   - Data lineage
+   - Timeline view
+
+**For Demo:**
+- Show MLflow UI during demo
+- "Every agent decision is fully auditable"
+- "Regulatory examiners can trace any calculation back to source data"
+- "Complete model governance and lineage"
+
+## Success Criteria
+- [ ] Using warehouse 4b9b953939869799
+- [ ] Using Claude Sonnet 4.5 FMAPI endpoint
+- [ ] All tools have @mlflow.trace decorators
+- [ ] Agent creates MLflow run for each query
+- [ ] Complete audit trail logged
+- [ ] Data lineage documented
+- [ ] Model calls traced
+- [ ] LLM calls traced
+- [ ] Can retrieve audit trail programmatically
+- [ ] Governance report generated
+- [ ] Test queries all succeed with full tracing
+
+## Expected Output
+
+```
+✓ Agent initialized with MLflow observability
+  All interactions logged for regulatory audit
+
+✓ MLflow tracking configured
+  Experiment: /Users/pravin.varma@databricks.com/cfo_agent_audit_trail
+
+============================================================
+TESTING CFO AGENT WITH MLFLOW OBSERVABILITY
+============================================================
+
+--- Test 1/4 ---
+Query: What is the current 10-year Treasury yield?
+[Agent] Routing to tool: get_treasury_yields
+[Agent] Tool result: True
+Answer: The current 10-year Treasury yield is 4.12%, as of January 24, 2026...
+Status: SUCCESS
+MLflow: Trace logged to experiment
+
+--- Test 2/4 ---
+Query: What happens if interest rates rise 50 basis points?
+[Agent] Routing to tool: call_deposit_beta_model
+[Agent] Tool result: True
+Answer: A 50 basis point increase in interest rates would result in...
+Status: SUCCESS
+MLflow: Trace logged to experiment
+
+============================================================
+AGENT TESTING COMPLETE
+============================================================
+
+View traces in MLflow:
+  Databricks UI > Machine Learning > Experiments
+  Experiment: /Users/pravin.varma@databricks.com/cfo_agent_audit_trail
+
+Each trace shows:
+  • Complete query execution timeline
+  • All tool calls with parameters
+  • All LLM calls with prompts and responses
+  • Data lineage for regulatory audit
+  • Performance metrics
+
+============================================================
+MODEL GOVERNANCE & REGULATORY COMPLIANCE
+============================================================
+Models in Production: 1
+Calculators in Production: 1
+AI Agents in Production: 1
+
+All components have:
+  ✓ Complete MLflow tracing
+  ✓ Unity Catalog data lineage
+  ✓ Audit trail for regulators
+  ✓ Explainability documentation
+============================================================
+```
+
+## Critical Constraints
+- ⛔ NO sudo or root
+- ✅ USE warehouse 4b9b953939869799
+- ✅ USE Claude Sonnet 4.5 FMAPI endpoint
+- ✅ ALL agent calls must be traced with MLflow
+- ✅ ALL data access must be logged
+- ✅ ALL model predictions must be tracked
+- ✅ Generate governance documentation
+
+## Estimated Duration
+⏱️ 2-3 hours (includes comprehensive instrumentation)
+
+## Demo Talking Points
+
+**For Banking Executives:**
+"Every agent decision is fully traceable and auditable. We can show regulators exactly how the AI arrived at each recommendation, with complete data lineage back to source systems."
+
+**For Compliance/Risk:**
+"MLflow provides complete observability. Unity Catalog ensures data governance. Every model prediction, every calculation, every data access is logged for audit purposes."
+
+**For IT/Data Teams:**
+"Production-grade observability stack. MLflow tracing for agent interactions, Unity Catalog for data lineage, Model Registry for governance. Everything regulators need to see."
+
+## When Complete
+Report:
+1. Warehouse ID used
+2. FMAPI endpoint configured
+3. All tools tested with tracing
+4. Agent query examples working with full observability
+5. MLflow experiment URL
+6. Governance documentation generated
+7. Ready for WS4-02 (Enhanced UI)
+
+Begin execution now.

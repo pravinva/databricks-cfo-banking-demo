@@ -1,0 +1,702 @@
+# Task: Execute WS1-05 Balance Sheet and Financial Statements Generator
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ WS1-01 Complete - Unity Catalog structure exists
+✅ WS1-02 Complete - Securities portfolio generated ($2.8B)
+✅ WS1-03 Complete - Loan portfolio generated ($18B)
+✅ WS1-04 Complete - Deposit portfolio generated ($22B)
+✅ WS1-06 Complete - GL schemas created
+
+## Dependencies Verified
+- ✅ Securities portfolio: `cfo_banking_demo.silver_treasury.securities_portfolio`
+- ✅ Loan portfolio: `cfo_banking_demo.silver_finance.loan_portfolio`
+- ✅ Deposit portfolio: `cfo_banking_demo.silver_treasury.deposit_portfolio`
+
+## SQL Warehouse Configuration
+**CRITICAL:** All SQL operations must use warehouse ID: `4b9b953939869799`
+
+Configure Spark session at the start:
+
+```python
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS1-05 Balance Sheet") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .getOrCreate()
+
+# Verify warehouse connection
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+assert warehouse_id == "4b9b953939869799", "Wrong warehouse configured!"
+```
+
+## Task Objective
+Generate daily balance sheet snapshots and income statement data for a US regional bank with ~$45B in total assets, tying to the portfolios already generated in WS1-02, WS1-03, and WS1-04.
+
+## Instructions
+
+### 1. Read the Requirements
+Read and understand the complete specification from:
+`prompts/WS1-05_balance_sheet_generator.md`
+
+### 2. Generate Balance Sheet Structure
+
+**Target Balance Sheet (~$45B Assets):**
+
+**ASSETS:**
+- Cash & Due from Banks: $2.0B
+- Securities: $2.8B (from WS1-02)
+- Net Loans: $17.8B (from WS1-03, net of CECL reserve)
+- Other Earning Assets: $20B (Fed Funds Sold, Interest-bearing deposits)
+- Non-Earning Assets: $2.2B (Fixed assets, intangibles, other)
+
+**LIABILITIES:**
+- Deposits: $22B (from WS1-04)
+- Borrowed Funds: $18B (Fed Funds, FHLB, Repos)
+- Other Liabilities: $1B
+
+**EQUITY:**
+- Total Equity: $4B (Common stock, APIC, Retained Earnings, OCI)
+
+### 3. Implementation Pattern
+
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+from datetime import datetime, timedelta
+import random
+
+# CRITICAL: Configure Spark with warehouse ID
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS1-05 Balance Sheet") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .getOrCreate()
+
+# Verify warehouse
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+
+CURRENT_DATE = datetime(2026, 1, 24).date()
+
+# Get balances from portfolio tables
+print("Reading portfolio balances...")
+
+# Securities balance
+securities_balance = spark.sql("""
+    SELECT SUM(market_value) as total_securities
+    FROM cfo_banking_demo.silver_treasury.securities_portfolio
+    WHERE is_current = true
+""").collect()[0]['total_securities']
+
+print(f"  Securities: ${securities_balance:,.0f}")
+
+# Loan balance (net of CECL reserve)
+loan_balances = spark.sql("""
+    SELECT 
+        SUM(current_balance) as gross_loans,
+        SUM(cecl_reserve) as cecl_reserve
+    FROM cfo_banking_demo.silver_finance.loan_portfolio
+    WHERE is_current = true
+""").collect()[0]
+
+gross_loans = loan_balances['gross_loans']
+cecl_reserve = loan_balances['cecl_reserve']
+net_loans = gross_loans - cecl_reserve
+
+print(f"  Gross Loans: ${gross_loans:,.0f}")
+print(f"  CECL Reserve: ${cecl_reserve:,.0f}")
+print(f"  Net Loans: ${net_loans:,.0f}")
+
+# Deposit balance
+deposit_balance = spark.sql("""
+    SELECT SUM(current_balance) as total_deposits
+    FROM cfo_banking_demo.silver_treasury.deposit_portfolio
+    WHERE is_current = true
+""").collect()[0]['total_deposits']
+
+print(f"  Deposits: ${deposit_balance:,.0f}")
+
+# Calculate balancing amounts
+total_assets_target = 45_000_000_000
+known_assets = securities_balance + net_loans
+other_earning_assets = 20_000_000_000  # Fed Funds Sold, deposits at other banks
+cash_and_due = 2_000_000_000
+non_earning_assets = total_assets_target - (cash_and_due + securities_balance + net_loans + other_earning_assets)
+
+print(f"  Other Earning Assets: ${other_earning_assets:,.0f}")
+print(f"  Cash & Due from Banks: ${cash_and_due:,.0f}")
+print(f"  Non-Earning Assets: ${non_earning_assets:,.0f}")
+print(f"  Total Assets: ${total_assets_target:,.0f}")
+
+# Calculate liabilities to balance
+total_liabilities_and_equity = total_assets_target
+equity = 4_000_000_000
+total_liabilities = total_liabilities_and_equity - equity
+borrowed_funds = total_liabilities - deposit_balance - 1_000_000_000  # 1B other liabilities
+
+print(f"  Total Liabilities: ${total_liabilities:,.0f}")
+print(f"  Borrowed Funds: ${borrowed_funds:,.0f}")
+print(f"  Equity: ${equity:,.0f}")
+
+# Generate daily balance sheet for last 12 months
+print("\nGenerating 365 days of balance sheet data...")
+
+balance_sheet_records = []
+
+for day_offset in range(365):
+    report_date = CURRENT_DATE - timedelta(days=day_offset)
+    
+    # Add some realistic daily volatility (±2%)
+    volatility_factor = random.uniform(0.98, 1.02)
+    
+    # Assets
+    balance_sheet_records.extend([
+        # Cash and Due from Banks
+        {
+            'report_date': report_date,
+            'line_item': 'Cash_Vault',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Current_Asset',
+            'balance': float(200_000_000 * volatility_factor),
+            'average_balance_qtd': float(200_000_000),
+            'average_balance_ytd': float(200_000_000),
+            'regulatory_classification': 'HQLA_Level_1',
+            'risk_weight': 0.0,
+            'hqla_classification': 'Level_1',
+            'nsfr_classification': 'RSF_0',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Fed_Reserve_Account',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Current_Asset',
+            'balance': float(1_500_000_000 * volatility_factor),
+            'average_balance_qtd': float(1_500_000_000),
+            'average_balance_ytd': float(1_500_000_000),
+            'regulatory_classification': 'HQLA_Level_1',
+            'risk_weight': 0.0,
+            'hqla_classification': 'Level_1',
+            'nsfr_classification': 'RSF_0',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Due_from_Banks',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Current_Asset',
+            'balance': float(300_000_000 * volatility_factor),
+            'average_balance_qtd': float(300_000_000),
+            'average_balance_ytd': float(300_000_000),
+            'regulatory_classification': 'Standard',
+            'risk_weight': 0.20,
+            'hqla_classification': 'Non_HQLA',
+            'nsfr_classification': 'RSF_15',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        # Securities
+        {
+            'report_date': report_date,
+            'line_item': 'Securities',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Investment',
+            'balance': float(securities_balance * volatility_factor),
+            'average_balance_qtd': float(securities_balance),
+            'average_balance_ytd': float(securities_balance),
+            'regulatory_classification': 'HQLA_Mixed',
+            'risk_weight': 0.10,
+            'hqla_classification': 'Level_1_2A',
+            'nsfr_classification': 'RSF_15',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        # Loans
+        {
+            'report_date': report_date,
+            'line_item': 'Loans_Gross',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Loan',
+            'balance': float(gross_loans * volatility_factor),
+            'average_balance_qtd': float(gross_loans),
+            'average_balance_ytd': float(gross_loans),
+            'regulatory_classification': 'Standard',
+            'risk_weight': 0.75,
+            'hqla_classification': 'Non_HQLA',
+            'nsfr_classification': 'RSF_65',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'CECL_Reserve',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Contra_Asset',
+            'balance': float(-cecl_reserve * volatility_factor),
+            'average_balance_qtd': float(-cecl_reserve),
+            'average_balance_ytd': float(-cecl_reserve),
+            'regulatory_classification': 'Allowance',
+            'risk_weight': 0.0,
+            'hqla_classification': 'Non_HQLA',
+            'nsfr_classification': None,
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        # Other Earning Assets
+        {
+            'report_date': report_date,
+            'line_item': 'Fed_Funds_Sold',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Earning_Asset',
+            'balance': float(8_000_000_000 * volatility_factor),
+            'average_balance_qtd': float(8_000_000_000),
+            'average_balance_ytd': float(8_000_000_000),
+            'regulatory_classification': 'Standard',
+            'risk_weight': 0.20,
+            'hqla_classification': 'Level_2A',
+            'nsfr_classification': 'RSF_15',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Interest_Bearing_Deposits',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Earning_Asset',
+            'balance': float(10_000_000_000 * volatility_factor),
+            'average_balance_qtd': float(10_000_000_000),
+            'average_balance_ytd': float(10_000_000_000),
+            'regulatory_classification': 'Standard',
+            'risk_weight': 0.20,
+            'hqla_classification': 'Level_2A',
+            'nsfr_classification': 'RSF_15',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Reverse_Repos',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Earning_Asset',
+            'balance': float(2_000_000_000 * volatility_factor),
+            'average_balance_qtd': float(2_000_000_000),
+            'average_balance_ytd': float(2_000_000_000),
+            'regulatory_classification': 'Standard',
+            'risk_weight': 0.20,
+            'hqla_classification': 'Level_1',
+            'nsfr_classification': 'RSF_10',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        # Non-Earning Assets
+        {
+            'report_date': report_date,
+            'line_item': 'Premises_Equipment',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Fixed_Asset',
+            'balance': float(800_000_000),
+            'average_balance_qtd': float(800_000_000),
+            'average_balance_ytd': float(800_000_000),
+            'regulatory_classification': 'Standard',
+            'risk_weight': 1.0,
+            'hqla_classification': 'Non_HQLA',
+            'nsfr_classification': 'RSF_100',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Goodwill_Intangibles',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Intangible',
+            'balance': float(300_000_000),
+            'average_balance_qtd': float(300_000_000),
+            'average_balance_ytd': float(300_000_000),
+            'regulatory_classification': 'Deduction',
+            'risk_weight': 0.0,
+            'hqla_classification': 'Non_HQLA',
+            'nsfr_classification': None,
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Other_Assets',
+            'line_item_category': 'Asset',
+            'line_item_subcategory': 'Other_Asset',
+            'balance': float(1_100_000_000 * volatility_factor),
+            'average_balance_qtd': float(1_100_000_000),
+            'average_balance_ytd': float(1_100_000_000),
+            'regulatory_classification': 'Standard',
+            'risk_weight': 1.0,
+            'hqla_classification': 'Non_HQLA',
+            'nsfr_classification': 'RSF_100',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        # Liabilities - Deposits
+        {
+            'report_date': report_date,
+            'line_item': 'Deposits',
+            'line_item_category': 'Liability',
+            'line_item_subcategory': 'Deposit',
+            'balance': float(deposit_balance * volatility_factor),
+            'average_balance_qtd': float(deposit_balance),
+            'average_balance_ytd': float(deposit_balance),
+            'regulatory_classification': 'Deposit',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_95',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        # Borrowed Funds
+        {
+            'report_date': report_date,
+            'line_item': 'Fed_Funds_Purchased',
+            'line_item_category': 'Liability',
+            'line_item_subcategory': 'Borrowing',
+            'balance': float(3_000_000_000 * volatility_factor),
+            'average_balance_qtd': float(3_000_000_000),
+            'average_balance_ytd': float(3_000_000_000),
+            'regulatory_classification': 'Borrowing',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_0',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'FHLB_Advances',
+            'line_item_category': 'Liability',
+            'line_item_subcategory': 'Borrowing',
+            'balance': float(8_000_000_000 * volatility_factor),
+            'average_balance_qtd': float(8_000_000_000),
+            'average_balance_ytd': float(8_000_000_000),
+            'regulatory_classification': 'Secured_Borrowing',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_50',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Repos',
+            'line_item_category': 'Liability',
+            'line_item_subcategory': 'Borrowing',
+            'balance': float(5_000_000_000 * volatility_factor),
+            'average_balance_qtd': float(5_000_000_000),
+            'average_balance_ytd': float(5_000_000_000),
+            'regulatory_classification': 'Secured_Borrowing',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_0',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Subordinated_Debt',
+            'line_item_category': 'Liability',
+            'line_item_subcategory': 'Long_Term_Debt',
+            'balance': float(2_000_000_000),
+            'average_balance_qtd': float(2_000_000_000),
+            'average_balance_ytd': float(2_000_000_000),
+            'regulatory_classification': 'Tier_2_Capital',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_100',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        # Other Liabilities
+        {
+            'report_date': report_date,
+            'line_item': 'Other_Liabilities',
+            'line_item_category': 'Liability',
+            'line_item_subcategory': 'Other_Liability',
+            'balance': float(1_000_000_000 * volatility_factor),
+            'average_balance_qtd': float(1_000_000_000),
+            'average_balance_ytd': float(1_000_000_000),
+            'regulatory_classification': 'Standard',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_0',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        # Equity
+        {
+            'report_date': report_date,
+            'line_item': 'Common_Stock',
+            'line_item_category': 'Equity',
+            'line_item_subcategory': 'Capital',
+            'balance': float(500_000_000),
+            'average_balance_qtd': float(500_000_000),
+            'average_balance_ytd': float(500_000_000),
+            'regulatory_classification': 'CET1',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_100',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Additional_Paid_In_Capital',
+            'line_item_category': 'Equity',
+            'line_item_subcategory': 'Capital',
+            'balance': float(1_000_000_000),
+            'average_balance_qtd': float(1_000_000_000),
+            'average_balance_ytd': float(1_000_000_000),
+            'regulatory_classification': 'CET1',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_100',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Retained_Earnings',
+            'line_item_category': 'Equity',
+            'line_item_subcategory': 'Retained_Earnings',
+            'balance': float(2_600_000_000 + (day_offset * 1_000_000)),  # Growing slightly
+            'average_balance_qtd': float(2_600_000_000),
+            'average_balance_ytd': float(2_600_000_000),
+            'regulatory_classification': 'CET1',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_100',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        },
+        {
+            'report_date': report_date,
+            'line_item': 'Accumulated_OCI',
+            'line_item_category': 'Equity',
+            'line_item_subcategory': 'OCI',
+            'balance': float(-100_000_000),  # Unrealized losses on AFS securities
+            'average_balance_qtd': float(-100_000_000),
+            'average_balance_ytd': float(-100_000_000),
+            'regulatory_classification': 'OCI',
+            'risk_weight': None,
+            'hqla_classification': None,
+            'nsfr_classification': 'ASF_100',
+            'is_consolidated': True,
+            'reporting_unit': 'Bank',
+            'effective_timestamp': datetime.combine(report_date, datetime.min.time())
+        }
+    ])
+    
+    if day_offset % 30 == 0:
+        print(f"  Generated {day_offset + 1}/365 days...")
+
+print(f"Total balance sheet records: {len(balance_sheet_records)}")
+
+# Convert to Spark DataFrame
+balance_sheet_df = spark.createDataFrame(balance_sheet_records)
+
+# Write to bronze
+balance_sheet_df.write \
+    .mode("overwrite") \
+    .partitionBy("report_date") \
+    .saveAsTable("cfo_banking_demo.bronze_core_banking.balance_sheet_daily")
+
+print("✓ Written balance sheet to bronze layer")
+```
+
+### 4. Create Silver Layer with Calculated Ratios
+
+```python
+# Read bronze
+bronze_bs = spark.table("cfo_banking_demo.bronze_core_banking.balance_sheet_daily")
+
+# Calculate total assets per day for percentages
+daily_totals = bronze_bs.filter(col('line_item_category') == 'Asset') \
+    .groupBy('report_date') \
+    .agg(sum('balance').alias('total_assets'))
+
+# Join back and add calculations
+silver_bs = bronze_bs.alias('bs').join(
+    daily_totals.alias('totals'),
+    col('bs.report_date') == col('totals.report_date'),
+    'left'
+).select(
+    col('bs.*'),
+    (col('bs.balance') / col('totals.total_assets') * 100).alias('pct_of_total_assets')
+)
+
+# Write to silver
+silver_bs.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.silver_finance.balance_sheet")
+
+print("✓ Created silver layer balance sheet")
+```
+
+### 5. Generate Summary Statistics
+
+```python
+# Latest balance sheet
+latest_bs = spark.sql("""
+    SELECT 
+        line_item_category,
+        line_item,
+        balance,
+        regulatory_classification
+    FROM cfo_banking_demo.silver_finance.balance_sheet
+    WHERE report_date = CURRENT_DATE()
+    ORDER BY line_item_category, line_item
+""")
+
+print("\n=== Latest Balance Sheet ===")
+latest_bs.show(100, truncate=False)
+
+# Summary by category
+summary = spark.sql("""
+    SELECT 
+        line_item_category,
+        SUM(balance) as total_balance
+    FROM cfo_banking_demo.silver_finance.balance_sheet
+    WHERE report_date = CURRENT_DATE()
+    GROUP BY line_item_category
+    ORDER BY line_item_category
+""")
+
+print("\n=== Balance Sheet Summary ===")
+summary.show()
+```
+
+### 6. Data Quality Validations
+
+```python
+# Balance sheet should balance
+latest_date_check = spark.sql("""
+    SELECT 
+        report_date,
+        SUM(CASE WHEN line_item_category = 'Asset' THEN balance ELSE 0 END) as total_assets,
+        SUM(CASE WHEN line_item_category = 'Liability' THEN balance ELSE 0 END) as total_liabilities,
+        SUM(CASE WHEN line_item_category = 'Equity' THEN balance ELSE 0 END) as total_equity
+    FROM cfo_banking_demo.silver_finance.balance_sheet
+    WHERE report_date = CURRENT_DATE()
+    GROUP BY report_date
+""")
+
+result = latest_date_check.collect()[0]
+total_assets = result['total_assets']
+total_liabilities = result['total_liabilities']
+total_equity = result['total_equity']
+difference = total_assets - (total_liabilities + total_equity)
+
+print(f"\nBalance Sheet Check:")
+print(f"  Total Assets: ${total_assets:,.0f}")
+print(f"  Total Liabilities: ${total_liabilities:,.0f}")
+print(f"  Total Equity: ${total_equity:,.0f}")
+print(f"  Difference: ${difference:,.0f}")
+
+assert abs(difference) < 100_000, f"Balance sheet doesn't balance! Difference: ${difference:,.0f}"
+
+# Verify 365 days generated
+day_count = spark.sql("""
+    SELECT COUNT(DISTINCT report_date) as day_count
+    FROM cfo_banking_demo.bronze_core_banking.balance_sheet_daily
+""").collect()[0]['day_count']
+
+assert day_count == 365, f"Expected 365 days, got {day_count}"
+
+print("✅ All validations passed")
+```
+
+### 7. Save Output
+
+Save complete script to: `outputs/05_generate_balance_sheet.py`
+
+## Success Criteria
+- [ ] Using warehouse 4b9b953939869799
+- [ ] 365 days of balance sheet data generated
+- [ ] Balance sheet balances (Assets = Liabilities + Equity)
+- [ ] Total assets ~$45B
+- [ ] Ties to portfolio tables (securities, loans, deposits)
+- [ ] Bronze table partitioned by report_date
+- [ ] Silver table with calculated ratios
+- [ ] All validations pass
+
+## Expected Output
+
+```
+✓ Using SQL Warehouse: 4b9b953939869799
+
+Reading portfolio balances...
+  Securities: $2,847,532,000
+  Gross Loans: $17,983,456,000
+  CECL Reserve: $215,801,000
+  Net Loans: $17,767,655,000
+  Deposits: $22,034,567,000
+  
+Total balance sheet records: 23,725 (365 days × 65 line items)
+
+Balance Sheet Check:
+  Total Assets: $45,023,456,000
+  Total Liabilities: $41,021,034,000
+  Total Equity: $4,002,422,000
+  Difference: $0
+
+✅ All validations passed
+```
+
+## Critical Constraints
+- ⛔ NO sudo or root
+- ✅ USE warehouse 4b9b953939869799
+- ✅ TIE to existing portfolio data
+- ✅ BALANCE assets with liabilities + equity
+- ✅ PARTITION by report_date
+
+## Estimated Duration
+⏱️ 30-45 minutes
+
+## When Complete
+Report:
+1. Warehouse ID used
+2. Days of data generated
+3. Balance sheet validation (balanced)
+4. Total assets
+5. Table locations
+6. Ready for WS2 (Real-time pipelines)
+
+Begin execution now.

@@ -1,0 +1,71 @@
+[2026-01-24 22:58:42] INFO: ================================================================================
+[2026-01-24 22:58:42] INFO: WS2-02: Real-Time Loan Origination Pipeline
+[2026-01-24 22:58:42] INFO: ================================================================================
+[2026-01-24 22:58:42] INFO: ✓ Connected to Databricks
+[2026-01-24 22:58:42] INFO: ✓ Using SQL Warehouse: 4b9b953939869799
+[2026-01-24 22:58:42] INFO: 
+--------------------------------------------------------------------------------
+[2026-01-24 22:58:42] INFO: Generating 50 loan origination messages...
+[2026-01-24 22:58:42] INFO:   ✓ Generated 50 loan origination messages
+[2026-01-24 22:58:42] INFO: 
+--------------------------------------------------------------------------------
+[2026-01-24 22:58:42] INFO: Creating bronze loan origination table...
+[2026-01-24 22:58:44] INFO:   ✓ Created loan_origination_events table
+[2026-01-24 22:58:44] INFO: Inserting 50 loan origination messages...
+[2026-01-24 22:58:48] INFO:   ✓ Inserted 50 loan origination messages
+[2026-01-24 22:58:48] INFO: 
+--------------------------------------------------------------------------------
+[2026-01-24 22:58:48] INFO: Creating GL entry tables...
+[2026-01-24 22:58:49] INFO:   ✓ Created gl_entries_from_loans table
+[2026-01-24 22:58:50] INFO:   ✓ Created gl_entry_lines_from_loans table
+[2026-01-24 22:58:50] INFO: Generating GL entry headers...
+[2026-01-24 22:58:52] INFO:   ✓ Generated GL entry headers
+[2026-01-24 22:58:52] INFO: Generating GL entry lines (debits and credits)...
+[2026-01-24 22:58:53] INFO:   ✓ Generated debit lines (loan accounts)
+[2026-01-24 22:58:55] INFO:   ✓ Generated credit lines (DDA deposits)
+[2026-01-24 22:58:55] INFO: 
+--------------------------------------------------------------------------------
+[2026-01-24 22:58:55] INFO: Creating loan subledger table...
+[2026-01-24 22:58:58] INFO:   ✓ Created loan_subledger_transactions table
+[2026-01-24 22:58:58] INFO: Generating loan subledger entries...
+[2026-01-24 22:59:00] INFO:   ✓ Generated loan subledger entries
+[2026-01-24 22:59:00] INFO: 
+--------------------------------------------------------------------------------
+[2026-01-24 22:59:00] INFO: Creating intraday liquidity summary...
+[2026-01-24 22:59:04] INFO:   ✓ Created intraday liquidity summary
+[2026-01-24 22:59:04] INFO: 
+================================================================================
+[2026-01-24 22:59:04] INFO: GL ENTRY VALIDATION
+[2026-01-24 22:59:04] INFO: ================================================================================
+[2026-01-24 22:59:05] INFO: GL entries created: 150
+[2026-01-24 22:59:06] INFO:   Total entries: 150
+[2026-01-24 22:59:06] INFO:   Balanced entries: 150/150
+[2026-01-24 22:59:06] INFO:   Total debits: $279,703,349.00
+[2026-01-24 22:59:06] INFO:   Total credits: $279,703,349.00
+[2026-01-24 22:59:06] INFO:   Difference: $0.00
+[2026-01-24 22:59:06] INFO:   ✓ All GL entries are balanced!
+[2026-01-24 22:59:07] INFO: GL entry lines created: 300
+[2026-01-24 22:59:08] INFO: Loan subledger entries: 100
+[2026-01-24 22:59:08] INFO: 
+================================================================================
+[2026-01-24 22:59:08] INFO: INTRADAY LIQUIDITY SUMMARY
+[2026-01-24 22:59:08] INFO: ================================================================================
+[2026-01-24 22:59:09] INFO: Position Date: 2026-01-24
+[2026-01-24 22:59:09] INFO: Activity Type: Loan_Originations
+[2026-01-24 22:59:09] INFO: Transaction Count: 100
+[2026-01-24 22:59:09] INFO: Gross Amount: $175,734,224.00
+[2026-01-24 22:59:09] INFO: Cash Impact: $-175,734,224.00
+[2026-01-24 22:59:09] INFO: Last Update: 2026-01-24T22:58:42.564Z
+[2026-01-24 22:59:09] INFO: 
+================================================================================
+[2026-01-24 22:59:09] INFO: ✅ WS2-02 Complete: Loan Origination Pipeline Successful
+[2026-01-24 22:59:09] INFO: ================================================================================
+[2026-01-24 22:59:09] INFO: 
+Tables created:
+[2026-01-24 22:59:09] INFO:   - cfo_banking_demo.bronze_core_banking.loan_origination_events
+[2026-01-24 22:59:09] INFO:   - cfo_banking_demo.silver_finance.gl_entries_from_loans
+[2026-01-24 22:59:09] INFO:   - cfo_banking_demo.silver_finance.gl_entry_lines_from_loans
+[2026-01-24 22:59:09] INFO:   - cfo_banking_demo.silver_loans.loan_subledger_transactions
+[2026-01-24 22:59:09] INFO:   - cfo_banking_demo.gold_dashboards.intraday_liquidity_summary
+[2026-01-24 22:59:09] INFO: 
+Ready for WS3: Advanced Analytics Workflows

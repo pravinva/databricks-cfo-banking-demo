@@ -1,0 +1,35 @@
+name: cfo-platform-react
+display_name: CFO Platform (React + FastAPI)
+description: World-class React frontend with AI agent backend
+
+# App configuration
+app:
+  name: cfo-platform
+
+  # Runtime configuration
+  config:
+    warehouse_id: "4b9b953939869799"
+
+  # Environment variables
+  env:
+    - name: DATABRICKS_WAREHOUSE_ID
+      value: "4b9b953939869799"
+    - name: MLFLOW_TRACKING_URI
+      value: "databricks"
+
+  # Command to start the application
+  command:
+    - "uvicorn"
+    - "backend.main:app"
+    - "--host"
+    - "0.0.0.0"
+    - "--port"
+    - "8000"
+
+  # Working directory
+  source_path: "."
+
+# Permissions
+permissions:
+  - user: pravin.varma@databricks.com
+    permission: CAN_MANAGE

@@ -1,0 +1,26 @@
+================================================================================
+WS5: Creating Lakeview Dashboards
+Bank CFO Command Center - Executive Analytics
+================================================================================
+
+✓ Using SQL Warehouse: 03560442e95cb440
+   Name: my_warehouse
+
+================================================================================
+Creating Dashboard Queries
+================================================================================
+
+1. Creating KPI Scorecard query...
+Traceback (most recent call last):
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/outputs/19_create_lakeview_dashboards.py", line 434, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/outputs/19_create_lakeview_dashboards.py", line 402, in main
+    query_ids = create_queries(w, warehouse_id)
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/outputs/19_create_lakeview_dashboards.py", line 57, in create_queries
+    query=sql.CreateQueryRequestQuery(
+        display_display_name="CFO Dashboard - KPI Scorecard",
+    ...<2 lines>...
+        description="Executive KPI metrics with 30-day trends"
+    )
+TypeError: CreateQueryRequestQuery.__init__() got an unexpected keyword argument 'display_display_name'

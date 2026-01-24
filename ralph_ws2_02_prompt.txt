@@ -1,0 +1,340 @@
+# Task: Execute WS2-02 Real-Time Loan Origination Pipeline
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo  
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ WS1 Complete - Data foundation built
+✅ WS2-01 Complete - Market data integration
+
+## SQL Warehouse Configuration
+```python
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS2-02 Loan Pipeline") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .getOrCreate()
+```
+
+## Task Objective
+Build a complete real-time pipeline that simulates loan originations, processes them through GL posting logic, and updates intraday liquidity positions.
+
+## Instructions
+
+### 1. Read Requirements
+From: `prompts/WS2-02_loan_origination_pipeline.md`
+
+### 2. Create Loan Origination Simulator
+
+```python
+import json
+from datetime import datetime
+import random
+
+def generate_loan_origination_message():
+    """Generate realistic loan origination JSON message"""
+    
+    product_types = ['C&I', 'Commercial_RE', 'Residential_Mortgage', 'Consumer_Auto']
+    product = random.choice(product_types)
+    
+    # Loan amount based on product
+    amount_ranges = {
+        'C&I': (500_000, 5_000_000),
+        'Commercial_RE': (1_000_000, 10_000_000),
+        'Residential_Mortgage': (200_000, 1_500_000),
+        'Consumer_Auto': (15_000, 75_000)
+    }
+    
+    min_amt, max_amt = amount_ranges[product]
+    amount = random.randint(min_amt, max_amt)
+    
+    message = {
+        "message_id": f"LO-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{random.randint(1000, 9999)}",
+        "timestamp": datetime.now().isoformat(),
+        "loan_id": f"LOAN-NEW-{random.randint(100000, 999999)}",
+        "borrower_id": f"CUST-{random.randint(10000, 99999)}",
+        "borrower_name": f"Borrower {random.randint(1, 1000)}",
+        "product_type": product,
+        "loan_amount": amount,
+        "interest_rate": round(random.uniform(6.5, 9.0), 4),
+        "term_months": random.choice([60, 120, 180, 240, 360]),
+        "origination_date": datetime.now().date().isoformat(),
+        "maturity_date": (datetime.now().date() + timedelta(days=random.choice([60, 120, 180, 240, 360]) * 30)).isoformat(),
+        "disbursement_account": f"DDA-{random.randint(100000, 999999)}",
+        "collateral_type": "Real_Estate" if product in ['Commercial_RE', 'Residential_Mortgage'] else "Equipment",
+        "collateral_value": amount * random.uniform(1.2, 2.0),
+        "officer_id": f"LO-{random.randint(1, 50):03d}",
+        "branch_id": f"BR-{random.randint(1, 20):03d}",
+        "credit_score": random.randint(650, 800) if product in ['Residential_Mortgage', 'Consumer_Auto'] else None,
+        "status": "approved"
+    }
+    
+    return message
+
+# Generate batch of loan messages
+def generate_loan_batch(count=10):
+    """Generate batch of loan origination messages"""
+    messages = []
+    
+    for i in range(count):
+        message = generate_loan_origination_message()
+        messages.append(message)
+        
+        # Write to volume as JSON file
+        file_path = f"/Volumes/cfo_banking_demo/bronze_core_banking/raw/loan_originations_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{i}.json"
+        
+        with open(file_path, 'w') as f:
+            json.dump(message, f)
+    
+    print(f"✓ Generated {count} loan origination messages")
+    return messages
+
+# Generate initial batch
+messages = generate_loan_batch(20)
+```
+
+### 3. Create DLT Pipeline for Bronze Ingestion
+
+```python
+import dlt
+from pyspark.sql.functions import *
+
+@dlt.table(
+    name="loan_origination_events",
+    comment="Raw loan origination messages from landing zone",
+    table_properties={
+        "quality": "bronze",
+        "pipelines.autoOptimize.zOrderCols": "timestamp"
+    }
+)
+@dlt.expect_or_drop("valid_loan_id", "loan_id IS NOT NULL")
+@dlt.expect_or_drop("valid_amount", "loan_amount > 0 AND loan_amount < 100000000")
+@dlt.expect("valid_rate", "interest_rate BETWEEN 0.5 AND 20")
+@dlt.expect("valid_timestamp", "timestamp IS NOT NULL")
+def bronze_loan_originations():
+    """Read loan origination messages from volume"""
+    return (
+        spark.readStream
+        .format("cloudFiles")
+        .option("cloudFiles.format", "json")
+        .option("cloudFiles.schemaLocation", "/tmp/loan_origination_schema")
+        .option("cloudFiles.inferColumnTypes", "true")
+        .load("/Volumes/cfo_banking_demo/bronze_core_banking/raw/")
+        .filter(col("status") == "approved")
+    )
+```
+
+### 4. Create DLT Pipeline for GL Processing (Silver)
+
+```python
+@dlt.table(
+    name="gl_entries_from_loans",
+    comment="GL entries generated from loan originations"
+)
+def silver_gl_entries():
+    """Generate GL entries from loan origination events"""
+    
+    loans = dlt.read_stream("loan_origination_events")
+    
+    # Generate GL entry header
+    gl_entries = loans.select(
+        concat(lit("GLE-"), date_format(col("timestamp"), "yyyyMMdd-HHmmss"), lit("-"), col("loan_id")).alias("entry_id"),
+        to_date(col("origination_date")).alias("entry_date"),
+        col("timestamp").cast("timestamp").alias("entry_timestamp"),
+        to_date(col("origination_date")).alias("posting_date"),
+        date_format(col("origination_date"), "yyyy-MM").alias("accounting_period"),
+        lit("Regular").alias("entry_type"),
+        lit("Loan_Origination").alias("source_system"),
+        col("message_id").alias("source_transaction_id"),
+        lit(null).cast("string").alias("batch_id"),
+        lit("Posted").alias("entry_status"),
+        concat(lit("Loan origination - "), col("loan_id"), lit(" - "), col("product_type")).alias("description"),
+        col("loan_amount").cast("decimal(18,2)").alias("total_debits"),
+        col("loan_amount").cast("decimal(18,2)").alias("total_credits"),
+        lit("system").alias("created_by"),
+        lit("system").alias("approved_by"),
+        lit(true).alias("is_balanced"),
+        lit(false).alias("is_reversed"),
+        lit(null).cast("string").alias("reversed_by_entry_id"),
+        current_timestamp().alias("effective_timestamp")
+    )
+    
+    return gl_entries
+
+@dlt.table(
+    name="gl_entry_lines_from_loans",
+    comment="GL entry detail lines from loan originations"
+)
+def silver_gl_entry_lines():
+    """Generate GL entry lines (debit and credit) from loan originations"""
+    
+    loans = dlt.read_stream("loan_origination_events")
+    
+    # Debit lines (Loans account increases)
+    debit_lines = loans.select(
+        concat(col("message_id"), lit("-DEBIT")).alias("line_id"),
+        concat(lit("GLE-"), date_format(col("timestamp"), "yyyyMMdd-HHmmss"), lit("-"), col("loan_id")).alias("entry_id"),
+        lit(1).alias("line_number"),
+        when(col("product_type") == "C&I", lit("1210-000"))
+         .when(col("product_type") == "Commercial_RE", lit("1200-000"))
+         .when(col("product_type") == "Residential_Mortgage", lit("1220-000"))
+         .otherwise(lit("1230-000")).alias("account_number"),
+        col("loan_amount").cast("decimal(18,2)").alias("debit_amount"),
+        lit(0).cast("decimal(18,2)").alias("credit_amount"),
+        concat(lit("Loan disbursement - "), col("loan_id")).alias("line_description"),
+        col("branch_id").alias("cost_center"),
+        lit("Lending").alias("department"),
+        col("product_type").alias("product_code"),
+        col("borrower_id").alias("customer_id"),
+        col("loan_id").alias("reference_number"),
+        current_timestamp().alias("effective_timestamp")
+    )
+    
+    # Credit lines (DDA account decreases - cash outflow)
+    credit_lines = loans.select(
+        concat(col("message_id"), lit("-CREDIT")).alias("line_id"),
+        concat(lit("GLE-"), date_format(col("timestamp"), "yyyyMMdd-HHmmss"), lit("-"), col("loan_id")).alias("entry_id"),
+        lit(2).alias("line_number"),
+        lit("2010-000").alias("account_number"),  # DDA Deposits
+        lit(0).cast("decimal(18,2)").alias("debit_amount"),
+        col("loan_amount").cast("decimal(18,2)").alias("credit_amount"),
+        concat(lit("Customer funding - "), col("disbursement_account")).alias("line_description"),
+        col("branch_id").alias("cost_center"),
+        lit("Lending").alias("department"),
+        col("product_type").alias("product_code"),
+        col("borrower_id").alias("customer_id"),
+        col("disbursement_account").alias("reference_number"),
+        current_timestamp().alias("effective_timestamp")
+    )
+    
+    return debit_lines.union(credit_lines)
+
+@dlt.table(
+    name="loan_subledger_from_originations",
+    comment="Loan subledger entries from originations"
+)
+def silver_loan_subledger():
+    """Generate loan subledger entries"""
+    
+    loans = dlt.read_stream("loan_origination_events")
+    
+    return loans.select(
+        concat(lit("LST-"), col("message_id")).alias("transaction_id"),
+        col("timestamp").cast("timestamp").alias("transaction_timestamp"),
+        to_date(col("origination_date")).alias("posting_date"),
+        col("loan_id"),
+        lit("Origination").alias("transaction_type"),
+        col("loan_amount").cast("decimal(18,2)").alias("principal_amount"),
+        lit(0).cast("decimal(18,2)").alias("interest_amount"),
+        lit(0).cast("decimal(18,2)").alias("fee_amount"),
+        lit(0).cast("decimal(18,2)").alias("balance_before"),
+        col("loan_amount").cast("decimal(18,2)").alias("balance_after"),
+        concat(lit("GLE-"), date_format(col("timestamp"), "yyyyMMdd-HHmmss"), lit("-"), col("loan_id")).alias("gl_entry_id"),
+        lit("Wire").alias("payment_method"),
+        concat(lit("Loan originated - "), col("product_type")).alias("description"),
+        current_timestamp().alias("effective_timestamp")
+    )
+```
+
+### 5. Create DLT Pipeline
+
+Save as DLT notebook: `outputs/08_loan_pipeline_dlt.py`
+
+**Deploy as DLT Pipeline:**
+```python
+# Create DLT pipeline configuration
+pipeline_config = {
+    "name": "CFO_Demo_Loan_Processing_Pipeline",
+    "storage": "/pipelines/cfo_demo_loan_processing",
+    "target": "cfo_banking_demo",
+    "continuous": False,
+    "development": True,
+    "clusters": [{
+        "label": "default",
+        "num_workers": 2
+    }],
+    "libraries": [{
+        "notebook": {
+            "path": "/Workspace/Users/pravin.varma@databricks.com/cfo_demo/08_loan_pipeline_dlt"
+        }
+    }]
+}
+
+# Note: DLT pipeline should be created via UI or API
+# For demo purposes, document how to create it
+```
+
+### 6. Create Gold Layer - Intraday Liquidity
+
+```python
+# Aggregate loan impact on cash position
+spark.sql("""
+    CREATE OR REPLACE TABLE cfo_banking_demo.gold_dashboards.intraday_liquidity_summary AS
+    SELECT 
+        CURRENT_DATE() as position_date,
+        'Loan_Originations' as activity_type,
+        COUNT(*) as transaction_count,
+        SUM(loan_amount) as gross_amount,
+        -SUM(loan_amount) as cash_impact,
+        MAX(timestamp) as last_update
+    FROM cfo_banking_demo.bronze_market_data.loan_origination_events
+    WHERE DATE(timestamp) = CURRENT_DATE()
+    GROUP BY position_date, activity_type
+""")
+
+print("✓ Created intraday liquidity summary")
+```
+
+### 7. Validation & Testing
+
+```python
+# Check GL entries are balanced
+balance_check = spark.sql("""
+    SELECT 
+        entry_id,
+        total_debits,
+        total_credits,
+        (total_debits - total_credits) as difference,
+        is_balanced
+    FROM cfo_banking_demo.silver_finance.gl_entries
+    LIMIT 10
+""")
+
+print("\n=== GL Entry Balance Check ===")
+balance_check.show()
+
+# Count processed loans
+processed_count = spark.sql("""
+    SELECT COUNT(*) as count
+    FROM cfo_banking_demo.bronze_market_data.loan_origination_events
+""").collect()[0]['count']
+
+print(f"\n✓ Processed {processed_count} loan origination messages")
+```
+
+### 8. Save Outputs
+
+- Simulator: `outputs/09_loan_origination_simulator.py`
+- DLT Pipeline: `outputs/08_loan_pipeline_dlt.py`
+
+## Success Criteria
+- [ ] Using warehouse 4b9b953939869799
+- [ ] Simulator generates 10+ loan messages
+- [ ] Messages written to volume
+- [ ] DLT bronze table ingests messages
+- [ ] GL entries generated for each loan
+- [ ] GL entries are balanced
+- [ ] Loan subledger updated
+- [ ] Intraday liquidity table reflects loans
+
+## Estimated Duration
+⏱️ 1-2 hours
+
+## When Complete
+Report ready for WS3-01 (Deposit Beta Model)
+
+Begin execution now.

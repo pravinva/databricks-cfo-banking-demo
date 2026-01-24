@@ -1,0 +1,112 @@
+[2026-01-24 22:33:00] INFO: ================================================================================
+[2026-01-24 22:33:00] INFO: WS1-05: Balance Sheet Generator
+[2026-01-24 22:33:00] INFO: ================================================================================
+[2026-01-24 22:33:00] INFO: ✓ Connected to Databricks
+[2026-01-24 22:33:00] INFO: ✓ Using SQL Warehouse: 4b9b953939869799
+[2026-01-24 22:33:00] INFO: 
+Reading portfolio balances...
+[2026-01-24 22:33:02] INFO:   Securities: $12,823,327,739
+[2026-01-24 22:33:03] INFO:   Gross Loans: $18,224,823,959
+[2026-01-24 22:33:03] INFO:   CECL Reserve: $136,649,666
+[2026-01-24 22:33:03] INFO:   Net Loans: $18,088,174,293
+[2026-01-24 22:33:05] INFO:   Deposits: $31,017,679,072
+[2026-01-24 22:33:05] INFO:   Other Earning Assets: $20,000,000,000
+[2026-01-24 22:33:05] INFO:   Cash & Due from Banks: $2,000,000,000
+[2026-01-24 22:33:05] INFO:   Non-Earning Assets: $-7,911,502,032
+[2026-01-24 22:33:05] INFO:   Total Assets (target): $45,000,000,000
+[2026-01-24 22:33:05] INFO:   Total Liabilities: $41,000,000,000
+[2026-01-24 22:33:05] INFO:   Borrowed Funds: $8,982,320,928
+[2026-01-24 22:33:05] INFO:   Equity: $4,000,000,000
+[2026-01-24 22:33:05] INFO: 
+Creating bronze layer table...
+[2026-01-24 22:33:07] INFO: ✓ Created balance_sheet_daily table
+[2026-01-24 22:33:07] INFO: 
+Generating 365 days of balance sheet data...
+[2026-01-24 22:33:07] INFO: This will create ~8,800 records (24 line items × 365 days)
+[2026-01-24 22:33:07] INFO:   Generating month 1/12...
+[2026-01-24 22:33:13] INFO:     Inserted 682 records (month 1)
+[2026-01-24 22:33:13] INFO:   Generating month 2/12...
+[2026-01-24 22:33:17] INFO:     Inserted 660 records (month 2)
+[2026-01-24 22:33:17] INFO:   Generating month 3/12...
+[2026-01-24 22:33:21] INFO:     Inserted 682 records (month 3)
+[2026-01-24 22:33:21] INFO:   Generating month 4/12...
+[2026-01-24 22:33:25] INFO:     Inserted 660 records (month 4)
+[2026-01-24 22:33:25] INFO:   Generating month 5/12...
+[2026-01-24 22:33:28] INFO:     Inserted 682 records (month 5)
+[2026-01-24 22:33:28] INFO:   Generating month 6/12...
+[2026-01-24 22:33:32] INFO:     Inserted 660 records (month 6)
+[2026-01-24 22:33:32] INFO:   Generating month 7/12...
+[2026-01-24 22:33:36] INFO:     Inserted 682 records (month 7)
+[2026-01-24 22:33:36] INFO:   Generating month 8/12...
+[2026-01-24 22:33:40] INFO:     Inserted 682 records (month 8)
+[2026-01-24 22:33:40] INFO:   Generating month 9/12...
+[2026-01-24 22:33:44] INFO:     Inserted 660 records (month 9)
+[2026-01-24 22:33:44] INFO:   Generating month 10/12...
+[2026-01-24 22:33:48] INFO:     Inserted 682 records (month 10)
+[2026-01-24 22:33:48] INFO:   Generating month 11/12...
+[2026-01-24 22:33:51] INFO:     Inserted 660 records (month 11)
+[2026-01-24 22:33:51] INFO:   Generating month 12/12...
+[2026-01-24 22:33:55] INFO:     Inserted 682 records (month 12)
+[2026-01-24 22:33:55] INFO: 
+Creating silver layer...
+[2026-01-24 22:34:00] INFO: ✓ Created silver layer: cfo_banking_demo.silver_finance.balance_sheet
+[2026-01-24 22:34:00] INFO: 
+================================================================================
+[2026-01-24 22:34:00] INFO: DATA QUALITY VALIDATION
+[2026-01-24 22:34:00] INFO: ================================================================================
+[2026-01-24 22:34:01] ERROR: ✗ Expected 365 days, got 361
+[2026-01-24 22:34:02] INFO: Balance Sheet Check (as of 2026-01-24):
+[2026-01-24 22:34:02] INFO:   Total Assets: $55,412,728,064
+[2026-01-24 22:34:02] INFO:   Total Liabilities: $50,285,477,122
+[2026-01-24 22:34:02] INFO:   Total Equity: $4,000,000,000
+[2026-01-24 22:34:02] INFO:   Difference: $1,127,250,942
+[2026-01-24 22:34:02] ERROR: ✗ Balance sheet doesn't balance! Difference: $1,127,250,942
+[2026-01-24 22:34:02] ERROR: ✗ Expected ~$45B assets (±$1B), got $55,412,728,064
+[2026-01-24 22:34:03] INFO: Total records: 8,074 (365 days × 22 line items)
+[2026-01-24 22:34:03] ERROR: 
+❌ Some data quality checks failed
+[2026-01-24 22:34:03] INFO: 
+================================================================================
+[2026-01-24 22:34:03] INFO: BALANCE SHEET SUMMARY (as of 2026-01-24)
+[2026-01-24 22:34:03] INFO: ================================================================================
+[2026-01-24 22:34:04] INFO: 
+Assets:
+[2026-01-24 22:34:04] INFO: --------------------------------------------------------------------------------
+[2026-01-24 22:34:04] INFO:   CECL_Reserve                             $   -137,411,771
+[2026-01-24 22:34:04] INFO:   Cash_Vault                               $    201,115,414
+[2026-01-24 22:34:04] INFO:   Due_from_Banks                           $    301,673,122
+[2026-01-24 22:34:04] INFO:   Fed_Funds_Sold                           $  8,044,616,576
+[2026-01-24 22:34:04] INFO:   Fed_Reserve_Account                      $  1,508,365,608
+[2026-01-24 22:34:04] INFO:   Goodwill_Intangibles                     $    300,000,000
+[2026-01-24 22:34:04] INFO:   Interest_Bearing_Deposits                $ 10,055,770,719
+[2026-01-24 22:34:04] INFO:   Loans_Gross                              $ 18,326,465,113
+[2026-01-24 22:34:04] INFO:   Other_Assets                             $  1,106,134,779
+[2026-01-24 22:34:04] INFO:   Premises_Equipment                       $    800,000,000
+[2026-01-24 22:34:04] INFO:   Reverse_Repos                            $  2,011,154,144
+[2026-01-24 22:34:04] INFO:   Securities                               $ 12,894,844,360
+[2026-01-24 22:34:04] INFO: 
+Liabilitys:
+[2026-01-24 22:34:04] INFO: --------------------------------------------------------------------------------
+[2026-01-24 22:34:04] INFO:   Deposits                                 $ 31,190,666,900
+[2026-01-24 22:34:04] INFO:   FHLB_Advances                            $  8,044,616,576
+[2026-01-24 22:34:04] INFO:   Fed_Funds_Purchased                      $  3,016,731,216
+[2026-01-24 22:34:04] INFO:   Other_Liabilities                        $  1,005,577,072
+[2026-01-24 22:34:04] INFO:   Repos                                    $  5,027,885,360
+[2026-01-24 22:34:04] INFO:   Subordinated_Debt                        $  2,000,000,000
+[2026-01-24 22:34:04] INFO: 
+Equitys:
+[2026-01-24 22:34:04] INFO: --------------------------------------------------------------------------------
+[2026-01-24 22:34:04] INFO:   Accumulated_OCI                          $   -100,000,000
+[2026-01-24 22:34:04] INFO:   Additional_Paid_In_Capital               $  1,000,000,000
+[2026-01-24 22:34:04] INFO:   Common_Stock                             $    500,000,000
+[2026-01-24 22:34:04] INFO:   Retained_Earnings                        $  2,600,000,000
+[2026-01-24 22:34:04] INFO: 
+================================================================================
+[2026-01-24 22:34:04] INFO: ✅ WS1-05 Complete: Balance Sheet Generated Successfully
+[2026-01-24 22:34:04] INFO: ================================================================================
+[2026-01-24 22:34:04] INFO: 
+Tables created:
+[2026-01-24 22:34:04] INFO:   - cfo_banking_demo.bronze_core_banking.balance_sheet_daily (365 days)
+[2026-01-24 22:34:04] INFO:   - cfo_banking_demo.silver_finance.balance_sheet (with ratios)
+[2026-01-24 22:34:04] INFO: 
+Ready for WS2: Real-time pipelines

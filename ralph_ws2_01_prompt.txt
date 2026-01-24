@@ -1,0 +1,356 @@
+# Task: Execute WS2-01 Alpha Vantage Lakeflow Connector Setup
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ WS1 Complete - All data foundation built
+- WS1-01: Unity Catalog ✓
+- WS1-02: Securities Portfolio ✓
+- WS1-03: Loan Portfolio ✓
+- WS1-04: Deposit Portfolio ✓
+- WS1-05: Balance Sheet ✓
+- WS1-06: GL Schemas ✓
+
+## SQL Warehouse Configuration
+**CRITICAL:** All SQL operations must use warehouse ID: `4b9b953939869799`
+
+```python
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS2-01 Alpha Vantage") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .getOrCreate()
+
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+```
+
+## Task Objective
+Configure and deploy the Alpha Vantage Lakeflow community connector to ingest real-time market data (Treasury yields, FX rates) into Unity Catalog.
+
+## Prerequisites
+
+### Alpha Vantage API Key
+**ACTION REQUIRED:** Before running this task, get your API key:
+
+1. Go to: https://www.alphavantage.co/support/#api-key
+2. Sign up (free tier: 25 calls/day OR premium $49.99/month: 75 calls/min)
+3. Store API key in Databricks Secrets
+
+**For demo purposes, free tier is sufficient.**
+
+### Store API Key in Secrets
+
+```python
+from databricks.sdk import WorkspaceClient
+
+w = WorkspaceClient()
+
+# Create secrets scope (if doesn't exist)
+try:
+    w.secrets.create_scope(scope="cfo_demo")
+    print("✓ Created secrets scope: cfo_demo")
+except Exception as e:
+    if "already exists" in str(e).lower():
+        print("✓ Secrets scope already exists: cfo_demo")
+    else:
+        raise
+
+# MANUAL STEP: Store secret via CLI (cannot do programmatically)
+print("""
+To store your Alpha Vantage API key, run this command in terminal:
+
+databricks secrets put-secret cfo_demo alpha_vantage_api_key
+
+Then paste your API key when prompted.
+""")
+
+# Verify secret exists (will fail if not set - that's OK, just inform user)
+try:
+    # Note: Cannot read secret value, can only verify it exists
+    from databricks.sdk.service.workspace import GetSecretResponse
+    print("⚠️  Please ensure you've set the API key using the CLI command above")
+except:
+    pass
+```
+
+## Instructions
+
+### 1. Read the Requirements
+Read specification from: `prompts/WS2-01_alpha_vantage_connector.md`
+
+### 2. Configure Alpha Vantage Data Ingestion
+
+**Data Feeds to Ingest:**
+
+**Priority 1: US Treasury Yield Curve**
+- Endpoint: `TREASURY_YIELD`
+- Maturities: 3-month, 2-year, 5-year, 10-year, 30-year
+- Frequency: Daily (updates ~4:30 PM ET)
+
+**Priority 2: FX Rates**
+- Endpoint: `CURRENCY_EXCHANGE_RATE`
+- Pairs: EUR/USD, GBP/USD, JPY/USD, AUD/USD, CAD/USD
+- Frequency: Real-time (15-min delayed on free tier)
+
+### 3. Implementation Pattern - REST API Ingestion
+
+Since this is a community connector, implement direct API calls with scheduled ingestion:
+
+```python
+import requests
+import json
+from datetime import datetime
+from pyspark.sql.functions import *
+
+# Get API key from secrets
+api_key = dbutils.secrets.get(scope="cfo_demo", key="alpha_vantage_api_key")
+
+def fetch_treasury_yields(api_key):
+    """Fetch US Treasury yield curve from Alpha Vantage"""
+    
+    maturities = ['3month', '2year', '5year', '10year', '30year']
+    all_data = []
+    
+    for maturity in maturities:
+        url = f"https://www.alphavantage.co/query?function=TREASURY_YIELD&interval=daily&maturity={maturity}&apikey={api_key}"
+        
+        try:
+            response = requests.get(url)
+            data = response.json()
+            
+            if 'data' in data:
+                for record in data['data'][:30]:  # Last 30 days
+                    all_data.append({
+                        'date': record['date'],
+                        'maturity': maturity,
+                        'value': float(record['value'])
+                    })
+                print(f"✓ Fetched {maturity} yields")
+            else:
+                print(f"⚠️  Warning: {data.get('Note', 'API limit or error')}")
+                
+        except Exception as e:
+            print(f"❌ Error fetching {maturity}: {e}")
+    
+    return all_data
+
+def fetch_fx_rates(api_key):
+    """Fetch FX rates from Alpha Vantage"""
+    
+    pairs = [
+        ('EUR', 'USD'),
+        ('GBP', 'USD'),
+        ('JPY', 'USD'),
+        ('AUD', 'USD'),
+        ('CAD', 'USD')
+    ]
+    
+    fx_data = []
+    
+    for from_curr, to_curr in pairs:
+        url = f"https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency={from_curr}&to_currency={to_curr}&apikey={api_key}"
+        
+        try:
+            response = requests.get(url)
+            data = response.json()
+            
+            if 'Realtime Currency Exchange Rate' in data:
+                rate_data = data['Realtime Currency Exchange Rate']
+                fx_data.append({
+                    'date': datetime.now().date(),
+                    'from_currency': from_curr,
+                    'to_currency': to_curr,
+                    'exchange_rate': float(rate_data['5. Exchange Rate']),
+                    'last_refreshed': rate_data['6. Last Refreshed']
+                })
+                print(f"✓ Fetched {from_curr}/{to_curr}")
+            else:
+                print(f"⚠️  Warning: {data.get('Note', 'API limit')}")
+                
+        except Exception as e:
+            print(f"❌ Error fetching {from_curr}/{to_curr}: {e}")
+    
+    return fx_data
+
+# Fetch data
+print("Fetching Treasury yields from Alpha Vantage...")
+treasury_data = fetch_treasury_yields(api_key)
+
+print("\nFetching FX rates from Alpha Vantage...")
+fx_data = fetch_fx_rates(api_key)
+
+# Write to bronze
+if treasury_data:
+    treasury_df = spark.createDataFrame(treasury_data)
+    treasury_df.write \
+        .mode("overwrite") \
+        .saveAsTable("cfo_banking_demo.bronze_market_data.treasury_yields_raw")
+    print(f"✓ Written {len(treasury_data)} Treasury yield records")
+
+if fx_data:
+    fx_df = spark.createDataFrame(fx_data)
+    fx_df.write \
+        .mode("overwrite") \
+        .saveAsTable("cfo_banking_demo.bronze_market_data.fx_rates_raw")
+    print(f"✓ Written {len(fx_data)} FX rate records")
+```
+
+### 4. Create Silver Layer - Pivot Yield Curve
+
+```python
+# Transform long format to wide format (one row per date)
+treasury_silver = spark.sql("""
+    SELECT 
+        date,
+        MAX(CASE WHEN maturity = '3month' THEN value END) as rate_3m,
+        MAX(CASE WHEN maturity = '2year' THEN value END) as rate_2y,
+        MAX(CASE WHEN maturity = '5year' THEN value END) as rate_5y,
+        MAX(CASE WHEN maturity = '10year' THEN value END) as rate_10y,
+        MAX(CASE WHEN maturity = '30year' THEN value END) as rate_30y,
+        CURRENT_TIMESTAMP() as ingestion_timestamp
+    FROM cfo_banking_demo.bronze_market_data.treasury_yields_raw
+    GROUP BY date
+    ORDER BY date DESC
+""")
+
+treasury_silver.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.silver_treasury.yield_curves")
+
+print("✓ Created silver layer yield curves")
+
+# FX rates silver
+fx_silver = spark.table("cfo_banking_demo.bronze_market_data.fx_rates_raw") \
+    .withColumn("currency_pair", concat(col("from_currency"), lit("/"), col("to_currency")))
+
+fx_silver.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.silver_treasury.fx_rates")
+
+print("✓ Created silver layer FX rates")
+```
+
+### 5. Create Gold Layer - Latest Market Data
+
+```python
+# Latest yield curve
+spark.sql("""
+    CREATE OR REPLACE TABLE cfo_banking_demo.gold_analytics.market_data_latest AS
+    SELECT 
+        'treasury_yield' as data_type,
+        date,
+        rate_3m,
+        rate_2y,
+        rate_5y,
+        rate_10y,
+        rate_30y,
+        ingestion_timestamp
+    FROM cfo_banking_demo.silver_treasury.yield_curves
+    WHERE date = (SELECT MAX(date) FROM cfo_banking_demo.silver_treasury.yield_curves)
+""")
+
+print("✓ Created gold layer - latest market data")
+```
+
+### 6. Create Monitoring Dashboard
+
+```python
+# Summary of market data
+latest_yields = spark.sql("""
+    SELECT *
+    FROM cfo_banking_demo.gold_analytics.market_data_latest
+    WHERE data_type = 'treasury_yield'
+""")
+
+print("\n=== Latest Treasury Yields ===")
+latest_yields.show(truncate=False)
+
+latest_fx = spark.sql("""
+    SELECT *
+    FROM cfo_banking_demo.silver_treasury.fx_rates
+    WHERE date = CURRENT_DATE()
+""")
+
+print("\n=== Latest FX Rates ===")
+latest_fx.show(truncate=False)
+```
+
+### 7. Save Output
+
+Save complete script to: `outputs/07_alpha_vantage_integration.py`
+
+## Success Criteria
+- [ ] Using warehouse 4b9b953939869799
+- [ ] Alpha Vantage API key stored in secrets
+- [ ] Treasury yield data fetched successfully
+- [ ] FX rate data fetched successfully
+- [ ] Bronze tables created and populated
+- [ ] Silver tables created with transformations
+- [ ] Gold layer has latest market data
+- [ ] Can query current 10-year yield
+- [ ] Data freshness < 24 hours
+
+## Expected Output
+
+```
+✓ Using SQL Warehouse: 4b9b953939869799
+
+Fetching Treasury yields from Alpha Vantage...
+✓ Fetched 3month yields
+✓ Fetched 2year yields
+✓ Fetched 5year yields
+✓ Fetched 10year yields
+✓ Fetched 30year yields
+
+Fetching FX rates from Alpha Vantage...
+✓ Fetched EUR/USD
+✓ Fetched GBP/USD
+✓ Fetched JPY/USD
+✓ Fetched AUD/USD
+✓ Fetched CAD/USD
+
+Latest Treasury Yields (as of 2026-01-24):
+==========================================
+3-Month:  4.78%
+2-Year:   4.18%
+5-Year:   4.02%
+10-Year:  4.12%
+30-Year:  4.28%
+
+Latest FX Rates:
+================
+EUR/USD: 1.0842
+GBP/USD: 1.2654
+JPY/USD: 0.0068
+AUD/USD: 0.6521
+CAD/USD: 0.7234
+```
+
+## Critical Constraints
+- ⛔ NO sudo or root
+- ✅ USE warehouse 4b9b953939869799
+- ✅ STORE API key in Databricks Secrets (not in code)
+- ✅ HANDLE API rate limits gracefully
+- ⚠️  MANUAL STEP: User must set API key in secrets
+
+## Estimated Duration
+⏱️ 30-45 minutes (includes API key setup)
+
+## When Complete
+Report:
+1. Warehouse ID used
+2. API key configuration status
+3. Data fetched successfully
+4. Table locations
+5. Latest market data values
+6. Ready for WS2-02
+
+Begin execution now.

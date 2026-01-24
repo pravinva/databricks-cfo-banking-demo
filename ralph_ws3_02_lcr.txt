@@ -1,0 +1,446 @@
+# Task: Execute WS3-02 LCR Calculator - Simplified Implementation
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ WS1 Complete - All portfolio data available
+✅ WS3-01 Complete - Deposit Beta model deployed
+
+## SQL Warehouse Configuration
+```python
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS3-02 LCR Calculator") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .getOrCreate()
+
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+```
+
+## Task Objective
+Build a simplified Liquidity Coverage Ratio (LCR) calculator that demonstrates regulatory capital calculations using SQL/Python.
+
+**LCR Formula:** LCR = HQLA / Net Cash Outflows (must be > 100%)
+
+## Instructions
+
+### 1. Read Requirements
+From: `prompts/WS3-02_lcr_calculator.md`
+
+### 2. Calculate HQLA (High Quality Liquid Assets)
+
+```python
+from pyspark.sql.functions import *
+from datetime import datetime
+
+CURRENT_DATE = datetime(2026, 1, 24).date()
+
+# Classify securities by HQLA level
+securities_hqla = spark.sql("""
+    SELECT 
+        security_id,
+        security_type,
+        market_value,
+        credit_rating,
+        CASE 
+            WHEN security_type = 'UST' THEN 'Level_1'
+            WHEN security_type = 'Agency' THEN 'Level_2A'
+            WHEN security_type = 'Corporate' AND credit_rating IN ('AAA', 'AA+', 'AA', 'AA-') THEN 'Level_2A'
+            WHEN security_type = 'Corporate' AND credit_rating IN ('A+', 'A', 'A-', 'BBB+', 'BBB', 'BBB-') THEN 'Level_2B'
+            ELSE 'Non_HQLA'
+        END as hqla_level,
+        CASE 
+            WHEN security_type = 'UST' THEN 0.0
+            WHEN security_type = 'Agency' THEN 0.15
+            WHEN security_type = 'Corporate' AND credit_rating IN ('AAA', 'AA+', 'AA', 'AA-') THEN 0.15
+            WHEN security_type = 'Corporate' THEN 0.50
+            ELSE 1.0
+        END as haircut
+    FROM cfo_banking_demo.silver_treasury.securities_portfolio
+    WHERE is_current = true
+""")
+
+securities_hqla = securities_hqla.withColumn(
+    'hqla_value',
+    col('market_value') * (1 - col('haircut'))
+)
+
+# Get cash position
+cash_hqla = spark.sql("""
+    SELECT SUM(balance) as cash_hqla
+    FROM cfo_banking_demo.silver_finance.balance_sheet
+    WHERE report_date = CURRENT_DATE()
+    AND line_item IN ('Cash_Vault', 'Fed_Reserve_Account')
+""").collect()[0]['cash_hqla']
+
+# Calculate total HQLA by level
+hqla_by_level = securities_hqla.groupBy('hqla_level').agg(
+    sum('hqla_value').alias('total_value')
+)
+
+hqla_summary = hqla_by_level.collect()
+hqla_dict = {row['hqla_level']: row['total_value'] for row in hqla_summary}
+
+hqla_level_1 = cash_hqla + hqla_dict.get('Level_1', 0)
+hqla_level_2a = hqla_dict.get('Level_2A', 0)
+hqla_level_2b = hqla_dict.get('Level_2B', 0)
+
+total_hqla = hqla_level_1 + hqla_level_2a + hqla_level_2b
+
+print(f"\nHQLA Calculation:")
+print(f"  Cash & Reserves: ${cash_hqla:,.0f}")
+print(f"  Level 1 (100%): ${hqla_level_1:,.0f}")
+print(f"  Level 2A (85%): ${hqla_level_2a:,.0f}")
+print(f"  Level 2B (50%): ${hqla_level_2b:,.0f}")
+print(f"  Total HQLA: ${total_hqla:,.0f}")
+
+# Write HQLA inventory
+securities_hqla.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.gold_regulatory.hqla_inventory")
+```
+
+### 3. Calculate Cash Outflows (30-day stressed)
+
+```python
+# Apply runoff rates to deposits
+deposits_outflows = spark.sql("""
+    SELECT 
+        account_id,
+        product_type,
+        product_name,
+        current_balance,
+        CASE 
+            WHEN product_type = 'DDA' THEN 0.03
+            WHEN product_type = 'Savings' THEN 0.05
+            WHEN product_type = 'NOW' THEN 0.05
+            WHEN product_type = 'MMDA' THEN 0.10
+            WHEN product_type = 'CD' AND product_name LIKE '%Brokered%' THEN 1.0
+            WHEN product_type = 'CD' THEN 0.0
+            ELSE 0.05
+        END as runoff_rate
+    FROM cfo_banking_demo.silver_treasury.deposit_portfolio
+    WHERE is_current = true
+""")
+
+deposits_outflows = deposits_outflows.withColumn(
+    'stressed_outflow',
+    col('current_balance') * col('runoff_rate')
+)
+
+# Summarize by product
+outflow_summary = deposits_outflows.groupBy('product_type').agg(
+    sum('current_balance').alias('total_balance'),
+    avg('runoff_rate').alias('avg_runoff_rate'),
+    sum('stressed_outflow').alias('total_outflow')
+)
+
+print("\n=== Cash Outflows by Product ===")
+outflow_summary.show()
+
+total_outflows = deposits_outflows.select(sum('stressed_outflow')).collect()[0][0]
+
+print(f"Total Cash Outflows: ${total_outflows:,.0f}")
+
+# Write outflows
+deposits_outflows.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.gold_regulatory.cash_outflows_30day")
+```
+
+### 4. Calculate Cash Inflows (Capped at 75%)
+
+```python
+# Identify loans maturing in next 30 days
+loans_inflows = spark.sql("""
+    SELECT 
+        loan_id,
+        product_type,
+        current_balance,
+        maturity_date,
+        DATEDIFF(maturity_date, CURRENT_DATE()) as days_to_maturity,
+        CASE 
+            WHEN product_type IN ('Commercial_RE', 'C&I') THEN 0.50
+            WHEN product_type IN ('Residential_Mortgage', 'HELOC', 'Consumer_Auto', 'Consumer_Other') THEN 1.0
+            ELSE 1.0
+        END as inflow_rate
+    FROM cfo_banking_demo.silver_finance.loan_portfolio
+    WHERE is_current = true
+    AND DATEDIFF(maturity_date, CURRENT_DATE()) BETWEEN 1 AND 30
+""")
+
+loans_inflows = loans_inflows.withColumn(
+    'expected_inflow',
+    col('current_balance') * col('inflow_rate')
+)
+
+total_inflows_uncapped = loans_inflows.select(sum('expected_inflow')).collect()[0][0]
+if total_inflows_uncapped is None:
+    total_inflows_uncapped = 0
+
+total_inflows_capped = min(total_inflows_uncapped, total_outflows * 0.75)
+
+print(f"\nCash Inflows:")
+print(f"  Uncapped Inflows: ${total_inflows_uncapped:,.0f}")
+print(f"  75% Cap Limit: ${total_outflows * 0.75:,.0f}")
+print(f"  Capped Inflows: ${total_inflows_capped:,.0f}")
+
+# Write inflows
+loans_inflows.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.gold_regulatory.cash_inflows_30day")
+```
+
+### 5. Calculate LCR Ratio
+
+```python
+# Calculate net outflows
+net_outflows = max(
+    total_outflows - total_inflows_capped,
+    total_outflows * 0.25  # Regulatory floor
+)
+
+# Calculate LCR ratio
+lcr_ratio = (total_hqla / net_outflows) * 100
+
+print(f"\n{'='*50}")
+print(f"LCR CALCULATION (as of {CURRENT_DATE})")
+print(f"{'='*50}")
+print(f"Total HQLA: ${total_hqla:,.0f}")
+print(f"  Level 1: ${hqla_level_1:,.0f} ({hqla_level_1/total_hqla*100:.1f}%)")
+print(f"  Level 2A: ${hqla_level_2a:,.0f} ({hqla_level_2a/total_hqla*100:.1f}%)")
+print(f"  Level 2B: ${hqla_level_2b:,.0f} ({hqla_level_2b/total_hqla*100:.1f}%)")
+print(f"\nGross Outflows: ${total_outflows:,.0f}")
+print(f"Less: Capped Inflows: ${total_inflows_capped:,.0f}")
+print(f"Net Outflows: ${net_outflows:,.0f}")
+print(f"\nLCR Ratio: {lcr_ratio:.2f}%")
+print(f"Required Minimum: 100.00%")
+print(f"Status: {'✓ COMPLIANT' if lcr_ratio >= 100 else '✗ NON-COMPLIANT'}")
+print(f"Buffer: {lcr_ratio - 100:.2f}%")
+print(f"{'='*50}")
+
+# Create LCR record
+lcr_record_schema = StructType([
+    StructField("calculation_date", DateType(), False),
+    StructField("calculation_timestamp", TimestampType(), False),
+    StructField("total_hqla", DoubleType(), False),
+    StructField("hqla_level_1", DoubleType(), False),
+    StructField("hqla_level_2a", DoubleType(), False),
+    StructField("hqla_level_2b", DoubleType(), False),
+    StructField("total_outflows", DoubleType(), False),
+    StructField("total_inflows_uncapped", DoubleType(), False),
+    StructField("total_inflows_capped", DoubleType(), False),
+    StructField("net_outflows", DoubleType(), False),
+    StructField("lcr_ratio", DoubleType(), False),
+    StructField("lcr_status", StringType(), False),
+])
+
+lcr_record = spark.createDataFrame([{
+    'calculation_date': CURRENT_DATE,
+    'calculation_timestamp': datetime.now(),
+    'total_hqla': float(total_hqla),
+    'hqla_level_1': float(hqla_level_1),
+    'hqla_level_2a': float(hqla_level_2a),
+    'hqla_level_2b': float(hqla_level_2b),
+    'total_outflows': float(total_outflows),
+    'total_inflows_uncapped': float(total_inflows_uncapped),
+    'total_inflows_capped': float(total_inflows_capped),
+    'net_outflows': float(net_outflows),
+    'lcr_ratio': float(lcr_ratio),
+    'lcr_status': 'Pass' if lcr_ratio >= 100 else 'Fail'
+}], schema=lcr_record_schema)
+
+# Write to gold layer
+lcr_record.write \
+    .mode("append") \
+    .saveAsTable("cfo_banking_demo.gold_regulatory.lcr_daily")
+
+print("✓ LCR calculation saved to gold.regulatory.lcr_daily")
+```
+
+### 6. Create Scenario Function
+
+```python
+# Save scenario function for agent use
+scenario_function_code = '''
+def calculate_lcr_scenario(deposit_runoff_multiplier=1.0):
+    """
+    Calculate LCR with stress multiplier for agent queries
+    
+    Args:
+        deposit_runoff_multiplier: Multiplier for deposit runoff (1.0 = base, 1.5 = 50% stress)
+    
+    Returns:
+        dict with LCR results
+    """
+    from pyspark.sql import SparkSession
+    
+    spark = SparkSession.builder.getOrCreate()
+    
+    # Get latest LCR components
+    latest_lcr = spark.sql("""
+        SELECT *
+        FROM cfo_banking_demo.gold_regulatory.lcr_daily
+        ORDER BY calculation_timestamp DESC
+        LIMIT 1
+    """).collect()[0]
+    
+    # Apply stress multiplier
+    stressed_outflows = latest_lcr['total_outflows'] * deposit_runoff_multiplier
+    stressed_net_outflows = max(
+        stressed_outflows - latest_lcr['total_inflows_capped'],
+        stressed_outflows * 0.25
+    )
+    
+    stressed_lcr = (latest_lcr['total_hqla'] / stressed_net_outflows) * 100
+    
+    return {
+        'success': True,
+        'lcr_ratio': round(stressed_lcr, 2),
+        'hqla': latest_lcr['total_hqla'],
+        'net_outflows': stressed_net_outflows,
+        'status': 'Pass' if stressed_lcr >= 100 else 'Fail',
+        'buffer': round(stressed_lcr - 100, 2),
+        'stress_multiplier': deposit_runoff_multiplier
+    }
+'''
+
+# Save function to file for agent integration
+with open('outputs/lcr_scenario_function.py', 'w') as f:
+    f.write(scenario_function_code)
+
+print("✓ Saved LCR scenario function for agent")
+
+# Test scenarios
+print("\n=== Testing LCR Scenarios ===")
+
+exec(scenario_function_code)
+
+base_case = calculate_lcr_scenario(1.0)
+print(f"Base Case: LCR = {base_case['lcr_ratio']}%")
+
+stress_case = calculate_lcr_scenario(1.5)
+print(f"Stressed (1.5x runoff): LCR = {stress_case['lcr_ratio']}%")
+
+severe_stress = calculate_lcr_scenario(2.0)
+print(f"Severe Stress (2.0x runoff): LCR = {severe_stress['lcr_ratio']}%")
+```
+
+### 7. Data Quality Validations
+
+```python
+# Validate HQLA classification
+hqla_check = securities_hqla.groupBy('hqla_level').agg(
+    count('*').alias('security_count'),
+    sum('market_value').alias('market_value'),
+    sum('hqla_value').alias('hqla_value')
+)
+
+print("\n=== HQLA Classification Summary ===")
+hqla_check.show(truncate=False)
+
+# Validate LCR record
+lcr_validation = spark.sql("""
+    SELECT 
+        calculation_date,
+        total_hqla,
+        net_outflows,
+        lcr_ratio,
+        lcr_status,
+        CASE 
+            WHEN lcr_ratio >= 100 THEN '✓ Compliant'
+            ELSE '✗ Non-Compliant'
+        END as compliance_status
+    FROM cfo_banking_demo.gold_regulatory.lcr_daily
+    ORDER BY calculation_timestamp DESC
+    LIMIT 1
+""")
+
+print("\n=== LCR Validation ===")
+lcr_validation.show(truncate=False)
+
+assert total_hqla > 0, "HQLA must be positive"
+assert net_outflows > 0, "Net outflows must be positive"
+assert lcr_ratio > 0, "LCR ratio must be positive"
+
+print("✅ All validations passed")
+```
+
+### 8. Save Output
+
+Save complete script to: `outputs/13_lcr_calculator.py`
+
+## Success Criteria
+- [ ] Using warehouse 4b9b953939869799
+- [ ] HQLA classified correctly (Level 1, 2A, 2B)
+- [ ] Cash outflows calculated by deposit type
+- [ ] Cash inflows capped at 75% of outflows
+- [ ] LCR ratio calculated correctly
+- [ ] LCR > 100% (bank is compliant)
+- [ ] LCR daily table populated
+- [ ] Scenario function created and tested
+- [ ] Can run what-if analysis (1.0x, 1.5x, 2.0x stress)
+
+## Expected Output
+
+```
+✓ Using SQL Warehouse: 4b9b953939869799
+
+HQLA Calculation:
+  Cash & Reserves: $1,500,000,000
+  Level 1 (100%): $2,639,000,000
+  Level 2A (85%): $419,000,000
+  Level 2B (50%): $200,000,000
+  Total HQLA: $3,258,000,000
+
+Cash Outflows:
+  Retail Deposits: $2,380,000,000
+  Wholesale Funding: $1,425,000,000
+  Total Outflows: $3,955,000,000
+
+Cash Inflows:
+  Uncapped Inflows: $850,000,000
+  Capped Inflows: $850,000,000
+
+==================================================
+LCR CALCULATION (as of 2026-01-24)
+==================================================
+Total HQLA: $3,258,000,000
+Net Outflows: $3,105,000,000
+
+LCR Ratio: 104.93%
+Required Minimum: 100.00%
+Status: ✓ COMPLIANT
+Buffer: 4.93%
+==================================================
+
+Testing LCR Scenarios:
+Base Case: LCR = 104.93%
+Stressed (1.5x runoff): LCR = 75.88%
+Severe Stress (2.0x runoff): LCR = 56.91%
+```
+
+## Critical Constraints
+- ⛔ NO sudo or root
+- ✅ USE warehouse 4b9b953939869799
+- ✅ All calculations in SQL/Python (no spreadsheets)
+- ✅ Results must be reproducible
+
+## Estimated Duration
+⏱️ 30-45 minutes
+
+## When Complete
+Report:
+1. Warehouse ID used
+2. HQLA total and breakdown
+3. LCR ratio (should be > 100%)
+4. Scenario analysis results
+5. Ready for WS4-01 (Agent Framework)
+
+Begin execution now.

@@ -1,0 +1,248 @@
+Traceback (most recent call last):
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/urllib3/connection.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+  File "/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1430, in getresponse
+    response.begin()
+    ~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 331, in begin
+    version, status, reason = self._read_status()
+                              ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 292, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socket.py", line 725, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ssl.py", line 1304, in recv_into
+    return self.read(nbytes, buffer)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ssl.py", line 1138, in read
+    return self._sslobj.read(len, buffer)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+TimeoutError: The read operation timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/requests/adapters.py", line 644, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/urllib3/util/retry.py", line 490, in increment
+    raise reraise(type(error), error, _stacktrace)
+          ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/urllib3/util/util.py", line 39, in reraise
+    raise value
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 536, in _make_request
+    self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 367, in _raise_timeout
+    raise ReadTimeoutError(
+        self, url, f"Read timed out. (read timeout={timeout_value})"
+    ) from err
+urllib3.exceptions.ReadTimeoutError: HTTPSConnectionPool(host='e2-demo-field-eng.cloud.databricks.com', port=443): Read timed out. (read timeout=60)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/databricks/sdk/retries.py", line 38, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/databricks/sdk/_base_client.py", line 286, in _perform
+    response = self._session.request(
+        method,
+    ...<8 lines>...
+        timeout=self._http_timeout_seconds,
+    )
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/requests/adapters.py", line 690, in send
+    raise ReadTimeout(e, request=request)
+requests.exceptions.ReadTimeout: HTTPSConnectionPool(host='e2-demo-field-eng.cloud.databricks.com', port=443): Read timed out. (read timeout=60)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/outputs/04_generate_deposit_portfolio.py", line 834, in main
+    insert_accounts_batch(w, cd_accounts, "cfo_banking_demo.bronze_core_banking.deposit_accounts")
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/outputs/04_generate_deposit_portfolio.py", line 747, in insert_accounts_batch
+    execute_sql(w, insert_sql)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/outputs/04_generate_deposit_portfolio.py", line 51, in execute_sql
+    statement = w.statement_execution.execute_statement(
+        warehouse_id=warehouse_id,
+        statement=sql_statement,
+        wait_timeout="50s"
+    )
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/databricks/sdk/service/sql.py", line 9370, in execute_statement
+    res = self._api.do("POST", "/api/2.0/sql/statements", body=body, headers=headers)
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/databricks/sdk/core.py", line 94, in do
+    return self._api_client.do(
+           ~~~~~~~~~~~~~~~~~~~^
+        method=method,
+        ^^^^^^^^^^^^^^
+    ...<8 lines>...
+        response_headers=response_headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/databricks/sdk/_base_client.py", line 199, in do
+    response = call(
+        method,
+    ...<7 lines>...
+        auth=auth,
+    )
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/.venv/lib/python3.14/site-packages/databricks/sdk/retries.py", line 67, in wrapper
+    raise TimeoutError(f"Timed out after {timeout}") from last_err
+TimeoutError: Timed out after 0:05:00
+[2026-01-24 21:05:24] INFO: ================================================================================
+[2026-01-24 21:05:24] INFO: WS1-04: Deposit Portfolio Generator
+[2026-01-24 21:05:24] INFO: ================================================================================
+[2026-01-24 21:05:24] INFO: ✓ Connected to Databricks
+[2026-01-24 21:05:24] INFO: ✓ Using SQL Warehouse: 4b9b953939869799
+[2026-01-24 21:05:24] INFO: 
+Creating bronze layer table...
+[2026-01-24 21:05:27] INFO: ✓ Created deposit_accounts table
+[2026-01-24 21:05:27] INFO: 
+Generating DDA accounts (180,000)...
+[2026-01-24 21:05:27] INFO:     Generating 150,000 retail DDA accounts...
+[2026-01-24 21:05:27] INFO:       Progress: 20,000/150,000 retail DDA accounts...
+[2026-01-24 21:05:28] INFO:       Progress: 40,000/150,000 retail DDA accounts...
+[2026-01-24 21:05:28] INFO:       Progress: 60,000/150,000 retail DDA accounts...
+[2026-01-24 21:05:28] INFO:       Progress: 80,000/150,000 retail DDA accounts...
+[2026-01-24 21:05:28] INFO:       Progress: 100,000/150,000 retail DDA accounts...
+[2026-01-24 21:05:28] INFO:       Progress: 120,000/150,000 retail DDA accounts...
+[2026-01-24 21:05:28] INFO:       Progress: 140,000/150,000 retail DDA accounts...
+[2026-01-24 21:05:29] INFO:     Generating 25,000 small business DDA accounts...
+[2026-01-24 21:05:29] INFO:       Progress: 10,000/25,000 small business accounts...
+[2026-01-24 21:05:29] INFO:       Progress: 20,000/25,000 small business accounts...
+[2026-01-24 21:05:29] INFO:     Generating 5,000 commercial DDA accounts...
+[2026-01-24 21:05:29] INFO:     Inserting 180,000 accounts in batches of 1000...
+[2026-01-24 21:05:57] INFO:       Inserted 5,000/180,000
+[2026-01-24 21:06:23] INFO:       Inserted 10,000/180,000
+[2026-01-24 21:06:47] INFO:       Inserted 15,000/180,000
+[2026-01-24 21:07:12] INFO:       Inserted 20,000/180,000
+[2026-01-24 21:07:37] INFO:       Inserted 25,000/180,000
+[2026-01-24 21:08:02] INFO:       Inserted 30,000/180,000
+[2026-01-24 21:08:29] INFO:       Inserted 35,000/180,000
+[2026-01-24 21:08:54] INFO:       Inserted 40,000/180,000
+[2026-01-24 21:09:19] INFO:       Inserted 45,000/180,000
+[2026-01-24 21:09:47] INFO:       Inserted 50,000/180,000
+[2026-01-24 21:10:15] INFO:       Inserted 55,000/180,000
+[2026-01-24 21:10:42] INFO:       Inserted 60,000/180,000
+[2026-01-24 21:11:13] INFO:       Inserted 65,000/180,000
+[2026-01-24 21:11:43] INFO:       Inserted 70,000/180,000
+[2026-01-24 21:12:10] INFO:       Inserted 75,000/180,000
+[2026-01-24 21:13:42] INFO:       Inserted 80,000/180,000
+[2026-01-24 21:14:11] INFO:       Inserted 85,000/180,000
+[2026-01-24 21:14:40] INFO:       Inserted 90,000/180,000
+[2026-01-24 21:15:12] INFO:       Inserted 95,000/180,000
+[2026-01-24 21:15:41] INFO:       Inserted 100,000/180,000
+[2026-01-24 21:16:10] INFO:       Inserted 105,000/180,000
+[2026-01-24 21:16:42] INFO:       Inserted 110,000/180,000
+[2026-01-24 21:17:10] INFO:       Inserted 115,000/180,000
+[2026-01-24 21:17:41] INFO:       Inserted 120,000/180,000
+[2026-01-24 21:18:09] INFO:       Inserted 125,000/180,000
+[2026-01-24 21:18:38] INFO:       Inserted 130,000/180,000
+[2026-01-24 21:19:10] INFO:       Inserted 135,000/180,000
+[2026-01-24 21:19:43] INFO:       Inserted 140,000/180,000
+[2026-01-24 21:20:15] INFO:       Inserted 145,000/180,000
+[2026-01-24 21:20:43] INFO:       Inserted 150,000/180,000
+[2026-01-24 21:21:11] INFO:       Inserted 155,000/180,000
+[2026-01-24 21:21:42] INFO:       Inserted 160,000/180,000
+[2026-01-24 21:22:11] INFO:       Inserted 165,000/180,000
+[2026-01-24 21:22:45] INFO:       Inserted 170,000/180,000
+[2026-01-24 21:23:14] INFO:       Inserted 175,000/180,000
+[2026-01-24 21:23:42] INFO:       Inserted 180,000/180,000
+[2026-01-24 21:23:42] INFO: ✓ Generated and inserted 180,000 DDA accounts
+[2026-01-24 21:23:42] INFO: 
+Generating NOW accounts (22,000)...
+[2026-01-24 21:23:42] INFO:     Generating 22,000 NOW accounts...
+[2026-01-24 21:23:42] INFO:       Progress: 10,000/22,000 NOW accounts...
+[2026-01-24 21:23:42] INFO:       Progress: 20,000/22,000 NOW accounts...
+[2026-01-24 21:23:42] INFO:     Inserting 22,000 accounts in batches of 1000...
+[2026-01-24 21:24:10] INFO:       Inserted 5,000/22,000
+[2026-01-24 21:24:40] INFO:       Inserted 10,000/22,000
+[2026-01-24 21:27:43] INFO:       Inserted 15,000/22,000
+[2026-01-24 21:28:14] INFO:       Inserted 20,000/22,000
+[2026-01-24 21:28:28] INFO:       Inserted 22,000/22,000
+[2026-01-24 21:28:28] INFO: ✓ Generated and inserted 22,000 NOW accounts
+[2026-01-24 21:28:28] INFO: 
+Generating Savings accounts (110,000)...
+[2026-01-24 21:28:28] INFO:     Generating 100,000 retail savings accounts...
+[2026-01-24 21:28:28] INFO:       Progress: 20,000/100,000 retail savings accounts...
+[2026-01-24 21:28:28] INFO:       Progress: 40,000/100,000 retail savings accounts...
+[2026-01-24 21:28:29] INFO:       Progress: 60,000/100,000 retail savings accounts...
+[2026-01-24 21:28:29] INFO:       Progress: 80,000/100,000 retail savings accounts...
+[2026-01-24 21:28:29] INFO:     Generating 10,000 specialty savings accounts...
+[2026-01-24 21:28:29] INFO:     Inserting 110,000 accounts in batches of 1000...
+[2026-01-24 21:29:03] INFO:       Inserted 5,000/110,000
+[2026-01-24 21:29:30] INFO:       Inserted 10,000/110,000
+[2026-01-24 21:29:59] INFO:       Inserted 15,000/110,000
+[2026-01-24 21:30:28] INFO:       Inserted 20,000/110,000
+[2026-01-24 21:30:57] INFO:       Inserted 25,000/110,000
+[2026-01-24 21:31:29] INFO:       Inserted 30,000/110,000
+[2026-01-24 21:31:58] INFO:       Inserted 35,000/110,000
+[2026-01-24 21:32:30] INFO:       Inserted 40,000/110,000
+[2026-01-24 21:33:04] INFO:       Inserted 45,000/110,000
+[2026-01-24 21:33:35] INFO:       Inserted 50,000/110,000
+[2026-01-24 21:34:05] INFO:       Inserted 55,000/110,000
+[2026-01-24 21:34:34] INFO:       Inserted 60,000/110,000
+[2026-01-24 21:35:06] INFO:       Inserted 65,000/110,000
+[2026-01-24 21:35:36] INFO:       Inserted 70,000/110,000
+[2026-01-24 21:36:06] INFO:       Inserted 75,000/110,000
+[2026-01-24 21:36:41] INFO:       Inserted 80,000/110,000
+[2026-01-24 21:37:13] INFO:       Inserted 85,000/110,000
+[2026-01-24 21:37:39] INFO:       Inserted 90,000/110,000
+[2026-01-24 21:38:10] INFO:       Inserted 95,000/110,000
+[2026-01-24 21:38:41] INFO:       Inserted 100,000/110,000
+[2026-01-24 21:39:10] INFO:       Inserted 105,000/110,000
+[2026-01-24 21:39:38] INFO:       Inserted 110,000/110,000
+[2026-01-24 21:39:38] INFO: ✓ Generated and inserted 110,000 Savings accounts
+[2026-01-24 21:39:38] INFO: 
+Generating MMDA accounts (35,000)...
+[2026-01-24 21:39:38] INFO:     Generating 25,000 retail MMDA accounts...
+[2026-01-24 21:39:38] INFO:       Progress: 10,000/25,000 retail MMDA accounts...
+[2026-01-24 21:39:38] INFO:       Progress: 20,000/25,000 retail MMDA accounts...
+[2026-01-24 21:39:38] INFO:     Generating 10,000 commercial MMDA accounts...
+[2026-01-24 21:39:38] INFO:     Inserting 35,000 accounts in batches of 1000...
+[2026-01-24 21:40:09] INFO:       Inserted 5,000/35,000
+[2026-01-24 21:40:37] INFO:       Inserted 10,000/35,000
+[2026-01-24 21:41:06] INFO:       Inserted 15,000/35,000
+[2026-01-24 21:41:37] INFO:       Inserted 20,000/35,000
+[2026-01-24 21:42:06] INFO:       Inserted 25,000/35,000
+[2026-01-24 21:42:34] INFO:       Inserted 30,000/35,000
+[2026-01-24 21:43:05] INFO:       Inserted 35,000/35,000
+[2026-01-24 21:43:05] INFO: ✓ Generated and inserted 35,000 MMDA accounts
+[2026-01-24 21:43:05] INFO: 
+Generating CD accounts (55,000)...
+[2026-01-24 21:43:05] INFO:     Generating 5,000 3-month retail CDs...
+[2026-01-24 21:43:05] INFO:     Generating 10,000 6-month retail CDs...
+[2026-01-24 21:43:05] INFO:     Generating 20,000 12-month retail CDs...
+[2026-01-24 21:43:05] INFO:     Generating 10,000 24-month retail CDs...
+[2026-01-24 21:43:05] INFO:     Generating 5,000 60-month retail CDs...
+[2026-01-24 21:43:05] INFO:     Generating 5,000 brokered CD accounts...
+[2026-01-24 21:43:05] INFO:     Inserting 55,000 accounts in batches of 1000...
+[2026-01-24 21:43:32] INFO:       Inserted 5,000/55,000
+[2026-01-24 21:44:02] INFO:       Inserted 10,000/55,000
+[2026-01-24 21:44:28] INFO:       Inserted 15,000/55,000
+[2026-01-24 21:44:55] INFO:       Inserted 20,000/55,000
+[2026-01-24 21:51:36] ERROR: 
+
+Error: Timed out after 0:05:00

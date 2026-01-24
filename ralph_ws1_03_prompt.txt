@@ -1,0 +1,487 @@
+# Task: Execute WS1-03 Loan Portfolio Generator
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ WS1-01 Complete - Unity Catalog structure exists
+✅ WS1-02 Complete - Securities portfolio generated
+
+## Dependencies Verified
+- ✅ Catalog `cfo_banking_demo` exists
+- ✅ Schema `cfo_banking_demo.bronze_core_banking` exists
+- ✅ Schema `cfo_banking_demo.silver_finance` exists
+
+## SQL Warehouse Configuration
+**CRITICAL:** All SQL operations must use warehouse ID: `4b9b953939869799`
+
+Configure Spark session at the start:
+
+```python
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS1-03 Loan Portfolio") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .getOrCreate()
+
+# Verify warehouse connection
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+assert warehouse_id == "4b9b953939869799", "Wrong warehouse configured!"
+```
+
+## Task Objective
+Generate realistic loan portfolio data for a US regional bank with $15-20 billion in total loans, covering commercial, consumer, and real estate lending (~97,200 loans).
+
+## Instructions
+
+### 1. Read the Requirements
+Read and understand the complete specification from:
+`prompts/WS1-03_loan_portfolio_generator.md`
+
+### 2. Generate Loan Portfolio
+
+**Portfolio Composition (~$18B, 97,200 loans):**
+
+- **Commercial Real Estate (CRE)** - 25% = $4.5B - 1,500 loans
+  - Office: 400, Retail: 350, Multifamily: 450, Industrial: 300
+  - Average size: $3M
+
+- **Commercial & Industrial (C&I)** - 30% = $5.4B - 2,700 loans
+  - Working capital: 1,200, Equipment: 800, Term loans: 700
+  - Average size: $2M
+
+- **Residential Mortgages** - 25% = $4.5B - 15,000 loans
+  - First mortgages: 12,000, Jumbo: 3,000
+  - Average size: $300K
+
+- **HELOC** - 8% = $1.44B - 12,000 loans
+  - Average balance: $120K
+
+- **Consumer Auto** - 8% = $1.44B - 48,000 loans
+  - Average size: $30K
+
+- **Consumer Other** - 4% = $720M - 18,000 loans
+  - Average size: $40K
+
+**Key Requirements:**
+- Current date: January 24, 2026
+- Realistic origination dates (2020-2026)
+- Interest rates vary by period (low in 2020-2021, high in 2024-2025)
+- Payment status: 94% current, 6% various stages of delinquency
+- Credit scores: Mean 720, StdDev 60 for consumers
+- CECL parameters: PD, LGD, EAD for each loan
+- Geographic distribution across US states
+
+### 3. Implementation Pattern
+
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+import random
+from datetime import datetime, timedelta
+import numpy as np
+
+# CRITICAL: Configure Spark with warehouse ID
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS1-03 Loan Portfolio") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .config("spark.sql.shuffle.partitions", "200") \
+    .getOrCreate()
+
+# Verify warehouse
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+
+CURRENT_DATE = datetime(2026, 1, 24).date()
+
+# Helper functions
+def generate_loan_id(product_type, index):
+    """Generate unique loan ID"""
+    prefix_map = {
+        'Commercial_RE': 'CRE',
+        'C&I': 'CNI',
+        'Residential_Mortgage': 'RES',
+        'HELOC': 'HEL',
+        'Consumer_Auto': 'AUTO',
+        'Consumer_Other': 'CONS'
+    }
+    return f"LOAN-{prefix_map[product_type]}-{index:06d}"
+
+def get_interest_rate(product_type, origination_year):
+    """Get realistic rate based on product and year"""
+    rate_map = {
+        2020: {'Commercial_RE': (3.0, 4.0), 'C&I': (3.0, 4.0), 'Residential_Mortgage': (2.5, 3.5), 'HELOC': (3.5, 4.5), 'Consumer_Auto': (3.0, 5.0), 'Consumer_Other': (5.0, 8.0)},
+        2021: {'Commercial_RE': (3.0, 4.5), 'C&I': (3.5, 4.5), 'Residential_Mortgage': (2.5, 3.5), 'HELOC': (3.5, 5.0), 'Consumer_Auto': (3.0, 5.0), 'Consumer_Other': (5.0, 8.0)},
+        2022: {'Commercial_RE': (5.0, 7.0), 'C&I': (5.5, 7.5), 'Residential_Mortgage': (4.0, 6.0), 'HELOC': (5.0, 7.0), 'Consumer_Auto': (5.0, 8.0), 'Consumer_Other': (7.0, 11.0)},
+        2023: {'Commercial_RE': (6.0, 8.0), 'C&I': (6.5, 8.5), 'Residential_Mortgage': (5.0, 7.0), 'HELOC': (6.0, 8.0), 'Consumer_Auto': (6.0, 9.0), 'Consumer_Other': (8.0, 12.0)},
+        2024: {'Commercial_RE': (7.0, 9.0), 'C&I': (7.5, 9.5), 'Residential_Mortgage': (6.0, 7.5), 'HELOC': (7.0, 9.0), 'Consumer_Auto': (7.0, 11.0), 'Consumer_Other': (9.0, 14.0)},
+        2025: {'Commercial_RE': (6.5, 8.5), 'C&I': (7.0, 9.0), 'Residential_Mortgage': (6.0, 7.0), 'HELOC': (6.5, 8.5), 'Consumer_Auto': (6.5, 10.0), 'Consumer_Other': (8.5, 13.0)},
+        2026: {'Commercial_RE': (6.5, 8.5), 'C&I': (7.0, 9.0), 'Residential_Mortgage': (6.5, 7.0), 'HELOC': (6.5, 8.5), 'Consumer_Auto': (6.5, 10.0), 'Consumer_Other': (8.5, 13.0)},
+    }
+    min_rate, max_rate = rate_map.get(origination_year, {}).get(product_type, (5.0, 7.0))
+    return round(random.uniform(min_rate, max_rate), 4)
+
+def calculate_cecl_params(credit_score, product_type, payment_status):
+    """Calculate simplified CECL parameters"""
+    # PD (Probability of Default)
+    if payment_status == 'Current':
+        base_pd = 0.01
+    elif payment_status == 'Past_Due_30':
+        base_pd = 0.05
+    elif payment_status == 'Past_Due_60':
+        base_pd = 0.10
+    else:
+        base_pd = 0.20
+    
+    # Adjust for credit score (lower score = higher PD)
+    if credit_score:
+        score_adjustment = (750 - credit_score) / 1000
+        pd = max(0.001, min(0.15, base_pd + score_adjustment))
+    else:
+        pd = base_pd
+    
+    # LGD (Loss Given Default) by product type
+    lgd_map = {
+        'Commercial_RE': 0.10,
+        'C&I': 0.30,
+        'Residential_Mortgage': 0.15,
+        'HELOC': 0.25,
+        'Consumer_Auto': 0.40,
+        'Consumer_Other': 0.70
+    }
+    lgd = lgd_map.get(product_type, 0.30)
+    
+    return pd, lgd
+
+# Generate Commercial RE loans (1,500)
+def generate_commercial_re_loans(start_index=0):
+    loans = []
+    property_types = [
+        ('Office', 400),
+        ('Retail', 350),
+        ('Multifamily', 450),
+        ('Industrial', 300)
+    ]
+    
+    index = start_index
+    for prop_type, count in property_types:
+        for i in range(count):
+            # Origination date distribution
+            year = random.choices(
+                [2019, 2020, 2021, 2022, 2023, 2024, 2025],
+                weights=[5, 15, 15, 25, 25, 10, 5]
+            )[0]
+            orig_date = datetime(year, random.randint(1, 12), random.randint(1, 28)).date()
+            
+            # Loan amount (log-normal distribution around $3M)
+            amount = int(np.random.lognormal(14.5, 0.6))  # Mean ~$3M
+            amount = max(500_000, min(50_000_000, amount))
+            
+            # Term
+            term_months = random.choice([60, 84, 120, 180, 240, 300])
+            maturity_date = orig_date + timedelta(days=term_months * 30)
+            
+            # Current balance (amortized)
+            months_elapsed = (CURRENT_DATE.year - orig_date.year) * 12 + (CURRENT_DATE.month - orig_date.month)
+            amortization_pct = months_elapsed / term_months if months_elapsed < term_months else 1.0
+            current_balance = amount * (1 - amortization_pct * 0.3)  # Simplified amortization
+            
+            # Interest rate
+            rate = get_interest_rate('Commercial_RE', year)
+            
+            # Payment status (94% current)
+            status = random.choices(
+                ['Current', 'Past_Due_30', 'Past_Due_60', 'Past_Due_90', 'Default', 'Charged_Off'],
+                weights=[94, 3, 1.5, 1, 0.3, 0.2]
+            )[0]
+            
+            days_past_due = {'Current': 0, 'Past_Due_30': random.randint(30, 59), 
+                           'Past_Due_60': random.randint(60, 89), 'Past_Due_90': random.randint(90, 180),
+                           'Default': random.randint(180, 365), 'Charged_Off': 0}[status]
+            
+            # CECL
+            pd, lgd = calculate_cecl_params(None, 'Commercial_RE', status)
+            ead = current_balance
+            cecl_reserve = ead * pd * lgd
+            
+            # Geography
+            state = random.choices(
+                ['CA', 'TX', 'FL', 'NY', 'PA', 'IL', 'OH', 'GA', 'NC', 'MI'],
+                weights=[15, 12, 10, 8, 5, 5, 5, 5, 5, 30]
+            )[0]
+            
+            loans.append({
+                'loan_id': generate_loan_id('Commercial_RE', index),
+                'account_number': f'ACC-{index:010d}',
+                'borrower_id': f'BWID-{random.randint(10000, 99999)}',
+                'borrower_name': f'{prop_type} Properties LLC {i}',
+                'borrower_type': 'Business',
+                'product_type': 'Commercial_RE',
+                'loan_purpose': prop_type,
+                'origination_date': orig_date,
+                'maturity_date': maturity_date,
+                'original_amount': float(amount),
+                'current_balance': float(current_balance),
+                'principal_balance': float(current_balance * 0.98),
+                'interest_accrued': float(current_balance * 0.02),
+                'fees_accrued': 0.0,
+                'interest_rate': rate,
+                'rate_type': random.choice(['Fixed', 'Variable']),
+                'rate_index': 'SOFR' if random.choice([True, False]) else None,
+                'rate_margin': round(random.uniform(1.5, 3.5), 4) if random.choice([True, False]) else None,
+                'payment_frequency': 'Monthly',
+                'monthly_payment': float(current_balance * (rate/100/12)),
+                'payment_status': status,
+                'days_past_due': days_past_due,
+                'next_payment_date': CURRENT_DATE + timedelta(days=30),
+                'last_payment_date': CURRENT_DATE - timedelta(days=random.randint(1, 30)),
+                'last_payment_amount': float(current_balance * (rate/100/12)),
+                'remaining_term_months': max(0, term_months - months_elapsed),
+                'original_term_months': term_months,
+                'collateral_type': prop_type,
+                'collateral_value': float(amount * random.uniform(1.2, 1.8)),
+                'ltv_ratio': round(current_balance / (amount * 1.5), 4),
+                'credit_score': None,
+                'risk_rating': random.choices(['Pass', 'Watch', 'Special_Mention', 'Substandard'],
+                                             weights=[85, 10, 3, 2])[0],
+                'pd': round(pd, 6),
+                'lgd': round(lgd, 6),
+                'ead': float(ead),
+                'cecl_reserve': float(cecl_reserve),
+                'geography': state,
+                'industry_code': '531',  # Real estate NAICS
+                'officer_id': f'LO-{random.randint(1, 50):03d}',
+                'branch_id': f'BR-{random.randint(1, 20):03d}',
+                'effective_date': CURRENT_DATE,
+                'is_current': True
+            })
+            index += 1
+    
+    return loans
+
+# Generate other loan types with similar patterns
+# (Include complete implementations for C&I, Residential, HELOC, Auto, Consumer Other)
+# For brevity, showing structure - you would implement all 6 generators
+
+# Combine all loans
+print("Generating Commercial RE loans...")
+all_loans = generate_commercial_re_loans(0)
+print(f"  Generated {len(all_loans)} CRE loans")
+
+# Continue with other product types...
+# all_loans.extend(generate_cni_loans(1500))
+# all_loans.extend(generate_residential_mortgages(4200))
+# etc.
+
+print(f"Total loans generated: {len(all_loans)}")
+
+# Convert to Spark DataFrame
+loans_df = spark.createDataFrame(all_loans)
+
+# Repartition for performance
+loans_df = loans_df.repartition(20, "product_type")
+
+# Write to bronze layer (partitioned by product_type)
+loans_df.write \
+    .mode("overwrite") \
+    .partitionBy("product_type") \
+    .saveAsTable("cfo_banking_demo.bronze_core_banking.loan_portfolio")
+
+print(f"✓ Written {loans_df.count()} loans to bronze layer")
+```
+
+### 4. Create Silver Layer Transformation
+
+```python
+# Read bronze
+bronze_loans = spark.table("cfo_banking_demo.bronze_core_banking.loan_portfolio")
+
+# Add calculated fields
+silver_loans = bronze_loans.withColumn(
+    'utilization_rate',
+    col('current_balance') / col('original_amount')
+).withColumn(
+    'months_since_origination',
+    months_between(col('effective_date'), col('origination_date'))
+).withColumn(
+    'delinquency_status',
+    when(col('payment_status') == 'Current', 'Current')
+    .when(col('payment_status').like('Past_Due%'), 'Delinquent')
+    .otherwise('Default')
+)
+
+# Write to silver
+silver_loans.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.silver_finance.loan_portfolio")
+
+print("✓ Created silver layer")
+```
+
+### 5. Create Loan Origination History
+
+```python
+# Create transaction log for WS2 (loan origination pipeline)
+loan_originations = loans_df.select(
+    col('loan_id'),
+    col('origination_date').alias('transaction_date'),
+    concat(lit('LO-'), date_format(col('origination_date'), 'yyyyMMdd'), lit('-'), col('loan_id')).alias('message_id'),
+    col('borrower_id'),
+    col('product_type'),
+    col('original_amount'),
+    col('interest_rate'),
+    col('original_term_months')
+).withColumn(
+    'transaction_timestamp',
+    to_timestamp(col('transaction_date'))
+)
+
+loan_originations.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.bronze_core_banking.loan_originations")
+
+print("✓ Created loan origination history")
+```
+
+### 6. Generate Summary Statistics
+
+```python
+# By product type
+summary = silver_loans.groupBy('product_type').agg(
+    count('*').alias('loan_count'),
+    sum('current_balance').alias('total_balance'),
+    avg('interest_rate').alias('avg_rate'),
+    sum('cecl_reserve').alias('total_reserve')
+)
+
+print("\n=== Loan Portfolio Summary ===")
+summary.show(truncate=False)
+
+# Payment status distribution
+status_dist = silver_loans.groupBy('payment_status').agg(
+    count('*').alias('count'),
+    (count('*') * 100.0 / silver_loans.count()).alias('percentage')
+)
+
+print("\n=== Payment Status Distribution ===")
+status_dist.show()
+```
+
+### 7. Data Quality Validations
+
+```python
+# Total count
+total_count = loans_df.count()
+print(f"Total loans: {total_count}")
+assert 96000 <= total_count <= 98000, f"Expected ~97K loans, got {total_count}"
+
+# Total balance
+total_balance = loans_df.select(sum('current_balance')).collect()[0][0]
+print(f"Total balance: ${total_balance:,.0f}")
+assert 17.5e9 <= total_balance <= 18.5e9, f"Expected ~$18B, got ${total_balance:,.0f}"
+
+# Unique loan IDs
+unique_ids = loans_df.select('loan_id').distinct().count()
+assert unique_ids == total_count, f"Loan IDs not unique: {unique_ids}/{total_count}"
+
+# No nulls in required fields
+required_fields = ['loan_id', 'product_type', 'current_balance', 'interest_rate']
+for field in required_fields:
+    null_count = loans_df.filter(col(field).isNull()).count()
+    assert null_count == 0, f"Found {null_count} nulls in {field}"
+
+print("✅ All data quality checks passed")
+```
+
+### 8. Save Output
+
+Save complete script to: `outputs/03_generate_loan_portfolio.py`
+
+## Performance Optimization
+
+**IMPORTANT:** This generates 97K rows - use these optimizations:
+
+```python
+# Already configured above with warehouse
+spark.conf.set("spark.sql.shuffle.partitions", "200")
+
+# Monitor progress
+spark.sparkContext.setLogLevel("WARN")
+
+# Use efficient data structures
+# Process in batches if memory issues occur
+```
+
+## Success Criteria
+- [ ] ~97,200 loans generated (±1,000)
+- [ ] Total portfolio ~$18B (±$500M)
+- [ ] Product mix matches specs (±2%)
+- [ ] All loan_ids unique
+- [ ] Interest rates realistic for origination period
+- [ ] Payment status distribution correct (94% current)
+- [ ] Credit scores valid (500-850 where applicable)
+- [ ] Bronze table written and partitioned
+- [ ] Silver table created with calculated fields
+- [ ] Origination history table created
+- [ ] Summary statistics correct
+- [ ] Using warehouse 4b9b953939869799
+
+## Expected Output
+
+```
+✓ Using SQL Warehouse: 4b9b953939869799
+
+Generating Commercial RE loans...
+  Generated 1,500 CRE loans
+Generating C&I loans...
+  Generated 2,700 C&I loans
+...
+Total loans generated: 97,234
+
+Loan Portfolio Summary (as of 2026-01-24):
+==========================================
+Total Loans: 97,234
+Total Outstanding: $17,983,456,000
+Weighted Avg Rate: 6.42%
+Total CECL Reserve: $215,801,000 (1.20%)
+
+By Product:
+- Commercial RE: $4.48B (24.9%), 1,502 loans
+- C&I: $5.39B (30.0%), 2,698 loans
+- Residential: $4.52B (25.1%), 15,063 loans
+- HELOC: $1.44B (8.0%), 12,001 loans
+- Consumer Auto: $1.43B (8.0%), 47,998 loans
+- Consumer Other: $0.72B (4.0%), 17,972 loans
+
+Delinquency: 94.1% Current, 5.9% Delinquent/Default
+```
+
+## Critical Constraints
+- ⛔ NO sudo or root
+- ✅ USE warehouse 4b9b953939869799
+- ✅ USE Spark for efficient data generation
+- ✅ PARTITION tables for query performance
+- ✅ Monitor memory usage
+
+## Estimated Duration
+⏱️ 1-2 hours (large dataset generation)
+
+## When Complete
+Report:
+1. Warehouse ID used
+2. Record count and portfolio total
+3. Product mix breakdown
+4. Delinquency statistics
+5. Table locations
+6. Performance metrics
+7. Ready for WS1-04
+
+Begin execution now.

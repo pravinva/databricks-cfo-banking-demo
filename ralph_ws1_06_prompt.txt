@@ -1,0 +1,527 @@
+# Task: Execute WS1-06 GL and Subledger Schema Setup
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ WS1-01 Complete - Unity Catalog structure exists
+
+## Dependencies Verified
+- ✅ Catalog `cfo_banking_demo` exists
+- ✅ Schema `cfo_banking_demo.bronze_core_banking` exists
+- ✅ Schema `cfo_banking_demo.silver_finance` exists
+- ✅ Schema `cfo_banking_demo.silver_treasury` exists
+
+## SQL Warehouse Configuration
+**CRITICAL:** All SQL operations must use warehouse ID: `4b9b953939869799`
+
+Configure Spark session at the start:
+
+```python
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS1-06 GL Schemas") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .getOrCreate()
+
+# Verify warehouse connection
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+assert warehouse_id == "4b9b953939869799", "Wrong warehouse configured!"
+```
+
+## Task Objective
+Create General Ledger (GL) and subledger table schemas to support real-time accounting processing. These tables will receive loan origination postings, interest accruals, and other accounting events in WS2.
+
+## Instructions
+
+### 1. Read the Requirements
+Read and understand the complete specification from:
+`prompts/WS1-06_gl_subledger_schema.md`
+
+### 2. Create Chart of Accounts
+
+**Create table:** `cfo_banking_demo.bronze_core_banking.chart_of_accounts`
+
+Populate with 40+ standard banking GL accounts:
+
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.types import *
+from pyspark.sql.functions import lit
+from datetime import datetime
+
+# CRITICAL: Configure Spark with warehouse ID
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS1-06 GL Schemas") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .getOrCreate()
+
+# Verify warehouse
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+
+CURRENT_DATE = datetime(2026, 1, 24).date()
+
+# Define Chart of Accounts
+chart_of_accounts = [
+    # ASSETS (1000-1999)
+    ('1010-000', 'Cash in Vault', 'Asset', 'Current_Asset', 'Debit', False, None, 'Balance_Sheet', 'RCFD0081', True),
+    ('1020-000', 'Fed Reserve Account', 'Asset', 'Current_Asset', 'Debit', False, None, 'Balance_Sheet', 'RCFD0090', True),
+    ('1030-000', 'Due from Banks', 'Asset', 'Current_Asset', 'Debit', False, None, 'Balance_Sheet', 'RCFD0070', True),
+    
+    ('1100-000', 'Securities - US Treasury', 'Asset', 'Investment', 'Debit', False, None, 'Balance_Sheet', 'RCFD0211', True),
+    ('1110-000', 'Securities - Corporate', 'Asset', 'Investment', 'Debit', False, None, 'Balance_Sheet', 'RCFD1707', True),
+    ('1120-000', 'Securities - Municipal', 'Asset', 'Investment', 'Debit', False, None, 'Balance_Sheet', 'RCFD0213', True),
+    ('1130-000', 'Securities - Agency', 'Asset', 'Investment', 'Debit', False, None, 'Balance_Sheet', 'RCFD1288', True),
+    ('1140-000', 'Securities - MBS', 'Asset', 'Investment', 'Debit', False, None, 'Balance_Sheet', 'RCFD1709', True),
+    
+    ('1200-000', 'Loans - Commercial RE', 'Asset', 'Loan', 'Debit', True, 'Loan', 'Balance_Sheet', 'RCFD2122', True),
+    ('1210-000', 'Loans - C&I', 'Asset', 'Loan', 'Debit', True, 'Loan', 'Balance_Sheet', 'RCFD1766', True),
+    ('1220-000', 'Loans - Residential Mortgage', 'Asset', 'Loan', 'Debit', True, 'Loan', 'Balance_Sheet', 'RCFD1797', True),
+    ('1230-000', 'Loans - Consumer', 'Asset', 'Loan', 'Debit', True, 'Loan', 'Balance_Sheet', 'RCFD2011', True),
+    ('1240-000', 'Loans - HELOC', 'Asset', 'Loan', 'Debit', True, 'Loan', 'Balance_Sheet', 'RCFD5367', True),
+    ('1290-000', 'Allowance for Credit Losses', 'Asset', 'Contra_Asset', 'Credit', False, None, 'Balance_Sheet', 'RCFD3123', True),
+    
+    ('1300-000', 'Premises & Equipment', 'Asset', 'Fixed_Asset', 'Debit', False, None, 'Balance_Sheet', 'RCFD2145', True),
+    ('1400-000', 'Accrued Interest Receivable', 'Asset', 'Current_Asset', 'Debit', False, None, 'Balance_Sheet', 'RCFD0430', True),
+    ('1500-000', 'Deferred Tax Assets', 'Asset', 'Other_Asset', 'Debit', False, None, 'Balance_Sheet', 'RCFD2148', True),
+    ('1600-000', 'Goodwill', 'Asset', 'Intangible', 'Debit', False, None, 'Balance_Sheet', 'RCFD3163', True),
+    ('1700-000', 'Other Assets', 'Asset', 'Other_Asset', 'Debit', False, None, 'Balance_Sheet', 'RCFD2160', True),
+    
+    # LIABILITIES (2000-2999)
+    ('2010-000', 'DDA Deposits', 'Liability', 'Deposit', 'Credit', True, 'Deposit', 'Balance_Sheet', 'RCON2215', True),
+    ('2020-000', 'Savings Deposits', 'Liability', 'Deposit', 'Credit', True, 'Deposit', 'Balance_Sheet', 'RCON0352', True),
+    ('2030-000', 'MMDA Deposits', 'Liability', 'Deposit', 'Credit', True, 'Deposit', 'Balance_Sheet', 'RCONB551', True),
+    ('2040-000', 'Time Deposits', 'Liability', 'Deposit', 'Credit', True, 'Deposit', 'Balance_Sheet', 'RCON2604', True),
+    
+    ('2100-000', 'Fed Funds Purchased', 'Liability', 'Borrowing', 'Credit', False, None, 'Balance_Sheet', 'RCFD2800', True),
+    ('2110-000', 'FHLB Advances', 'Liability', 'Borrowing', 'Credit', False, None, 'Balance_Sheet', 'RCFD2651', True),
+    ('2120-000', 'Repos', 'Liability', 'Borrowing', 'Credit', False, None, 'Balance_Sheet', 'RCFD2800', True),
+    ('2150-000', 'Subordinated Debt', 'Liability', 'Long_Term_Debt', 'Credit', False, None, 'Balance_Sheet', 'RCFD3200', True),
+    
+    ('2200-000', 'Accrued Interest Payable', 'Liability', 'Current_Liability', 'Credit', False, None, 'Balance_Sheet', 'RCFD2930', True),
+    ('2300-000', 'Other Liabilities', 'Liability', 'Other_Liability', 'Credit', False, None, 'Balance_Sheet', 'RCFD2938', True),
+    
+    # EQUITY (3000-3999)
+    ('3010-000', 'Common Stock', 'Equity', 'Capital', 'Credit', False, None, 'Balance_Sheet', 'RCFD3230', True),
+    ('3020-000', 'Additional Paid-In Capital', 'Equity', 'Capital', 'Credit', False, None, 'Balance_Sheet', 'RCFD3839', True),
+    ('3030-000', 'Retained Earnings', 'Equity', 'Retained_Earnings', 'Credit', False, None, 'Balance_Sheet', 'RCFD3632', True),
+    ('3040-000', 'Accumulated OCI', 'Equity', 'OCI', 'Credit', False, None, 'Balance_Sheet', 'RCFDB530', True),
+    
+    # REVENUE (4000-4999)
+    ('4010-000', 'Interest Income - Loans', 'Revenue', 'Interest_Income', 'Credit', False, None, 'Income_Statement', 'RIAD4010', True),
+    ('4020-000', 'Interest Income - Securities', 'Revenue', 'Interest_Income', 'Credit', False, None, 'Income_Statement', 'RIAD4020', True),
+    ('4030-000', 'Interest Income - Other', 'Revenue', 'Interest_Income', 'Credit', False, None, 'Income_Statement', 'RIAD4518', True),
+    
+    ('4100-000', 'Fee Income - Service Charges', 'Revenue', 'Non_Interest_Income', 'Credit', False, None, 'Income_Statement', 'RIAD4080', True),
+    ('4110-000', 'Fee Income - Card Interchange', 'Revenue', 'Non_Interest_Income', 'Credit', False, None, 'Income_Statement', 'RIADB488', True),
+    ('4120-000', 'Fee Income - Mortgage Banking', 'Revenue', 'Non_Interest_Income', 'Credit', False, None, 'Income_Statement', 'RIAD4091', True),
+    
+    ('4200-000', 'Other Income', 'Revenue', 'Non_Interest_Income', 'Credit', False, None, 'Income_Statement', 'RIAD4092', True),
+    
+    # EXPENSES (5000-5999)
+    ('5010-000', 'Interest Expense - Deposits', 'Expense', 'Interest_Expense', 'Debit', False, None, 'Income_Statement', 'RIAD4170', True),
+    ('5020-000', 'Interest Expense - Borrowings', 'Expense', 'Interest_Expense', 'Debit', False, None, 'Income_Statement', 'RIAD4200', True),
+    
+    ('5100-000', 'Provision for Credit Losses', 'Expense', 'Provision', 'Debit', False, None, 'Income_Statement', 'RIAD4230', True),
+    
+    ('5200-000', 'Compensation Expense', 'Expense', 'Operating_Expense', 'Debit', False, None, 'Income_Statement', 'RIAD4135', True),
+    ('5300-000', 'Occupancy Expense', 'Expense', 'Operating_Expense', 'Debit', False, None, 'Income_Statement', 'RIAD4217', True),
+    ('5400-000', 'Technology Expense', 'Expense', 'Operating_Expense', 'Debit', False, None, 'Income_Statement', 'RIAD4092', True),
+    ('5500-000', 'Professional Fees', 'Expense', 'Operating_Expense', 'Debit', False, None, 'Income_Statement', 'RIAD4136', True),
+    ('5600-000', 'Marketing Expense', 'Expense', 'Operating_Expense', 'Debit', False, None, 'Income_Statement', 'RIAD4141', True),
+    ('5900-000', 'Other Expense', 'Expense', 'Operating_Expense', 'Debit', False, None, 'Income_Statement', 'RIAD4092', True),
+]
+
+# Create DataFrame
+schema = StructType([
+    StructField("account_number", StringType(), False),
+    StructField("account_name", StringType(), False),
+    StructField("account_type", StringType(), False),
+    StructField("account_category", StringType(), False),
+    StructField("normal_balance", StringType(), False),
+    StructField("is_control_account", BooleanType(), False),
+    StructField("subledger_type", StringType(), True),
+    StructField("financial_statement", StringType(), False),
+    StructField("regulatory_code", StringType(), True),
+    StructField("is_active", BooleanType(), False),
+])
+
+coa_df = spark.createDataFrame(chart_of_accounts, schema=schema)
+
+# Add effective date
+coa_df = coa_df.withColumn("effective_date", lit(CURRENT_DATE))
+
+# Write to bronze
+coa_df.write.mode("overwrite").saveAsTable("cfo_banking_demo.bronze_core_banking.chart_of_accounts")
+
+print(f"✓ Created Chart of Accounts with {coa_df.count()} accounts")
+```
+
+### 3. Create GL Entries Table
+
+```python
+# GL Entry Header table
+gl_entries_schema = StructType([
+    StructField("entry_id", StringType(), False),
+    StructField("entry_date", DateType(), False),
+    StructField("entry_timestamp", TimestampType(), False),
+    StructField("posting_date", DateType(), False),
+    StructField("accounting_period", StringType(), False),
+    StructField("entry_type", StringType(), False),
+    StructField("source_system", StringType(), False),
+    StructField("source_transaction_id", StringType(), True),
+    StructField("batch_id", StringType(), True),
+    StructField("entry_status", StringType(), False),
+    StructField("description", StringType(), True),
+    StructField("total_debits", DecimalType(18, 2), False),
+    StructField("total_credits", DecimalType(18, 2), False),
+    StructField("created_by", StringType(), True),
+    StructField("approved_by", StringType(), True),
+    StructField("is_balanced", BooleanType(), False),
+    StructField("is_reversed", BooleanType(), False),
+    StructField("reversed_by_entry_id", StringType(), True),
+    StructField("effective_timestamp", TimestampType(), False),
+])
+
+# Create empty table
+spark.createDataFrame([], gl_entries_schema).write.mode("overwrite").saveAsTable("cfo_banking_demo.silver_finance.gl_entries")
+
+print("✓ Created gl_entries table (empty, ready for WS2)")
+```
+
+### 4. Create GL Entry Lines Table
+
+```python
+gl_entry_lines_schema = StructType([
+    StructField("line_id", StringType(), False),
+    StructField("entry_id", StringType(), False),
+    StructField("line_number", IntegerType(), False),
+    StructField("account_number", StringType(), False),
+    StructField("debit_amount", DecimalType(18, 2), False),
+    StructField("credit_amount", DecimalType(18, 2), False),
+    StructField("line_description", StringType(), True),
+    StructField("cost_center", StringType(), True),
+    StructField("department", StringType(), True),
+    StructField("product_code", StringType(), True),
+    StructField("customer_id", StringType(), True),
+    StructField("reference_number", StringType(), True),
+    StructField("effective_timestamp", TimestampType(), False),
+])
+
+spark.createDataFrame([], gl_entry_lines_schema).write.mode("overwrite").saveAsTable("cfo_banking_demo.silver_finance.gl_entry_lines")
+
+print("✓ Created gl_entry_lines table (empty, ready for WS2)")
+```
+
+### 5. Create Loan Subledger Table
+
+```python
+loan_subledger_schema = StructType([
+    StructField("transaction_id", StringType(), False),
+    StructField("transaction_timestamp", TimestampType(), False),
+    StructField("posting_date", DateType(), False),
+    StructField("loan_id", StringType(), False),
+    StructField("transaction_type", StringType(), False),
+    StructField("principal_amount", DecimalType(18, 2), False),
+    StructField("interest_amount", DecimalType(18, 2), False),
+    StructField("fee_amount", DecimalType(18, 2), False),
+    StructField("balance_before", DecimalType(18, 2), False),
+    StructField("balance_after", DecimalType(18, 2), False),
+    StructField("gl_entry_id", StringType(), True),
+    StructField("payment_method", StringType(), True),
+    StructField("description", StringType(), True),
+    StructField("effective_timestamp", TimestampType(), False),
+])
+
+spark.createDataFrame([], loan_subledger_schema).write.mode("overwrite").saveAsTable("cfo_banking_demo.silver_finance.loan_subledger")
+
+print("✓ Created loan_subledger table (empty, ready for WS2)")
+```
+
+### 6. Create Deposit Subledger Table
+
+```python
+deposit_subledger_schema = StructType([
+    StructField("transaction_id", StringType(), False),
+    StructField("transaction_timestamp", TimestampType(), False),
+    StructField("posting_date", DateType(), False),
+    StructField("account_id", StringType(), False),
+    StructField("transaction_type", StringType(), False),
+    StructField("amount", DecimalType(18, 2), False),
+    StructField("balance_before", DecimalType(18, 2), False),
+    StructField("balance_after", DecimalType(18, 2), False),
+    StructField("gl_entry_id", StringType(), True),
+    StructField("channel", StringType(), True),
+    StructField("description", StringType(), True),
+    StructField("effective_timestamp", TimestampType(), False),
+])
+
+spark.createDataFrame([], deposit_subledger_schema).write.mode("overwrite").saveAsTable("cfo_banking_demo.silver_finance.deposit_subledger")
+
+print("✓ Created deposit_subledger table (empty, ready for WS2)")
+```
+
+### 7. Create Intraday Cash Position Table
+
+```python
+intraday_cash_schema = StructType([
+    StructField("position_timestamp", TimestampType(), False),
+    StructField("position_date", DateType(), False),
+    StructField("cash_source", StringType(), False),
+    StructField("opening_balance", DecimalType(18, 2), False),
+    StructField("gross_inflows", DecimalType(18, 2), False),
+    StructField("gross_outflows", DecimalType(18, 2), False),
+    StructField("net_change", DecimalType(18, 2), False),
+    StructField("current_balance", DecimalType(18, 2), False),
+    StructField("projected_eod_balance", DecimalType(18, 2), False),
+    StructField("liquidity_buffer", DecimalType(18, 2), False),
+    StructField("is_snapshot", BooleanType(), False),
+    StructField("effective_timestamp", TimestampType(), False),
+])
+
+spark.createDataFrame([], intraday_cash_schema).write.mode("overwrite").saveAsTable("cfo_banking_demo.silver_treasury.intraday_cash_position")
+
+print("✓ Created intraday_cash_position table (empty, ready for WS2)")
+```
+
+### 8. Create Useful Views
+
+```python
+# View: Trial Balance
+spark.sql("""
+CREATE OR REPLACE VIEW cfo_banking_demo.silver_finance.vw_trial_balance AS
+SELECT 
+    coa.account_number,
+    coa.account_name,
+    coa.account_type,
+    coa.normal_balance,
+    COALESCE(SUM(gel.debit_amount), 0) as total_debits,
+    COALESCE(SUM(gel.credit_amount), 0) as total_credits,
+    CASE 
+        WHEN coa.normal_balance = 'Debit' THEN COALESCE(SUM(gel.debit_amount), 0) - COALESCE(SUM(gel.credit_amount), 0)
+        ELSE COALESCE(SUM(gel.credit_amount), 0) - COALESCE(SUM(gel.debit_amount), 0)
+    END as balance
+FROM cfo_banking_demo.bronze_core_banking.chart_of_accounts coa
+LEFT JOIN cfo_banking_demo.silver_finance.gl_entry_lines gel 
+    ON coa.account_number = gel.account_number
+WHERE coa.is_active = true
+GROUP BY coa.account_number, coa.account_name, coa.account_type, coa.normal_balance
+ORDER BY coa.account_number
+""")
+
+print("✓ Created vw_trial_balance view")
+
+# View: Loan Activity Summary
+spark.sql("""
+CREATE OR REPLACE VIEW cfo_banking_demo.silver_finance.vw_loan_activity_summary AS
+SELECT 
+    posting_date,
+    transaction_type,
+    COUNT(*) as transaction_count,
+    SUM(principal_amount) as total_principal,
+    SUM(interest_amount) as total_interest,
+    SUM(fee_amount) as total_fees
+FROM cfo_banking_demo.silver_finance.loan_subledger
+GROUP BY posting_date, transaction_type
+ORDER BY posting_date DESC, transaction_type
+""")
+
+print("✓ Created vw_loan_activity_summary view")
+
+# View: Cash Position Current
+spark.sql("""
+CREATE OR REPLACE VIEW cfo_banking_demo.silver_treasury.vw_cash_position_current AS
+SELECT *
+FROM cfo_banking_demo.silver_treasury.intraday_cash_position
+WHERE position_timestamp = (
+    SELECT MAX(position_timestamp) 
+    FROM cfo_banking_demo.silver_treasury.intraday_cash_position
+)
+""")
+
+print("✓ Created vw_cash_position_current view")
+```
+
+### 9. Insert Sample Test Entry
+
+```python
+# Insert a sample GL entry for testing
+from pyspark.sql.functions import current_timestamp
+
+sample_entry = spark.createDataFrame([{
+    'entry_id': 'TEST-001',
+    'entry_date': CURRENT_DATE,
+    'entry_timestamp': datetime.now(),
+    'posting_date': CURRENT_DATE,
+    'accounting_period': '2026-01',
+    'entry_type': 'Regular',
+    'source_system': 'Test',
+    'source_transaction_id': 'TEST-TXN-001',
+    'batch_id': 'TEST-BATCH-001',
+    'entry_status': 'Posted',
+    'description': 'Sample test entry',
+    'total_debits': 1000.00,
+    'total_credits': 1000.00,
+    'created_by': 'system',
+    'approved_by': 'system',
+    'is_balanced': True,
+    'is_reversed': False,
+    'reversed_by_entry_id': None,
+    'effective_timestamp': datetime.now()
+}], schema=gl_entries_schema)
+
+sample_entry.write.mode("append").saveAsTable("cfo_banking_demo.silver_finance.gl_entries")
+
+# Insert sample entry lines
+sample_lines = spark.createDataFrame([
+    {
+        'line_id': 'TEST-001-L1',
+        'entry_id': 'TEST-001',
+        'line_number': 1,
+        'account_number': '1010-000',  # Cash
+        'debit_amount': 1000.00,
+        'credit_amount': 0.00,
+        'line_description': 'Test debit',
+        'cost_center': None,
+        'department': None,
+        'product_code': None,
+        'customer_id': None,
+        'reference_number': None,
+        'effective_timestamp': datetime.now()
+    },
+    {
+        'line_id': 'TEST-001-L2',
+        'entry_id': 'TEST-001',
+        'line_number': 2,
+        'account_number': '3030-000',  # Retained Earnings
+        'debit_amount': 0.00,
+        'credit_amount': 1000.00,
+        'line_description': 'Test credit',
+        'cost_center': None,
+        'department': None,
+        'product_code': None,
+        'customer_id': None,
+        'reference_number': None,
+        'effective_timestamp': datetime.now()
+    }
+], schema=gl_entry_lines_schema)
+
+sample_lines.write.mode("append").saveAsTable("cfo_banking_demo.silver_finance.gl_entry_lines")
+
+print("✓ Inserted sample test entry")
+```
+
+### 10. Validation Queries
+
+```python
+# Verify all tables created
+tables_to_check = [
+    "cfo_banking_demo.bronze_core_banking.chart_of_accounts",
+    "cfo_banking_demo.silver_finance.gl_entries",
+    "cfo_banking_demo.silver_finance.gl_entry_lines",
+    "cfo_banking_demo.silver_finance.loan_subledger",
+    "cfo_banking_demo.silver_finance.deposit_subledger",
+    "cfo_banking_demo.silver_treasury.intraday_cash_position"
+]
+
+for table in tables_to_check:
+    try:
+        count = spark.table(table).count()
+        print(f"✓ {table}: {count} rows")
+    except Exception as e:
+        print(f"❌ {table}: ERROR - {e}")
+
+# Test trial balance view
+trial_balance = spark.sql("SELECT * FROM cfo_banking_demo.silver_finance.vw_trial_balance")
+print(f"\n✓ Trial balance view: {trial_balance.count()} accounts")
+
+# Verify test entry is balanced
+test_entry_check = spark.sql("""
+    SELECT 
+        entry_id,
+        total_debits,
+        total_credits,
+        is_balanced,
+        (total_debits - total_credits) as difference
+    FROM cfo_banking_demo.silver_finance.gl_entries
+    WHERE entry_id = 'TEST-001'
+""")
+
+test_entry_check.show()
+print("✅ All validations passed")
+```
+
+### 11. Save Output
+
+Save complete script to: `outputs/06_setup_gl_subledger_schemas.py`
+
+## Success Criteria
+- [ ] Using warehouse 4b9b953939869799
+- [ ] Chart of Accounts table created with 47 accounts
+- [ ] GL entries table created (empty, ready for data)
+- [ ] GL entry lines table created (empty, ready for data)
+- [ ] Loan subledger table created (empty, ready for data)
+- [ ] Deposit subledger table created (empty, ready for data)
+- [ ] Intraday cash position table created (empty, ready for data)
+- [ ] 3 views created (trial balance, loan activity, cash position)
+- [ ] Sample test entry inserted successfully
+- [ ] Test entry is balanced (debits = credits)
+- [ ] All validation queries pass
+
+## Expected Output
+
+```
+✓ Using SQL Warehouse: 4b9b953939869799
+
+Chart of Accounts Created:
+==========================
+Total Accounts: 47
+
+By Account Type:
+- Assets: 18 accounts
+- Liabilities: 10 accounts
+- Equity: 4 accounts
+- Revenue: 7 accounts
+- Expenses: 8 accounts
+
+Control Accounts (tie to subledgers):
+- 1200-000: Loans - Commercial RE → Loan Subledger
+- 1210-000: Loans - C&I → Loan Subledger
+- 1220-000: Loans - Residential → Loan Subledger
+- 2010-000: DDA Deposits → Deposit Subledger
+
+Sample GL Entry Structure:
+Entry: TEST-001
+Total Debits: $1,000.00
+Total Credits: $1,000.00
+Balanced: TRUE ✓
+```
+
+## Critical Constraints
+- ⛔ NO sudo or root
+- ✅ USE warehouse 4b9b953939869799
+- ✅ USE Spark DataFrames
+- ✅ Create EMPTY tables (data comes in WS2)
+- ✅ Make schemas match banking standards
+
+## Estimated Duration
+⏱️ 15-30 minutes (schema creation only, no data)
+
+## When Complete
+Report:
+1. Warehouse ID used
+2. Number of accounts in Chart of Accounts
+3. All 6 tables created
+4. Views created successfully
+5. Test entry validation results
+6. Ready for WS2 (real-time pipelines)
+
+Begin execution now.

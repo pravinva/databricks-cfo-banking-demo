@@ -1,0 +1,46 @@
+Initializing CFO Agent Tools...
+✓ Tools initialized
+
+============================================================
+TESTING AGENT TOOLS
+============================================================
+
+1. Testing Unity Catalog Query...
+   Result: ✓ Success
+   Rows: 1
+   COA Count: 49
+
+2. Testing Treasury Yields...
+   Result: ✓ Success
+   Date: 2026-01-22
+   10Y Yield: 4.26%
+   30Y Yield: 4.84%
+
+3. Testing Deposit Beta Model...
+   Result: ✓ Success
+   Product: MMDA
+   Balance: $4943M
+   Predicted runoff: $16.1M (0.32%)
+   Beta: 0.6495
+
+4. Testing LCR Calculator...
+   Result: ✓ Success
+   LCR Ratio: 1231.38%
+   HQLA: $13.04B
+   Status: Pass
+   Buffer: 1131.38%
+
+5. Testing Portfolio Summary...
+   Result: ✓ Success
+   Securities: $12.82B
+   Loans: $18.22B
+   Deposits: $26.58B
+   Total Assets: $31.05B
+
+============================================================
+TOOLS TEST COMPLETE
+============================================================
+
+✓ Audit trail saved to: outputs/test_audit_trail.json
+  Total tool executions: 11
+  Success rate: 11/11 (100%)

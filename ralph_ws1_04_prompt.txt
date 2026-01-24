@@ -1,0 +1,571 @@
+# Task: Execute WS1-04 Deposit Portfolio Generator
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ WS1-01 Complete - Unity Catalog structure exists
+✅ WS1-02 Complete - Securities portfolio generated
+✅ WS1-03 Complete - Loan portfolio generated
+✅ WS1-06 Complete - GL schemas created
+
+## Dependencies Verified
+- ✅ Catalog `cfo_banking_demo` exists
+- ✅ Schema `cfo_banking_demo.bronze_core_banking` exists
+- ✅ Schema `cfo_banking_demo.silver_treasury` exists
+
+## SQL Warehouse Configuration
+**CRITICAL:** All SQL operations must use warehouse ID: `4b9b953939869799`
+
+Configure Spark session at the start:
+
+```python
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS1-04 Deposit Portfolio") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .config("spark.sql.shuffle.partitions", "200") \
+    .getOrCreate()
+
+# Verify warehouse connection
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+assert warehouse_id == "4b9b953939869799", "Wrong warehouse configured!"
+```
+
+## Task Objective
+Generate realistic deposit account data for a US regional bank with $20-25 billion in total deposits across demand, savings, money market, and time deposit products (~402,000 accounts + 36 months behavior history).
+
+## Instructions
+
+### 1. Read the Requirements
+Read and understand the complete specification from:
+`prompts/WS1-04_deposit_portfolio_generator.md`
+
+### 2. Generate Deposit Portfolio
+
+**Portfolio Composition (~$22B, 402,000 accounts):**
+
+**Non-Maturity Deposits - 75% = $16.5B**
+
+- **DDA (Demand Deposit Accounts)** - 35% = $7.7B - 180,000 accounts
+  - Retail checking: 150,000 accounts, avg $12K
+  - Small business: 25,000 accounts, avg $150K
+  - Commercial: 5,000 accounts, avg $750K
+  - Beta: 0.05-0.15 (low rate sensitivity)
+
+- **NOW Accounts** - 5% = $1.1B - 22,000 accounts
+  - Avg balance: $50K
+  - Beta: 0.10-0.25
+
+- **Savings Accounts** - 15% = $3.3B - 110,000 accounts
+  - Retail: 100,000 accounts, avg $28K
+  - Specialty: 10,000 accounts, avg $80K
+  - Beta: 0.30-0.50
+
+- **MMDA** - 20% = $4.4B - 35,000 accounts
+  - Retail: 25,000 accounts, avg $100K
+  - Commercial: 10,000 accounts, avg $190K
+  - Beta: 0.50-0.80
+
+**Time Deposits (CDs) - 25% = $5.5B - 55,000 accounts**
+
+- **Retail CDs** - 18% = $4.0B - 50,000 accounts
+  - 3-month: 5,000, 6-month: 10,000, 12-month: 20,000, 24-month: 10,000, 60-month: 5,000
+  - Beta: 0.90-1.00
+
+- **Brokered CDs** - 7% = $1.5B - 5,000 accounts
+  - Large balances, avg $300K
+  - Beta: 1.00
+
+**Key Requirements:**
+- Current date: January 24, 2026
+- Generate 36 months of behavior history for deposit beta model (WS3)
+- Realistic rate environment (low 2020-2021, high 2024-2025)
+- Account status: 85% active, 13% dormant, 2% closed
+- Digital adoption: 75% online banking, 60% mobile
+- Geographic distribution across US states
+
+### 3. Implementation Pattern
+
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+from pyspark.sql.window import Window
+import random
+from datetime import datetime, timedelta
+import numpy as np
+
+# CRITICAL: Configure Spark with warehouse ID
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS1-04 Deposit Portfolio") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .config("spark.sql.shuffle.partitions", "200") \
+    .getOrCreate()
+
+# Verify warehouse
+warehouse_id = spark.conf.get("spark.databricks.sql.warehouse.id")
+print(f"✓ Using SQL Warehouse: {warehouse_id}")
+
+CURRENT_DATE = datetime(2026, 1, 24).date()
+
+# Helper functions
+def generate_account_id(product_type, index):
+    """Generate unique account ID"""
+    prefix_map = {
+        'DDA': 'CHK',
+        'NOW': 'NOW',
+        'Savings': 'SAV',
+        'MMDA': 'MMD',
+        'CD': 'CD'
+    }
+    return f"ACCT-{prefix_map[product_type]}-{index:08d}"
+
+def get_deposit_rate(product_type, open_year, term_months=None):
+    """Get realistic rate based on product and year"""
+    rate_map = {
+        2020: {'DDA': (0.0, 0.05), 'NOW': (0.1, 0.5), 'Savings': (0.3, 1.0), 'MMDA': (0.5, 1.5), 'CD': (0.5, 2.0)},
+        2021: {'DDA': (0.0, 0.05), 'NOW': (0.1, 0.5), 'Savings': (0.3, 1.0), 'MMDA': (0.5, 1.5), 'CD': (0.5, 2.0)},
+        2022: {'DDA': (0.0, 0.1), 'NOW': (0.3, 1.0), 'Savings': (0.8, 1.8), 'MMDA': (1.5, 2.5), 'CD': (2.0, 3.5)},
+        2023: {'DDA': (0.0, 0.1), 'NOW': (0.5, 1.2), 'Savings': (1.2, 2.2), 'MMDA': (2.0, 3.5), 'CD': (3.5, 5.0)},
+        2024: {'DDA': (0.0, 0.1), 'NOW': (0.5, 1.5), 'Savings': (1.5, 2.5), 'MMDA': (2.8, 4.0), 'CD': (4.0, 5.5)},
+        2025: {'DDA': (0.0, 0.1), 'NOW': (0.5, 1.5), 'Savings': (1.0, 2.5), 'MMDA': (2.5, 4.0), 'CD': (3.5, 5.0)},
+        2026: {'DDA': (0.0, 0.1), 'NOW': (0.5, 1.5), 'Savings': (1.0, 2.5), 'MMDA': (2.5, 4.0), 'CD': (3.5, 5.0)},
+    }
+    
+    min_rate, max_rate = rate_map.get(open_year, {}).get(product_type, (0.5, 2.0))
+    
+    # CDs: rates vary by term
+    if product_type == 'CD' and term_months:
+        if term_months <= 6:
+            max_rate = max_rate - 0.5
+        elif term_months >= 24:
+            max_rate = max_rate - 0.2
+    
+    return round(random.uniform(min_rate, max_rate), 4)
+
+def assign_beta(product_type):
+    """Assign deposit beta based on product type"""
+    beta_map = {
+        'DDA': (0.05, 0.15),
+        'NOW': (0.10, 0.25),
+        'Savings': (0.30, 0.50),
+        'MMDA': (0.50, 0.80),
+        'CD': (0.90, 1.00)
+    }
+    min_beta, max_beta = beta_map.get(product_type, (0.30, 0.50))
+    return round(random.uniform(min_beta, max_beta), 4)
+
+# Generate DDA accounts (180,000)
+def generate_dda_accounts(start_index=0):
+    accounts = []
+    
+    # Retail checking (150,000)
+    for i in range(150000):
+        open_year = random.choices([2019, 2020, 2021, 2022, 2023, 2024, 2025], 
+                                   weights=[10, 15, 20, 20, 20, 10, 5])[0]
+        open_date = datetime(open_year, random.randint(1, 12), random.randint(1, 28)).date()
+        
+        # Balance - log normal distribution
+        balance = int(np.random.lognormal(9.0, 1.2))  # Mean ~$12K
+        balance = max(100, min(500000, balance))
+        
+        status = random.choices(['Active', 'Dormant', 'Closed'], weights=[85, 13, 2])[0]
+        
+        accounts.append({
+            'account_id': generate_account_id('DDA', start_index + i),
+            'account_number': f'CHK-{start_index + i:010d}',
+            'customer_id': f'CUST-{random.randint(10000, 999999)}',
+            'customer_name': f'Customer {start_index + i}',
+            'customer_type': 'Retail',
+            'customer_segment': random.choices(['Mass_Market', 'Mass_Affluent', 'Private_Banking'], 
+                                              weights=[70, 25, 5])[0],
+            'product_type': 'DDA',
+            'product_name': random.choice(['Checking', 'Premium_Checking', 'Student_Checking']),
+            'account_open_date': open_date,
+            'maturity_date': None,
+            'current_balance': float(balance),
+            'average_balance_30d': float(balance * random.uniform(0.8, 1.2)),
+            'average_balance_90d': float(balance * random.uniform(0.7, 1.3)),
+            'minimum_balance': float(balance * 0.1),
+            'maximum_balance': float(balance * 2.0),
+            'stated_rate': get_deposit_rate('DDA', open_year),
+            'beta': assign_beta('DDA'),
+            'decay_rate': round(random.uniform(0.02, 0.08), 4),
+            'interest_accrued': 0.0,
+            'ytd_interest_paid': 0.0,
+            'transaction_count_30d': random.randint(5, 50),
+            'last_transaction_date': CURRENT_DATE - timedelta(days=random.randint(1, 30)),
+            'account_status': status,
+            'fdic_insured': True,
+            'relationship_balance': float(balance * random.uniform(1.0, 3.0)),
+            'has_online_banking': random.random() < 0.75,
+            'has_mobile_banking': random.random() < 0.60,
+            'autopay_enrolled': random.random() < 0.40,
+            'overdraft_protection': random.random() < 0.30,
+            'monthly_fee': random.choice([0.0, 5.0, 10.0, 15.0]),
+            'fee_waivers': random.choice(['None', 'Minimum_Balance', 'Direct_Deposit']),
+            'geography': random.choices(['CA', 'TX', 'FL', 'NY', 'PA', 'IL', 'OH', 'GA', 'NC', 'MI'],
+                                       weights=[15, 12, 10, 8, 5, 5, 5, 5, 5, 30])[0],
+            'branch_id': f'BR-{random.randint(1, 50):03d}',
+            'officer_id': None,
+            'effective_date': CURRENT_DATE,
+            'is_current': True
+        })
+    
+    # Small business checking (25,000)
+    for i in range(25000):
+        open_year = random.choices([2019, 2020, 2021, 2022, 2023, 2024, 2025], 
+                                   weights=[10, 15, 20, 20, 20, 10, 5])[0]
+        open_date = datetime(open_year, random.randint(1, 12), random.randint(1, 28)).date()
+        
+        balance = int(np.random.lognormal(11.9, 0.8))  # Mean ~$150K
+        balance = max(5000, min(5000000, balance))
+        
+        status = random.choices(['Active', 'Dormant', 'Closed'], weights=[90, 8, 2])[0]
+        
+        accounts.append({
+            'account_id': generate_account_id('DDA', start_index + 150000 + i),
+            'account_number': f'CHK-{start_index + 150000 + i:010d}',
+            'customer_id': f'BSNS-{random.randint(10000, 99999)}',
+            'customer_name': f'Business {i} LLC',
+            'customer_type': 'Small_Business',
+            'customer_segment': 'Commercial',
+            'product_type': 'DDA',
+            'product_name': 'Business_Checking',
+            'account_open_date': open_date,
+            'maturity_date': None,
+            'current_balance': float(balance),
+            'average_balance_30d': float(balance * random.uniform(0.8, 1.2)),
+            'average_balance_90d': float(balance * random.uniform(0.7, 1.3)),
+            'minimum_balance': float(balance * 0.3),
+            'maximum_balance': float(balance * 2.5),
+            'stated_rate': get_deposit_rate('DDA', open_year),
+            'beta': assign_beta('DDA'),
+            'decay_rate': round(random.uniform(0.05, 0.15), 4),
+            'interest_accrued': 0.0,
+            'ytd_interest_paid': 0.0,
+            'transaction_count_30d': random.randint(20, 200),
+            'last_transaction_date': CURRENT_DATE - timedelta(days=random.randint(1, 10)),
+            'account_status': status,
+            'fdic_insured': True,
+            'relationship_balance': float(balance * random.uniform(1.5, 4.0)),
+            'has_online_banking': random.random() < 0.90,
+            'has_mobile_banking': random.random() < 0.70,
+            'autopay_enrolled': random.random() < 0.60,
+            'overdraft_protection': True,
+            'monthly_fee': random.choice([15.0, 25.0, 50.0]),
+            'fee_waivers': random.choice(['Minimum_Balance', 'Transaction_Volume']),
+            'geography': random.choices(['CA', 'TX', 'FL', 'NY', 'PA', 'IL', 'OH', 'GA', 'NC', 'MI'],
+                                       weights=[15, 12, 10, 8, 5, 5, 5, 5, 5, 30])[0],
+            'branch_id': f'BR-{random.randint(1, 50):03d}',
+            'officer_id': f'RO-{random.randint(1, 30):03d}',
+            'effective_date': CURRENT_DATE,
+            'is_current': True
+        })
+    
+    # Continue pattern for Commercial DDA (5,000), NOW, Savings, MMDA, CDs...
+    # For brevity showing structure - complete implementation would include all product types
+    
+    return accounts
+
+# Generate all deposit types
+print("Generating DDA accounts...")
+all_accounts = generate_dda_accounts(0)
+print(f"  Generated {len(all_accounts)} DDA accounts")
+
+# Continue with other product types...
+# all_accounts.extend(generate_now_accounts(180000))
+# all_accounts.extend(generate_savings_accounts(202000))
+# etc.
+
+print(f"Total accounts generated: {len(all_accounts)}")
+
+# Convert to Spark DataFrame
+accounts_df = spark.createDataFrame(all_accounts)
+
+# Repartition for performance
+accounts_df = accounts_df.repartition(20, "product_type")
+
+# Write to bronze layer (partitioned by product_type)
+accounts_df.write \
+    .mode("overwrite") \
+    .partitionBy("product_type") \
+    .saveAsTable("cfo_banking_demo.bronze_core_banking.deposit_accounts")
+
+print(f"✓ Written {accounts_df.count()} accounts to bronze layer")
+```
+
+### 4. Create Silver Layer Transformation
+
+```python
+# Read bronze
+bronze_deposits = spark.table("cfo_banking_demo.bronze_core_banking.deposit_accounts")
+
+# Add calculated fields
+silver_deposits = bronze_deposits.withColumn(
+    'balance_tier',
+    when(col('current_balance') < 50000, 'Small')
+    .when(col('current_balance') < 500000, 'Medium')
+    .when(col('current_balance') < 5000000, 'Large')
+    .otherwise('Very_Large')
+).withColumn(
+    'customer_lifetime_months',
+    months_between(col('effective_date'), col('account_open_date'))
+).withColumn(
+    'account_velocity',
+    col('transaction_count_30d') / greatest(col('customer_lifetime_months'), lit(1))
+)
+
+# Write to silver
+silver_deposits.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.silver_treasury.deposit_portfolio")
+
+print("✓ Created silver layer")
+```
+
+### 5. Generate Deposit Behavior History (36 months)
+
+**CRITICAL:** This creates ~14.5M rows (402K accounts × 36 months)
+
+```python
+print("Generating 36 months of deposit behavior history...")
+
+# This is the largest data generation task - process in batches
+from dateutil.relativedelta import relativedelta
+
+behavior_records = []
+batch_size = 10000  # Process 10K accounts at a time
+
+# Get base accounts
+base_accounts = spark.table("cfo_banking_demo.bronze_core_banking.deposit_accounts") \
+    .select('account_id', 'product_type', 'current_balance', 'stated_rate', 'beta', 'account_open_date') \
+    .collect()
+
+print(f"Processing {len(base_accounts)} accounts...")
+
+# Generate monthly history for each account
+for month_offset in range(36):
+    period_date = CURRENT_DATE - relativedelta(months=month_offset)
+    period_year = period_date.year
+    
+    # Get Fed Funds rate for that period (simplified)
+    fed_funds_map = {
+        2023: 5.33,
+        2024: 5.33,
+        2025: 4.75,
+        2026: 4.50
+    }
+    fed_funds_rate = fed_funds_map.get(period_year, 4.50)
+    
+    if month_offset % 6 == 0:
+        print(f"  Processing month {month_offset}/36 ({period_date.strftime('%Y-%m')})")
+    
+    for account in base_accounts:
+        # Only include months after account was opened
+        if period_date < account['account_open_date']:
+            continue
+        
+        # Calculate beginning and ending balance with some volatility
+        base_balance = account['current_balance']
+        volatility = random.uniform(-0.15, 0.15)  # ±15% monthly change
+        
+        beginning_balance = base_balance * (1 + volatility)
+        ending_balance = beginning_balance * (1 + random.uniform(-0.05, 0.05))
+        
+        # Rate change (if any) based on Fed Funds movement
+        rate_change = random.uniform(-0.25, 0.25) if random.random() < 0.2 else 0.0
+        
+        behavior_records.append({
+            'account_id': account['account_id'],
+            'period_date': period_date,
+            'beginning_balance': float(beginning_balance),
+            'ending_balance': float(ending_balance),
+            'interest_credited': float(ending_balance * account['stated_rate'] / 100 / 12),
+            'rate_change': rate_change,
+            'fed_funds_rate': fed_funds_rate,
+            'balance_change_pct': round((ending_balance - beginning_balance) / beginning_balance * 100, 4) if beginning_balance > 0 else 0.0
+        })
+
+print(f"Generated {len(behavior_records)} behavior records")
+
+# Convert to Spark DataFrame and write in batches
+behavior_schema = StructType([
+    StructField("account_id", StringType(), False),
+    StructField("period_date", DateType(), False),
+    StructField("beginning_balance", DoubleType(), False),
+    StructField("ending_balance", DoubleType(), False),
+    StructField("interest_credited", DoubleType(), False),
+    StructField("rate_change", DoubleType(), False),
+    StructField("fed_funds_rate", DoubleType(), False),
+    StructField("balance_change_pct", DoubleType(), False),
+])
+
+# Write in chunks to avoid memory issues
+chunk_size = 500000
+for i in range(0, len(behavior_records), chunk_size):
+    chunk = behavior_records[i:i+chunk_size]
+    chunk_df = spark.createDataFrame(chunk, schema=behavior_schema)
+    
+    if i == 0:
+        chunk_df.write.mode("overwrite").partitionBy("period_date") \
+            .saveAsTable("cfo_banking_demo.bronze_core_banking.deposit_behavior_history")
+    else:
+        chunk_df.write.mode("append").partitionBy("period_date") \
+            .saveAsTable("cfo_banking_demo.bronze_core_banking.deposit_behavior_history")
+    
+    print(f"  Written chunk {i//chunk_size + 1}/{(len(behavior_records)//chunk_size) + 1}")
+
+print("✓ Created deposit behavior history")
+```
+
+### 6. Generate Summary Statistics
+
+```python
+# By product type
+summary = silver_deposits.groupBy('product_type').agg(
+    count('*').alias('account_count'),
+    sum('current_balance').alias('total_balance'),
+    avg('stated_rate').alias('avg_rate'),
+    avg('beta').alias('avg_beta')
+)
+
+print("\n=== Deposit Portfolio Summary ===")
+summary.show(truncate=False)
+
+# By customer segment
+segment_summary = silver_deposits.groupBy('customer_segment').agg(
+    count('*').alias('account_count'),
+    sum('current_balance').alias('total_balance')
+)
+
+print("\n=== By Customer Segment ===")
+segment_summary.show()
+
+# Account status
+status_dist = silver_deposits.groupBy('account_status').agg(
+    count('*').alias('count'),
+    (count('*') * 100.0 / silver_deposits.count()).alias('percentage')
+)
+
+print("\n=== Account Status Distribution ===")
+status_dist.show()
+```
+
+### 7. Data Quality Validations
+
+```python
+# Total count
+total_count = accounts_df.count()
+print(f"Total accounts: {total_count}")
+assert 395000 <= total_count <= 410000, f"Expected ~402K accounts, got {total_count}"
+
+# Total balance
+total_balance = accounts_df.select(sum('current_balance')).collect()[0][0]
+print(f"Total balance: ${total_balance:,.0f}")
+assert 21e9 <= total_balance <= 23e9, f"Expected ~$22B, got ${total_balance:,.0f}"
+
+# Unique account IDs
+unique_ids = accounts_df.select('account_id').distinct().count()
+assert unique_ids == total_count, f"Account IDs not unique: {unique_ids}/{total_count}"
+
+# Beta values valid
+invalid_beta = accounts_df.filter((col('beta') < 0) | (col('beta') > 1)).count()
+assert invalid_beta == 0, f"Found {invalid_beta} accounts with invalid beta"
+
+# Behavior history count
+behavior_count = spark.table("cfo_banking_demo.bronze_core_banking.deposit_behavior_history").count()
+print(f"Behavior history records: {behavior_count:,}")
+
+print("✅ All data quality checks passed")
+```
+
+### 8. Save Output
+
+Save complete script to: `outputs/04_generate_deposit_portfolio.py`
+
+## Performance Optimization
+
+**IMPORTANT:** This generates 402K accounts + 14.5M behavior records
+
+```python
+# Already configured with warehouse
+spark.conf.set("spark.sql.shuffle.partitions", "200")
+
+# Use batch processing for behavior history
+# Monitor memory usage
+spark.sparkContext.setLogLevel("WARN")
+```
+
+## Success Criteria
+- [ ] Using warehouse 4b9b953939869799
+- [ ] ~402,000 accounts generated (±5,000)
+- [ ] Total deposits ~$22B (±$1B)
+- [ ] Product mix matches specs (±2%)
+- [ ] All account_ids unique
+- [ ] Beta values between 0 and 1
+- [ ] 85% accounts Active status
+- [ ] Bronze table partitioned by product_type
+- [ ] Silver table created
+- [ ] Behavior history table created (~14.5M rows)
+- [ ] Summary statistics correct
+
+## Expected Output
+
+```
+✓ Using SQL Warehouse: 4b9b953939869799
+
+Generating DDA accounts...
+  Generated 180,000 DDA accounts
+Generating NOW accounts...
+  Generated 22,000 NOW accounts
+...
+Total accounts generated: 402,156
+
+Deposit Portfolio Summary (as of 2026-01-24):
+=============================================
+Total Accounts: 402,156
+Total Deposits: $22,034,567,000
+Weighted Avg Rate: 2.14%
+Weighted Avg Beta: 0.42
+
+By Product Type:
+- DDA: $7.71B (35.0%), 180,234 accounts
+- NOW: $1.10B (5.0%), 22,015 accounts
+- Savings: $3.31B (15.0%), 110,421 accounts
+- MMDA: $4.41B (20.0%), 34,987 accounts
+- Retail CDs: $3.97B (18.0%), 49,876 accounts
+- Brokered CDs: $1.54B (7.0%), 4,623 accounts
+
+Behavior history: 14,477,616 rows (36 months)
+```
+
+## Critical Constraints
+- ⛔ NO sudo or root
+- ✅ USE warehouse 4b9b953939869799
+- ✅ USE batch processing for large datasets
+- ✅ PARTITION tables for performance
+- ✅ Monitor memory usage
+
+## Estimated Duration
+⏱️ 2-3 hours (largest dataset - 402K accounts + 14.5M history records)
+
+## When Complete
+Report:
+1. Warehouse ID used
+2. Account count and total deposits
+3. Product mix breakdown
+4. Behavior history record count
+5. Table locations
+6. Performance metrics
+7. Ready for WS1-05
+
+Begin execution now.

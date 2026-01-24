@@ -1,0 +1,87 @@
+[2026-01-24 22:52:59] INFO: ================================================================================
+[2026-01-24 22:52:59] INFO: WS2-01: Alpha Vantage Market Data Integration
+[2026-01-24 22:52:59] INFO: ================================================================================
+[2026-01-24 22:52:59] INFO: ✓ Connected to Databricks
+[2026-01-24 22:52:59] INFO: ✓ Using SQL Warehouse: 4b9b953939869799
+[2026-01-24 22:52:59] INFO: 
+Retrieving Alpha Vantage API key from Databricks secrets...
+[2026-01-24 22:53:01] INFO: ✓ API key retrieved successfully
+[2026-01-24 22:53:01] INFO: 
+--------------------------------------------------------------------------------
+[2026-01-24 22:53:01] INFO: Fetching Treasury yields from Alpha Vantage...
+[2026-01-24 22:53:03] INFO:   ✓ Fetched 3month: 27 records
+[2026-01-24 22:53:16] INFO:   ✓ Fetched 2year: 27 records
+[2026-01-24 22:53:30] INFO:   ✓ Fetched 5year: 27 records
+[2026-01-24 22:53:43] INFO:   ✓ Fetched 10year: 27 records
+[2026-01-24 22:53:57] INFO:   ✓ Fetched 30year: 27 records
+[2026-01-24 22:54:09] INFO: 
+[2026-01-24 22:54:09] INFO: Fetching FX rates from Alpha Vantage...
+[2026-01-24 22:54:10] INFO:   ✓ Fetched EUR/USD: 1.18230000
+[2026-01-24 22:55:04] INFO:   ✓ Fetched GBP/USD: 1.36460000
+[2026-01-24 22:55:17] INFO:   ✓ Fetched JPY/USD: 0.00640000
+[2026-01-24 22:55:30] INFO:   ✓ Fetched AUD/USD: 0.68980000
+[2026-01-24 22:55:43] INFO:   ✓ Fetched CAD/USD: 0.72990000
+[2026-01-24 22:55:55] INFO: 
+--------------------------------------------------------------------------------
+[2026-01-24 22:55:55] INFO: Creating bronze market data schema...
+[2026-01-24 22:55:56] INFO:   ✓ Created treasury_yields_raw table
+[2026-01-24 22:55:57] INFO:   ✓ Created fx_rates_raw table
+[2026-01-24 22:55:57] INFO: Inserting 135 treasury yield records...
+[2026-01-24 22:56:00] INFO:   ✓ Inserted 135 treasury yield records
+[2026-01-24 22:56:00] INFO: Inserting 5 FX rate records...
+[2026-01-24 22:56:02] INFO:   ✓ Inserted 5 FX rate records
+[2026-01-24 22:56:02] INFO: 
+--------------------------------------------------------------------------------
+[2026-01-24 22:56:02] INFO: Creating silver layer tables...
+[2026-01-24 22:56:04] INFO:   ✓ Created yield_curves table (pivoted)
+[2026-01-24 22:56:07] INFO:   ✓ Created fx_rates table (formatted)
+[2026-01-24 22:56:07] INFO: 
+--------------------------------------------------------------------------------
+[2026-01-24 22:56:07] INFO: Creating gold analytics schema...
+[2026-01-24 22:56:10] INFO:   ✓ Created market_data_latest table
+[2026-01-24 22:56:10] INFO: 
+================================================================================
+[2026-01-24 22:56:10] INFO: LATEST MARKET DATA
+[2026-01-24 22:56:10] INFO: ================================================================================
+[2026-01-24 22:56:11] INFO: 
+Treasury Yields (as of 2026-01-22):
+[2026-01-24 22:56:11] INFO: --------------------------------------------------------------------------------
+[2026-01-24 22:56:11] INFO:   3-Month:  3.71%
+[2026-01-24 22:56:11] INFO:   2-Year:   3.61%
+[2026-01-24 22:56:11] INFO:   5-Year:   3.85%
+[2026-01-24 22:56:11] INFO:   10-Year:  4.26%
+[2026-01-24 22:56:11] INFO:   30-Year:  4.84%
+[2026-01-24 22:56:12] INFO: 
+FX Rates (as of 2026-01-24):
+[2026-01-24 22:56:12] INFO: --------------------------------------------------------------------------------
+[2026-01-24 22:56:12] INFO:   AUD/USD: 0.6898 (spread: 0.0000) - 2026-01-24 11:55:30
+[2026-01-24 22:56:12] INFO:   AUD/USD: 0.6898 (spread: 0.0000) - 2026-01-24 11:49:31
+[2026-01-24 22:56:12] INFO:   CAD/USD: 0.7299 (spread: 0.0000) - 2026-01-24 11:55:43
+[2026-01-24 22:56:12] INFO:   CAD/USD: 0.7299 (spread: 0.0000) - 2026-01-24 11:49:44
+[2026-01-24 22:56:12] INFO:   EUR/USD: 1.1823 (spread: 0.0000) - 2026-01-24 11:54:10
+[2026-01-24 22:56:12] INFO:   EUR/USD: 1.1823 (spread: 0.0000) - 2026-01-24 11:48:52
+[2026-01-24 22:56:12] INFO:   GBP/USD: 1.3646 (spread: 0.0001) - 2026-01-24 11:55:04
+[2026-01-24 22:56:12] INFO:   GBP/USD: 1.3646 (spread: 0.0001) - 2026-01-24 11:49:05
+[2026-01-24 22:56:12] INFO:   JPY/USD: 0.0064 (spread: 0.0000) - 2026-01-24 11:55:17
+[2026-01-24 22:56:12] INFO:   JPY/USD: 0.0064 (spread: 0.0000) - 2026-01-24 11:49:18
+[2026-01-24 22:56:12] INFO: 
+================================================================================
+[2026-01-24 22:56:12] INFO: DATA QUALITY VALIDATION
+[2026-01-24 22:56:12] INFO: ================================================================================
+[2026-01-24 22:56:15] INFO: Treasury yield records: 150 (27 unique dates)
+[2026-01-24 22:56:15] INFO:   ✓ Sufficient treasury data (20+ days)
+[2026-01-24 22:56:15] INFO: FX rate records: 10
+[2026-01-24 22:56:15] INFO:   ✓ All 5 FX pairs fetched
+[2026-01-24 22:56:15] INFO: 
+================================================================================
+[2026-01-24 22:56:15] INFO: ✅ WS2-01 Complete: Market Data Integration Successful
+[2026-01-24 22:56:15] INFO: ================================================================================
+[2026-01-24 22:56:15] INFO: 
+Tables created:
+[2026-01-24 22:56:15] INFO:   - cfo_banking_demo.bronze_market_data.treasury_yields_raw
+[2026-01-24 22:56:15] INFO:   - cfo_banking_demo.bronze_market_data.fx_rates_raw
+[2026-01-24 22:56:15] INFO:   - cfo_banking_demo.silver_treasury.yield_curves
+[2026-01-24 22:56:15] INFO:   - cfo_banking_demo.silver_treasury.fx_rates
+[2026-01-24 22:56:15] INFO:   - cfo_banking_demo.gold_analytics.market_data_latest
+[2026-01-24 22:56:15] INFO: 
+Ready for WS2-02: Loan Origination Pipeline

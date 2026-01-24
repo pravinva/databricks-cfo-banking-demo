@@ -1,0 +1,43 @@
+================================================================================
+Creating Bank CFO Command Center Queries
+================================================================================
+
+✓ Using warehouse: 03560442e95cb440
+
+Creating: CFO - KPI Scorecard
+  ✗ Error: requirement failed: 03560442e95cb440 has an invalid length of 16
+
+Creating: CFO - Yield Curve
+  ✗ Error: requirement failed: 03560442e95cb440 has an invalid length of 16
+
+Creating: CFO - Portfolio Breakdown
+  ✗ Error: requirement failed: 03560442e95cb440 has an invalid length of 16
+
+Creating: CFO - Deposit Beta
+  ✗ Error: requirement failed: 03560442e95cb440 has an invalid length of 16
+
+Creating: CFO - Capital Adequacy
+  ✗ Error: requirement failed: 03560442e95cb440 has an invalid length of 16
+
+Creating: CFO - Liquidity Waterfall
+  ✗ Error: requirement failed: 03560442e95cb440 has an invalid length of 16
+
+Creating: CFO - Recent Loan Activity
+  ✗ Error: requirement failed: 03560442e95cb440 has an invalid length of 16
+
+Creating: CFO - NIM Components
+  ✗ Error: requirement failed: 03560442e95cb440 has an invalid length of 16
+
+================================================================================
+✅ Created 0/8 queries successfully!
+================================================================================
+
+📊 Next steps:
+1. Open Databricks SQL → Queries
+2. Find the queries starting with 'CFO -'
+3. Create a new Lakeview dashboard
+4. Add visualizations from these queries
+5. Apply the design system colors:
+   - Navy: #1B3139
+   - Cyan: #00A8E1
+   - Lava: #FF3621

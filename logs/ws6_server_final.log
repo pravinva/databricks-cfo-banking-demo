@@ -1,0 +1,31 @@
+INFO:     Started server process [27847]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59111 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59207 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59207 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59251 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59316 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59326 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59405 - "GET /assistant HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59408 - "GET /_next/static/css/9502cd379bd7b350.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59405 - "GET /_next/static/media/e4af272ccee01ff0-s.p.woff2 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59408 - "GET /_next/static/chunks/fd9d1056-b34e90ae3fbd908b.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59405 - "GET /_next/static/chunks/58-6155df93fd7f4212.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59414 - "GET /_next/static/chunks/webpack-8ac588f4441f5c8b.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59416 - "GET /_next/static/chunks/main-app-2106b906f46836d4.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59415 - "GET /_next/static/chunks/69-4061d4bdbc0be403.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59417 - "GET /_next/static/chunks/657-486df99b9d41c258.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59408 - "GET /_next/static/chunks/app/page-d72e72137597c5ff.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59408 - "GET /api/data/yield-curve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59417 - "GET /api/data/lcr HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59415 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59416 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59414 - "GET /assistant.txt?_rsc=acgkz HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59414 - "GET /_next/static/chunks/app/assistant/page-fc6f31c1193e0574.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59569 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [27847]

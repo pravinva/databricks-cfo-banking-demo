@@ -1,0 +1,8 @@
+================================================================================
+Creating Bank CFO Command Center Dashboard
+================================================================================
+
+✓ Using warehouse: 03560442e95cb440
+
+Creating dashboard...
+✗ Error: Legacy dashboard creation is no longer supported by Databricks.

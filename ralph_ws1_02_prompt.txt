@@ -1,0 +1,333 @@
+# Task: Execute WS1-02 Securities Portfolio Generator
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+
+## Previous Task Status
+✅ WS1-01 Complete - Unity Catalog structure exists
+
+## Dependencies Verified
+- ✅ Catalog `cfo_banking_demo` exists
+- ✅ Schema `cfo_banking_demo.bronze_core_banking` exists
+- ✅ Schema `cfo_banking_demo.silver_treasury` exists
+
+## Task Objective
+Generate realistic securities portfolio data for a US regional bank's Treasury department, including government bonds, corporate bonds, municipal bonds, and mortgage-backed securities (~$2.8B portfolio).
+
+## Instructions
+
+### 1. Read the Requirements
+Read and understand the complete specification from:
+`prompts/WS1-02_securities_portfolio_generator.md`
+
+### 2. Generate Securities Portfolio
+
+**Portfolio Composition:**
+Generate approximately 1,000 securities:
+- 500 US Treasury securities (40% of portfolio)
+  - Bills (< 1 year): 50 securities
+  - Notes (1-10 years): 300 securities
+  - Bonds (> 10 years): 150 securities
+- 200 Corporate bonds (25% of portfolio)
+  - Investment grade (BBB- or higher): 180
+  - Below investment grade: 20
+- 150 Municipal bonds (15% of portfolio)
+- 100 Agency securities (Fannie Mae, Freddie Mac, FHLB) (12%)
+- 50 MBS (Mortgage-backed securities) (8%)
+
+**Key Requirements:**
+- Par values between $1M and $50M (concentrated at $5M, $10M, $25M)
+- Current market date: January 24, 2026
+- Realistic yield curve: 3M: 4.8%, 1Y: 4.5%, 2Y: 4.2%, 5Y: 4.0%, 10Y: 4.1%, 30Y: 4.3%
+- Book vs market value reflects rate increases (HTM ~95-105%, AFS marked to market)
+- Generate unique CUSIPs and ISINs
+- Credit ratings using S&P scale
+
+### 3. Implementation Pattern
+
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+import pandas as pd
+import random
+from datetime import datetime, timedelta
+
+# Initialize Spark
+spark = SparkSession.builder.appName("Securities Portfolio Generator").getOrCreate()
+
+# Set current date
+CURRENT_DATE = datetime(2026, 1, 24).date()
+
+# Helper functions
+def generate_cusip():
+    """Generate realistic CUSIP format: XXX-XXX-XX-X"""
+    prefix_map = {
+        'UST': '912828',  # US Treasury
+        'Corporate': random.choice(['037833', '459200', '594918', '747525']),
+        'Municipal': random.choice(['646137', '880628', '922908']),
+        'Agency': random.choice(['313396', '3134G3', '3130A0']),
+        'MBS': random.choice(['31359M', '31371X'])
+    }
+    # Complete CUSIP generation logic here
+    pass
+
+def generate_isin(cusip):
+    """Generate ISIN from CUSIP: US + CUSIP + check digit"""
+    return f"US{cusip}0"  # Simplified
+
+def calculate_duration(years_to_maturity, coupon_rate):
+    """Approximate Macaulay duration"""
+    return years_to_maturity * 0.8
+
+def calculate_market_value(par_value, coupon_rate, ytm, years_to_maturity):
+    """Calculate bond market value using present value formula"""
+    # Simplified: market value adjusts based on rate environment
+    if ytm > coupon_rate:
+        # Rates increased, bond worth less
+        discount = (ytm - coupon_rate) * years_to_maturity * 0.05
+        return par_value * (1 - discount)
+    else:
+        premium = (coupon_rate - ytm) * years_to_maturity * 0.05
+        return par_value * (1 + premium)
+
+# Generate US Treasuries (500)
+def generate_us_treasuries():
+    treasuries = []
+    
+    # Bills (50)
+    for i in range(50):
+        maturity_days = random.randint(30, 365)
+        maturity_date = CURRENT_DATE + timedelta(days=maturity_days)
+        par_value = random.choice([5_000_000, 10_000_000, 25_000_000])
+        
+        treasuries.append({
+            'security_id': f'UST-BILL-{i:04d}',
+            'cusip': generate_cusip(),
+            'security_type': 'UST',
+            'issuer_name': 'US Treasury',
+            'maturity_date': maturity_date,
+            'par_value': par_value,
+            'coupon_rate': 0.0,  # Bills are zero coupon
+            'yield_to_maturity': 4.8,
+            # ... complete fields
+        })
+    
+    # Notes and Bonds (450)
+    # ... similar pattern
+    
+    return treasuries
+
+# Generate Corporate bonds (200)
+def generate_corporate_bonds():
+    # Implementation here
+    pass
+
+# Generate Municipal bonds (150)
+def generate_municipal_bonds():
+    # Implementation here
+    pass
+
+# Generate Agency securities (100)
+def generate_agency_securities():
+    # Implementation here
+    pass
+
+# Generate MBS (50)
+def generate_mbs():
+    # Implementation here
+    pass
+
+# Combine all securities
+all_securities = []
+all_securities.extend(generate_us_treasuries())
+all_securities.extend(generate_corporate_bonds())
+all_securities.extend(generate_municipal_bonds())
+all_securities.extend(generate_agency_securities())
+all_securities.extend(generate_mbs())
+
+# Convert to DataFrame
+securities_df = spark.createDataFrame(all_securities)
+
+# Add calculated fields
+securities_df = securities_df.withColumn(
+    'book_value',
+    when(col('security_classification') == 'HTM', col('par_value') * uniform(0.95, 1.05))
+    .when(col('security_classification') == 'AFS', col('market_value'))
+    .otherwise(col('market_value'))
+)
+
+securities_df = securities_df.withColumn(
+    'unrealized_gain_loss',
+    col('market_value') - col('book_value')
+)
+
+securities_df = securities_df.withColumn(
+    'oci_adjustment',
+    when(col('security_classification') == 'AFS', col('unrealized_gain_loss')).otherwise(0)
+)
+
+securities_df = securities_df.withColumn(
+    'effective_date',
+    lit(CURRENT_DATE)
+)
+
+securities_df = securities_df.withColumn(
+    'is_current',
+    lit(True)
+)
+
+# Write to bronze layer
+securities_df.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.bronze_core_banking.securities_portfolio")
+
+print(f"✓ Written {securities_df.count()} securities to bronze layer")
+```
+
+### 4. Create Silver Layer Transformation
+
+```python
+# Read bronze
+bronze_securities = spark.table("cfo_banking_demo.bronze_core_banking.securities_portfolio")
+
+# Add silver layer calculations
+silver_securities = bronze_securities.withColumn(
+    'days_to_maturity',
+    datediff(col('maturity_date'), col('effective_date'))
+).withColumn(
+    'portfolio_weight',
+    col('market_value') / sum('market_value').over(Window.partitionBy())
+).withColumn(
+    'mtm_pnl',
+    col('unrealized_gain_loss')  # Daily P&L
+)
+
+# Write to silver layer
+silver_securities.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.silver_treasury.securities_portfolio")
+
+print("✓ Created silver layer with calculated fields")
+```
+
+### 5. Generate Summary Statistics
+
+```python
+# Summary by security type
+summary = silver_securities.groupBy('security_type').agg(
+    count('*').alias('count'),
+    sum('par_value').alias('total_par'),
+    sum('market_value').alias('total_market_value'),
+    avg('yield_to_maturity').alias('avg_ytm'),
+    avg('duration').alias('avg_duration')
+)
+
+summary.show()
+
+# Overall totals
+total_stats = silver_securities.agg(
+    count('*').alias('total_securities'),
+    sum('par_value').alias('total_par'),
+    sum('market_value').alias('total_market_value'),
+    sum('unrealized_gain_loss').alias('total_unrealized_gl')
+)
+
+print("\n=== Portfolio Summary ===")
+total_stats.show()
+```
+
+### 6. Data Quality Validations
+
+```python
+# Validate record count
+assert securities_df.count() == 1000, f"Expected 1000 securities, got {securities_df.count()}"
+
+# Validate unique CUSIPs
+cusip_count = securities_df.select('cusip').distinct().count()
+assert cusip_count == 1000, f"CUSIPs not unique: {cusip_count}/1000"
+
+# Validate no nulls in required fields
+required_fields = ['security_id', 'cusip', 'security_type', 'par_value', 'market_value']
+for field in required_fields:
+    null_count = securities_df.filter(col(field).isNull()).count()
+    assert null_count == 0, f"Found {null_count} nulls in {field}"
+
+# Validate market values are reasonable
+unreasonable = securities_df.filter(
+    (col('market_value') < col('par_value') * 0.8) | 
+    (col('market_value') > col('par_value') * 1.2)
+).count()
+assert unreasonable == 0, f"Found {unreasonable} securities with unreasonable market values"
+
+print("✅ All data quality checks passed")
+```
+
+### 7. Save Output
+
+Save the complete notebook/script to:
+`outputs/02_generate_securities_portfolio.py`
+
+## Success Criteria
+After completion, verify:
+- [ ] Exactly 1,000 securities generated
+- [ ] Portfolio composition matches specified percentages (±2%)
+- [ ] All CUSIPs are unique and properly formatted
+- [ ] No null values in required fields
+- [ ] Market values are realistic (within 20% of par values)
+- [ ] Duration calculations are reasonable (0.1 to 25 years)
+- [ ] Credit ratings follow S&P convention
+- [ ] Effective_date is January 24, 2026 for all records
+- [ ] Silver layer view can be queried successfully
+- [ ] Summary statistics display correctly
+- [ ] Bronze table: `cfo_banking_demo.bronze_core_banking.securities_portfolio`
+- [ ] Silver table: `cfo_banking_demo.silver_treasury.securities_portfolio`
+
+## Expected Output Summary
+
+```
+Portfolio Summary (as of 2026-01-24):
+=====================================
+Total Portfolio Value: $2,847,532,000
+Total Par Value: $2,950,000,000
+Total Unrealized Loss: ($102,468,000)
+
+By Security Type:
+- US Treasury: $1,139M (40.0%)
+- Corporate: $711M (25.0%)
+- Municipal: $427M (15.0%)
+- Agency: $342M (12.0%)
+- MBS: $228M (8.0%)
+
+By Classification:
+- HTM: $1,708M (60%)
+- AFS: $854M (30%)
+- Trading: $285M (10%)
+
+Average Duration: 4.2 years
+Average Credit Rating: A+
+```
+
+## Critical Constraints
+- ⛔ NO sudo or root commands
+- ⛔ NO system Python packages
+- ✅ USE activated venv
+- ✅ USE Spark for data generation (handle 1000 rows efficiently)
+- ✅ Write to Unity Catalog tables created in WS1-01
+- ✅ Include realistic data distributions
+- ✅ Make data generation reproducible (use seed if random)
+
+## When Complete
+Report:
+1. Record count and validation results
+2. Summary statistics (by security type)
+3. Table locations (bronze and silver)
+4. Output file location
+5. Any warnings or issues
+6. Confirmation ready for WS1-03
+
+Begin execution now.

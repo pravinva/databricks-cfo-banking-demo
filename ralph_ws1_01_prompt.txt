@@ -1,0 +1,217 @@
+# Task: Execute WS1-01 Unity Catalog Structure Setup
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ Profile: DEFAULT
+✅ User: pravin.varma@databricks.com
+
+## Task Objective
+Create the foundational Unity Catalog structure for the CFO Banking Demo.
+
+## Instructions
+
+### 1. Read the Requirements
+Read and understand the complete specification from:
+`prompts/WS1-01_unity_catalog_structure.md`
+
+### 2. Implement Unity Catalog Structure
+
+Create a Python script that implements:
+
+**Catalog:**
+- Name: `cfo_banking_demo`
+- Comment: "CFO Banking Demo - Data Foundation for US Regional Bank"
+
+**Schemas (12 total):**
+
+Bronze Layer:
+- `cfo_banking_demo.bronze_market_data` - External market data feeds
+- `cfo_banking_demo.bronze_core_banking` - Simulated core banking systems
+- `cfo_banking_demo.bronze_payments` - Payment system data
+- `cfo_banking_demo.bronze_external` - Other external sources
+
+Silver Layer:
+- `cfo_banking_demo.silver_treasury` - Securities, ALM, funding
+- `cfo_banking_demo.silver_finance` - GL, FTP, profitability
+- `cfo_banking_demo.silver_risk` - Credit exposures, market risk
+- `cfo_banking_demo.silver_regulatory` - Regulatory calculations
+
+Gold Layer:
+- `cfo_banking_demo.gold_regulatory` - Y9C, 2052a, FFIEC 101
+- `cfo_banking_demo.gold_analytics` - ML features, aggregates
+- `cfo_banking_demo.gold_dashboards` - BI layer tables
+
+**Volumes (3 total):**
+- `/Volumes/cfo_banking_demo/bronze_market_data/raw/` - Raw market data files
+- `/Volumes/cfo_banking_demo/bronze_core_banking/raw/` - Simulated core banking extracts
+- `/Volumes/cfo_banking_demo/models/artifacts/` - Model artifacts and checkpoints
+
+**Tags:**
+Add these tags to the catalog:
+- `domain` = "financial_services"
+- `use_case` = "cfo_office"
+- `owner` = "field_engineering"
+
+### 3. Connection Code Pattern
+
+Use this pattern:
+
+```python
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import *
+
+# Initialize client (auto-loads from ~/.databrickscfg DEFAULT)
+w = WorkspaceClient()
+
+# Verify connection
+user = w.current_user.me()
+print(f"✓ Connected as: {user.user_name}")
+print(f"✓ Workspace: {w.config.host}")
+
+# Create catalog with idempotent pattern
+try:
+    catalog = w.catalogs.create(
+        name="cfo_banking_demo",
+        comment="CFO Banking Demo - Data Foundation for US Regional Bank"
+    )
+    print(f"✓ Created catalog: {catalog.name}")
+except Exception as e:
+    if "already exists" in str(e).lower():
+        print(f"✓ Catalog already exists: cfo_banking_demo")
+    else:
+        raise
+
+# Create schemas with idempotent pattern
+schemas = [
+    ("bronze_market_data", "External market data feeds (Alpha Vantage, etc)"),
+    ("bronze_core_banking", "Simulated core banking systems (loans, deposits, securities)"),
+    ("bronze_payments", "Payment system data (Fedwire, ACH, card settlements)"),
+    ("bronze_external", "Other external data sources"),
+    ("silver_treasury", "Securities portfolio, ALM positions, funding"),
+    ("silver_finance", "GL, subledger, FTP, product profitability"),
+    ("silver_risk", "Credit exposures, RWA calculations, market risk"),
+    ("silver_regulatory", "Regulatory calculations and metrics"),
+    ("gold_regulatory", "Fit-for-purpose regulatory reports (Y9C, 2052a, FFIEC 101)"),
+    ("gold_analytics", "ML features, model training datasets, aggregates"),
+    ("gold_dashboards", "Pre-computed tables for BI dashboards"),
+    ("models", "Model registry and artifacts")
+]
+
+for schema_name, comment in schemas:
+    try:
+        schema = w.schemas.create(
+            catalog_name="cfo_banking_demo",
+            name=schema_name,
+            comment=comment
+        )
+        print(f"✓ Created schema: {schema.full_name}")
+    except Exception as e:
+        if "already exists" in str(e).lower():
+            print(f"✓ Schema already exists: cfo_banking_demo.{schema_name}")
+        else:
+            raise
+
+# Create volumes with idempotent pattern
+volumes = [
+    ("bronze_market_data", "raw", "Raw market data landing zone"),
+    ("bronze_core_banking", "raw", "Raw core banking data extracts"),
+    ("models", "artifacts", "ML model artifacts and checkpoints")
+]
+
+for catalog_schema, volume_name, comment in volumes:
+    try:
+        volume = w.volumes.create(
+            catalog_name="cfo_banking_demo",
+            schema_name=catalog_schema,
+            name=volume_name,
+            volume_type=VolumeType.MANAGED,
+            comment=comment
+        )
+        print(f"✓ Created volume: {volume.full_name}")
+    except Exception as e:
+        if "already exists" in str(e).lower():
+            print(f"✓ Volume already exists: cfo_banking_demo.{catalog_schema}.{volume_name}")
+        else:
+            raise
+```
+
+### 4. Validation Queries
+
+After creation, run these validation queries:
+
+```python
+# List all schemas in catalog
+schemas = w.schemas.list(catalog_name="cfo_banking_demo")
+schema_list = [s.name for s in schemas]
+print(f"\nSchemas created: {len(schema_list)}")
+for s in schema_list:
+    print(f"  - {s}")
+
+# Verify expected count
+assert len(schema_list) == 12, f"Expected 12 schemas, found {len(schema_list)}"
+
+# List all volumes
+# Note: Need to check each schema for volumes
+volume_count = 0
+for schema_name in ["bronze_market_data", "bronze_core_banking", "models"]:
+    try:
+        volumes = w.volumes.list(
+            catalog_name="cfo_banking_demo",
+            schema_name=schema_name
+        )
+        for v in volumes:
+            print(f"  - {v.full_name}")
+            volume_count += 1
+    except:
+        pass
+
+print(f"\nTotal volumes: {volume_count}")
+assert volume_count >= 3, f"Expected at least 3 volumes, found {volume_count}"
+
+print("\n✅ All validations passed!")
+```
+
+### 5. Save Output
+
+Save the complete, working script to:
+`outputs/01_setup_unity_catalog.py`
+
+### 6. Execute and Report
+
+Run the script and report:
+- Total objects created
+- Any objects that already existed (idempotent)
+- Validation results
+- Any errors or warnings
+
+## Critical Constraints
+- ⛔ NO sudo or root commands
+- ⛔ NO system Python packages
+- ✅ USE activated venv
+- ✅ USE ~/.databrickscfg DEFAULT profile (already configured)
+- ✅ Make script idempotent (safe to run multiple times)
+- ✅ Include comprehensive error handling
+- ✅ Include logging/print statements for visibility
+
+## Success Criteria
+After completion, verify:
+- [ ] Catalog `cfo_banking_demo` exists
+- [ ] All 12 schemas exist (bronze_*, silver_*, gold_*)
+- [ ] All 3 volumes exist and are accessible
+- [ ] Tags are set on catalog
+- [ ] Validation queries all pass
+- [ ] Script saved to outputs/01_setup_unity_catalog.py
+- [ ] Script can be re-run without errors (idempotent)
+
+## When Complete
+Report:
+1. Summary of objects created
+2. Validation results (all green checks)
+3. Output file location
+4. Any warnings or issues
+5. Confirmation ready for WS1-02
+
+Begin execution now.

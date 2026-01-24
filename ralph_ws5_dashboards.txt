@@ -1,0 +1,877 @@
+# Task: WS5-01 Enterprise-Grade Executive Dashboards
+
+## Environment Status
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Databricks: e2-demo-field-eng.cloud.databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ All data, models, pipelines, and agent complete
+
+## Task Objective
+Create stunning, modern Lakeview dashboards with enterprise-grade visual design suitable for Fortune 500 banking executives. Professional, data-dense, visually striking.
+
+## Design Principles
+
+**Target Aesthetic:**
+- Bloomberg Terminal meets modern SaaS
+- Data-dense but not cluttered
+- Professional navy/gray/white palette
+- Subtle animations and interactions
+- Financial services industry standard
+
+**Visual Standards:**
+- Minimalist, clean layouts
+- High information density
+- Sophisticated color gradients
+- Micro-interactions
+- Consistent spacing (8px grid)
+- Professional typography hierarchy
+
+**Chart Types (Modern):**
+- Gauge charts with gradient fills
+- Waterfall charts for P&L attribution
+- Heatmaps for correlation analysis
+- Sankey diagrams for flow visualization
+- Dual-axis time series with fills
+- Treemaps for hierarchical data
+- Bullet charts for KPI tracking
+
+**NO:**
+- Basic pie charts
+- Simple bar charts without context
+- Default color schemes
+- Cluttered layouts
+- Comic sans (obviously)
+
+## Instructions
+
+### 1. Create Executive Command Center Dashboard
+
+**Purpose:** C-suite overview - visually stunning, data-rich
+
+**Layout Design:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  EXECUTIVE COMMAND CENTER                    As of: [Live]  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
+│  │ ASSETS   │ │ DEPOSITS │ │   NIM    │ │   LCR    │      │
+│  │  $45.0B  │ │  $22.0B  │ │  2.69%   │ │ 104.9%   │      │
+│  │ ▲ 2.1%   │ │ ▲ 1.8%   │ │ ▼ 12bp   │ │ [gauge]  │      │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │
+│                                                              │
+│  ┌─────────────────────────────┐ ┌────────────────────────┐│
+│  │ LIQUIDITY WATERFALL         │ │ RATE ENVIRONMENT       ││
+│  │ (30-Day Stressed Scenario)  │ │ (Live Yield Curve)     ││
+│  │                             │ │                        ││
+│  │  HQLA    Outflows  Inflows  │ │   %                    ││
+│  │  $3.3B → -$4.0B  → +$0.9B   │ │  4.5                   ││
+│  │   ┃       ┃         ┃       │ │  4.0    [gradient]     ││
+│  │   ┃       ┗━━━━━━━━━┛       │ │  3.5 [area fill]       ││
+│  │   ┗━━━━━━━━━━━━━━━━━━━━━━━━│ │  3M  2Y  5Y 10Y 30Y    ││
+│  │   Net: $3.1B → LCR: 105%    │ │                        ││
+│  └─────────────────────────────┘ └────────────────────────┘│
+│                                                              │
+│  ┌──────────────────────────────────────────────────────── │
+│  │ PORTFOLIO HEAT MAP (Risk-Return Matrix)                ││
+│  │                                                         ││
+│  │      High Return                                        ││
+│  │         │  [C&I]     [Jumbo]                           ││
+│  │         │    ■         ■                               ││
+│  │         │       [CommRE]                               ││
+│  │         │         ■                                    ││
+│  │         │                  [Consumer]                  ││
+│  │         │                     ■                        ││
+│  │         │  [Resi Mtg]                                 ││
+│  │         │      ■                                       ││
+│  │      Low Risk ──────────────────────────── High Risk   ││
+│  │                                                         ││
+│  │  Color: Portfolio size  |  Size: CECL reserve         ││
+│  └─────────────────────────────────────────────────────────│
+└─────────────────────────────────────────────────────────────┘
+```
+
+### SQL Queries with Advanced Visualizations
+
+#### Query 1: KPI Scorecards with Sparklines
+
+```sql
+-- Financial Performance KPIs with 30-day trend
+WITH daily_metrics AS (
+  SELECT 
+    report_date,
+    SUM(CASE WHEN line_item_category = 'Asset' THEN balance ELSE 0 END)/1e9 as total_assets,
+    SUM(CASE WHEN line_item IN ('Deposits') THEN balance ELSE 0 END)/1e9 as total_deposits
+  FROM cfo_banking_demo.silver_finance.balance_sheet
+  WHERE report_date >= DATE_SUB(CURRENT_DATE(), 30)
+  GROUP BY report_date
+),
+current_vs_prior AS (
+  SELECT 
+    MAX(CASE WHEN report_date = CURRENT_DATE() THEN total_assets END) as current_assets,
+    MAX(CASE WHEN report_date = DATE_SUB(CURRENT_DATE(), 30) THEN total_assets END) as prior_assets,
+    MAX(CASE WHEN report_date = CURRENT_DATE() THEN total_deposits END) as current_deposits,
+    MAX(CASE WHEN report_date = DATE_SUB(CURRENT_DATE(), 30) THEN prior_deposits END) as prior_deposits
+  FROM daily_metrics
+)
+SELECT 
+  'Total Assets' as metric,
+  CONCAT('$', FORMAT_NUMBER(current_assets, 1), 'B') as value,
+  ROUND((current_assets - prior_assets) / prior_assets * 100, 1) as change_pct,
+  COLLECT_LIST(total_assets) as sparkline_30d
+FROM current_vs_prior, daily_metrics
+GROUP BY metric, current_assets, prior_assets
+
+UNION ALL
+
+SELECT 
+  'Total Deposits',
+  CONCAT('$', FORMAT_NUMBER(current_deposits, 1), 'B'),
+  ROUND((current_deposits - prior_deposits) / prior_deposits * 100, 1),
+  COLLECT_LIST(total_deposits)
+FROM current_vs_prior, daily_metrics
+GROUP BY current_deposits, prior_deposits
+```
+
+**Visualization Type:** KPI Scorecard with inline sparkline
+**Design:** Navy background, white text, green/red indicators, 30-day trend embedded
+
+---
+
+#### Query 2: Liquidity Waterfall (Advanced)
+
+```sql
+-- Liquidity Coverage Ratio Waterfall
+WITH lcr_components AS (
+  SELECT 
+    'HQLA' as component,
+    1 as sort_order,
+    total_hqla/1e9 as value_billions,
+    NULL as cumulative,
+    '#10b981' as color  -- Green
+  FROM cfo_banking_demo.gold_regulatory.lcr_daily
+  WHERE calculation_date = CURRENT_DATE()
+  
+  UNION ALL
+  
+  SELECT 
+    'Stressed Outflows',
+    2,
+    -total_outflows/1e9,
+    total_hqla/1e9,
+    '#dc2626'  -- Red
+  FROM cfo_banking_demo.gold_regulatory.lcr_daily
+  WHERE calculation_date = CURRENT_DATE()
+  
+  UNION ALL
+  
+  SELECT 
+    'Capped Inflows',
+    3,
+    total_inflows_capped/1e9,
+    (total_hqla - total_outflows)/1e9,
+    '#3b82f6'  -- Blue
+  FROM cfo_banking_demo.gold_regulatory.lcr_daily
+  WHERE calculation_date = CURRENT_DATE()
+  
+  UNION ALL
+  
+  SELECT 
+    'Net Cash Outflows',
+    4,
+    NULL,
+    net_outflows/1e9,
+    '#64748b'  -- Gray
+  FROM cfo_banking_demo.gold_regulatory.lcr_daily
+  WHERE calculation_date = CURRENT_DATE()
+)
+SELECT * FROM lcr_components ORDER BY sort_order
+```
+
+**Visualization Type:** Waterfall chart with gradient connectors
+**Design:** Floating bars, gradient fills, connecting lines, annotations showing LCR % at end
+
+---
+
+#### Query 3: Yield Curve Surface (3D Time Evolution)
+
+```sql
+-- Yield curve evolution over time (last 30 days)
+SELECT 
+  date,
+  '3M' as maturity,
+  rate_3m as yield,
+  1 as maturity_order
+FROM cfo_banking_demo.silver_treasury.yield_curves
+WHERE date >= DATE_SUB(CURRENT_DATE(), 30)
+
+UNION ALL
+
+SELECT date, '2Y', rate_2y, 2
+FROM cfo_banking_demo.silver_treasury.yield_curves
+WHERE date >= DATE_SUB(CURRENT_DATE(), 30)
+
+UNION ALL
+
+SELECT date, '5Y', rate_5y, 3
+FROM cfo_banking_demo.silver_treasury.yield_curves
+WHERE date >= DATE_SUB(CURRENT_DATE(), 30)
+
+UNION ALL
+
+SELECT date, '10Y', rate_10y, 4
+FROM cfo_banking_demo.silver_treasury.yield_curves
+WHERE date >= DATE_SUB(CURRENT_DATE(), 30)
+
+UNION ALL
+
+SELECT date, '30Y', rate_30y, 5
+FROM cfo_banking_demo.silver_treasury.yield_curves
+WHERE date >= DATE_SUB(CURRENT_DATE(), 30)
+
+ORDER BY date, maturity_order
+```
+
+**Visualization Type:** Area chart with gradient fill
+**Design:** Navy to light blue gradient, smooth curves, multiple series with transparency, grid lines subtle
+
+---
+
+#### Query 4: Portfolio Risk-Return Heatmap
+
+```sql
+-- Risk-return analysis by product
+WITH loan_metrics AS (
+  SELECT 
+    product_type,
+    SUM(current_balance)/1e9 as portfolio_size_billions,
+    AVG(interest_rate) as avg_yield,
+    SUM(cecl_reserve)/SUM(current_balance)*100 as risk_pct,
+    COUNT(*) as loan_count
+  FROM cfo_banking_demo.silver_finance.loan_portfolio
+  WHERE is_current = true
+  GROUP BY product_type
+)
+SELECT 
+  product_type as "Product",
+  ROUND(avg_yield, 2) as "Yield %",
+  ROUND(risk_pct, 2) as "Risk %",
+  ROUND(portfolio_size_billions, 2) as "Size ($B)",
+  loan_count as "Count",
+  -- Quadrant classification
+  CASE 
+    WHEN avg_yield > 7.0 AND risk_pct < 1.5 THEN 'Optimal'
+    WHEN avg_yield > 7.0 AND risk_pct >= 1.5 THEN 'High Yield / High Risk'
+    WHEN avg_yield <= 7.0 AND risk_pct < 1.5 THEN 'Conservative'
+    ELSE 'Review'
+  END as quadrant
+FROM loan_metrics
+ORDER BY avg_yield DESC
+```
+
+**Visualization Type:** Scatter plot with bubble size
+**Design:** 
+- X-axis: Risk (CECL %)
+- Y-axis: Yield (Interest Rate %)
+- Bubble size: Portfolio size
+- Bubble color: Product type (sophisticated palette)
+- Quadrant lines showing optimal zones
+
+---
+
+#### Query 5: Deposit Beta Sensitivity Matrix
+
+```sql
+-- Deposit sensitivity across products and customer segments
+SELECT 
+  product_type as "Product Type",
+  customer_segment as "Segment",
+  SUM(current_balance)/1e9 as "Balance ($B)",
+  AVG(beta) as "Beta",
+  AVG(stated_rate) as "Rate (%)",
+  -- Color coding for heatmap
+  CASE 
+    WHEN AVG(beta) < 0.2 THEN '#10b981'  -- Very stable (green)
+    WHEN AVG(beta) < 0.5 THEN '#3b82f6'  -- Stable (blue)
+    WHEN AVG(beta) < 0.8 THEN '#f59e0b'  -- Moderate (amber)
+    ELSE '#dc2626'  -- Sensitive (red)
+  END as sensitivity_color
+FROM cfo_banking_demo.silver_treasury.deposit_portfolio
+WHERE is_current = true
+GROUP BY product_type, customer_segment
+ORDER BY AVG(beta) ASC
+```
+
+**Visualization Type:** Heatmap matrix
+**Design:** 
+- Rows: Product types
+- Columns: Customer segments
+- Cell color: Beta value (gradient from green to red)
+- Cell value: Balance size
+- Hover: Shows detailed metrics
+
+---
+
+#### Query 6: Real-Time Activity Stream
+
+```sql
+-- Live loan origination activity (last 4 hours)
+WITH loan_activity AS (
+  SELECT 
+    DATE_FORMAT(origination_date, 'HH:00') as hour_bucket,
+    product_type,
+    COUNT(*) as loan_count,
+    SUM(current_balance)/1e6 as volume_millions
+  FROM cfo_banking_demo.silver_finance.loan_portfolio
+  WHERE origination_date = CURRENT_DATE()
+  AND origination_date >= TIMESTAMP(DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 4 HOUR))
+  GROUP BY DATE_FORMAT(origination_date, 'HH:00'), product_type
+)
+SELECT 
+  hour_bucket as "Time",
+  product_type as "Product",
+  loan_count as "Count",
+  ROUND(volume_millions, 1) as "Volume ($M)"
+FROM loan_activity
+ORDER BY hour_bucket DESC, volume_millions DESC
+```
+
+**Visualization Type:** Stacked area chart with live refresh
+**Design:**
+- X-axis: Time (hourly buckets)
+- Y-axis: Volume ($M)
+- Series: Product types (stacked)
+- Colors: Professional gradient (navy to teal)
+- Fill: Semi-transparent with smooth curves
+- Auto-refresh: Every 30 seconds
+
+---
+
+#### Query 7: Capital Adequacy Bullet Charts
+
+```sql
+-- Capital ratios with regulatory thresholds
+SELECT 
+  'CET1 Ratio' as ratio_name,
+  12.4 as actual_value,
+  6.5 as minimum_required,
+  8.0 as well_capitalized_threshold,
+  10.0 as target,
+  15.0 as max_scale,
+  CASE WHEN 12.4 >= 10.0 THEN 'Excellent'
+       WHEN 12.4 >= 8.0 THEN 'Well Capitalized'
+       WHEN 12.4 >= 6.5 THEN 'Adequate'
+       ELSE 'Below Minimum' END as status,
+  1 as sort_order
+
+UNION ALL
+
+SELECT 
+  'Tier 1 Ratio',
+  12.4,
+  8.0,
+  10.0,
+  12.0,
+  15.0,
+  CASE WHEN 12.4 >= 12.0 THEN 'Excellent'
+       WHEN 12.4 >= 10.0 THEN 'Well Capitalized'
+       WHEN 12.4 >= 8.0 THEN 'Adequate'
+       ELSE 'Below Minimum' END,
+  2
+
+UNION ALL
+
+SELECT 
+  'Total Capital Ratio',
+  14.8,
+  10.0,
+  12.0,
+  14.0,
+  18.0,
+  CASE WHEN 14.8 >= 14.0 THEN 'Excellent'
+       WHEN 14.8 >= 12.0 THEN 'Well Capitalized'
+       WHEN 14.8 >= 10.0 THEN 'Adequate'
+       ELSE 'Below Minimum' END,
+  3
+
+UNION ALL
+
+SELECT 
+  'LCR',
+  (SELECT lcr_ratio FROM cfo_banking_demo.gold_regulatory.lcr_daily ORDER BY calculation_timestamp DESC LIMIT 1),
+  100.0,
+  110.0,
+  120.0,
+  150.0,
+  CASE WHEN (SELECT lcr_ratio FROM cfo_banking_demo.gold_regulatory.lcr_daily ORDER BY calculation_timestamp DESC LIMIT 1) >= 120 THEN 'Excellent'
+       WHEN (SELECT lcr_ratio FROM cfo_banking_demo.gold_regulatory.lcr_daily ORDER BY calculation_timestamp DESC LIMIT 1) >= 110 THEN 'Strong'
+       WHEN (SELECT lcr_ratio FROM cfo_banking_demo.gold_regulatory.lcr_daily ORDER BY calculation_timestamp DESC LIMIT 1) >= 100 THEN 'Compliant'
+       ELSE 'Below Minimum' END,
+  4
+
+ORDER BY sort_order
+```
+
+**Visualization Type:** Bullet charts (modern gauge alternative)
+**Design:**
+- Horizontal bars with performance bands
+- Actual value: Dark bar
+- Thresholds: Color-coded zones (red/yellow/green)
+- Target: Vertical marker line
+- Minimal, data-dense
+
+---
+
+#### Query 8: NIM Attribution Waterfall
+
+```sql
+-- Net Interest Margin decomposition
+SELECT 
+  'Interest Income' as component,
+  1 as sort_order,
+  2.0 as value_billions,
+  0 as cumulative,
+  '#10b981' as color,
+  'Earning Asset Yield: 4.4%' as annotation
+
+UNION ALL
+
+SELECT 
+  'Interest Expense',
+  2,
+  -0.8,
+  2.0,
+  '#dc2626',
+  'Cost of Funds: 1.8%'
+
+UNION ALL
+
+SELECT 
+  'Net Interest Income',
+  3,
+  NULL,
+  1.2,
+  '#1e40af',
+  'NIM: 2.69% of Avg Assets'
+
+ORDER BY sort_order
+```
+
+**Visualization Type:** Waterfall with annotations
+**Design:** 
+- Green bars up (income)
+- Red bars down (expense)
+- Net bar in navy
+- Gradient fills
+- Value labels
+- Connecting lines with transparency
+
+---
+
+### 2. Advanced Plotly Configuration
+
+For use in Databricks Apps (if you do WS4-02), here's how to make charts stunning:
+
+```python
+import plotly.graph_objects as go
+import plotly.express as px
+
+# Professional color palette
+COLORS = {
+    'primary': '#1e40af',      # Navy
+    'secondary': '#64748b',    # Slate
+    'success': '#059669',      # Green
+    'warning': '#d97706',      # Amber
+    'danger': '#dc2626',       # Red
+    'gradient_start': '#1e3a8a',
+    'gradient_end': '#60a5fa'
+}
+
+# Modern gauge chart (for LCR)
+def create_modern_gauge(value, title, min_val=0, max_val=150, threshold=100):
+    """Create modern gauge with gradient"""
+    
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=value,
+        delta={'reference': threshold, 'relative': False},
+        number={'suffix': '%', 'font': {'size': 48, 'color': '#1e293b'}},
+        title={'text': title, 'font': {'size': 18, 'color': '#64748b'}},
+        gauge={
+            'axis': {
+                'range': [min_val, max_val],
+                'tickwidth': 1,
+                'tickcolor': '#cbd5e1',
+                'tickfont': {'size': 12}
+            },
+            'bar': {
+                'color': COLORS['primary'],
+                'thickness': 0.75
+            },
+            'bgcolor': 'white',
+            'borderwidth': 0,
+            'steps': [
+                {'range': [0, threshold], 'color': '#fee2e2'},      # Red zone
+                {'range': [threshold, threshold+10], 'color': '#fef3c7'},  # Yellow zone
+                {'range': [threshold+10, max_val], 'color': '#d1fae5'}     # Green zone
+            ],
+            'threshold': {
+                'line': {'color': COLORS['danger'], 'width': 3},
+                'thickness': 0.8,
+                'value': threshold
+            }
+        }
+    ))
+    
+    fig.update_layout(
+        height=300,
+        margin=dict(l=20, r=20, t=60, b=20),
+        paper_bgcolor='rgba(0,0,0,0)',
+        font={'family': 'Inter, system-ui, sans-serif'}
+    )
+    
+    return fig
+
+# Waterfall chart (for liquidity flow)
+def create_waterfall_chart(data):
+    """Create sophisticated waterfall with gradients"""
+    
+    fig = go.Figure(go.Waterfall(
+        name="Liquidity",
+        orientation="v",
+        measure=["absolute", "relative", "relative", "total"],
+        x=["HQLA", "Outflows", "Inflows", "Net Outflows"],
+        y=[3.26, -3.96, 0.85, None],
+        connector={"mode": "between", "line": {"width": 2, "color": "#cbd5e1", "dash": "dot"}},
+        decreasing={"marker": {"color": "#fca5a5", "line": {"color": "#dc2626", "width": 1}}},
+        increasing={"marker": {"color": "#6ee7b7", "line": {"color": "#059669", "width": 1}}},
+        totals={"marker": {"color": "#93c5fd", "line": {"color": "#1e40af", "width": 1}}}
+    ))
+    
+    fig.update_layout(
+        title={
+            'text': '30-Day Liquidity Analysis ($B)',
+            'font': {'size': 18, 'color': '#1e293b'}
+        },
+        height=350,
+        margin=dict(l=40, r=40, t=60, b=40),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font={'family': 'Inter, system-ui, sans-serif', 'size': 12}
+    )
+    
+    fig.update_yaxes(
+        title='Amount ($B)',
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='#f1f5f9',
+        zeroline=True,
+        zerolinewidth=2,
+        zerolinecolor='#cbd5e1'
+    )
+    
+    return fig
+
+# Area chart with gradient (for yield curve evolution)
+def create_yield_curve_area(yields_df):
+    """Create modern area chart with gradient fill"""
+    
+    fig = go.Figure()
+    
+    # Current curve (area with gradient)
+    fig.add_trace(go.Scatter(
+        x=['3M', '2Y', '5Y', '10Y', '30Y'],
+        y=[yields_df['rate_3m'], yields_df['rate_2y'], yields_df['rate_5y'], 
+           yields_df['rate_10y'], yields_df['rate_30y']],
+        mode='lines',
+        name='Current',
+        line=dict(color=COLORS['primary'], width=3),
+        fill='tozeroy',
+        fillcolor=f'rgba(30, 64, 175, 0.1)'  # Semi-transparent fill
+    ))
+    
+    # Add 30-day prior for comparison (if available)
+    # fig.add_trace(...) for historical comparison
+    
+    fig.update_layout(
+        title={
+            'text': 'US Treasury Yield Curve',
+            'font': {'size': 18, 'color': '#1e293b', 'family': 'Inter'}
+        },
+        xaxis_title='Maturity',
+        yaxis_title='Yield (%)',
+        height=350,
+        margin=dict(l=50, r=40, t=60, b=40),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font={'family': 'Inter, system-ui, sans-serif', 'size': 12},
+        hovermode='x unified'
+    )
+    
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='#f1f5f9',
+        showline=True,
+        linewidth=1,
+        linecolor='#cbd5e1'
+    )
+    
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='#f1f5f9',
+        showline=True,
+        linewidth=1,
+        linecolor='#cbd5e1',
+        tickformat='.2f'
+    )
+    
+    return fig
+
+# Heatmap (for deposit beta sensitivity)
+def create_sensitivity_heatmap(data):
+    """Create modern heatmap with custom colorscale"""
+    
+    # Pivot data for heatmap
+    pivot = data.pivot(index='product_type', columns='customer_segment', values='beta')
+    
+    fig = go.Figure(data=go.Heatmap(
+        z=pivot.values,
+        x=pivot.columns,
+        y=pivot.index,
+        colorscale=[
+            [0.0, '#d1fae5'],   # Very stable (light green)
+            [0.3, '#93c5fd'],   # Stable (light blue)
+            [0.6, '#fde68a'],   # Moderate (light amber)
+            [1.0, '#fca5a5']    # Sensitive (light red)
+        ],
+        text=pivot.values,
+        texttemplate='%{text:.2f}',
+        textfont={'size': 14, 'color': '#1e293b'},
+        colorbar={
+            'title': 'Beta',
+            'titleside': 'right',
+            'tickmode': 'linear',
+            'tick0': 0,
+            'dtick': 0.2
+        }
+    ))
+    
+    fig.update_layout(
+        title='Deposit Rate Sensitivity by Product & Segment',
+        height=400,
+        margin=dict(l=120, r=40, t=60, b=80),
+        font={'family': 'Inter, system-ui, sans-serif', 'size': 12}
+    )
+    
+    return fig
+
+# Treemap (for portfolio composition)
+def create_portfolio_treemap(data):
+    """Create modern treemap with hierarchy"""
+    
+    fig = px.treemap(
+        data,
+        path=['category', 'subcategory'],
+        values='balance',
+        color='yield_pct',
+        color_continuous_scale='Blues',
+        hover_data=['balance', 'yield_pct']
+    )
+    
+    fig.update_traces(
+        textposition='middle center',
+        textfont={'size': 14, 'color': 'white'},
+        marker=dict(
+            line=dict(width=2, color='white'),
+            cornerradius=5
+        )
+    )
+    
+    fig.update_layout(
+        height=450,
+        margin=dict(l=0, r=0, t=40, b=0),
+        font={'family': 'Inter, system-ui, sans-serif'}
+    )
+    
+    return fig
+```
+
+---
+
+### 3. Dashboard Color Scheme (Professional Banking)
+
+```python
+# Enterprise color palette
+PALETTE = {
+    # Primary colors
+    'navy_900': '#0c1e3d',
+    'navy_700': '#1e40af',
+    'navy_500': '#3b82f6',
+    'navy_300': '#93c5fd',
+    'navy_100': '#dbeafe',
+    
+    # Accent colors
+    'slate_700': '#334155',
+    'slate_500': '#64748b',
+    'slate_300': '#cbd5e1',
+    'slate_100': '#f1f5f9',
+    
+    # Semantic colors
+    'success': '#059669',
+    'success_light': '#d1fae5',
+    'warning': '#d97706',
+    'warning_light': '#fef3c7',
+    'danger': '#dc2626',
+    'danger_light': '#fee2e2',
+    
+    # Gradients (for sophisticated charts)
+    'gradient_blue': ['#1e3a8a', '#3b82f6', '#60a5fa', '#93c5fd'],
+    'gradient_green': ['#065f46', '#059669', '#34d399', '#6ee7b7'],
+    'gradient_multi': ['#1e40af', '#3b82f6', '#8b5cf6', '#ec4899']
+}
+
+# Typography
+FONTS = {
+    'header': {'family': 'Inter, system-ui, sans-serif', 'size': 24, 'weight': 600},
+    'subheader': {'family': 'Inter, system-ui, sans-serif', 'size': 18, 'weight': 600},
+    'body': {'family': 'Inter, system-ui, sans-serif', 'size': 14, 'weight': 400},
+    'caption': {'family': 'Inter, system-ui, sans-serif', 'size': 12, 'weight': 400},
+    'metric_value': {'family': 'Inter, system-ui, sans-serif', 'size': 36, 'weight': 700},
+    'metric_label': {'family': 'Inter, system-ui, sans-serif', 'size': 12, 'weight': 500}
+}
+```
+
+---
+
+### 4. Create Dashboard in Lakeview
+
+**Implementation Steps:**
+
+1. **Navigate to:** Databricks SQL > Dashboards > Create Dashboard
+
+2. **Dashboard 1: Executive Command Center**
+   - Name: "CFO Executive Command Center"
+   - Layout: 4 columns, auto-height rows
+   - Refresh: Every 5 minutes
+   - Add visualizations in order:
+     - Row 1: 4 KPI cards (custom formatted)
+     - Row 2: Waterfall + Yield curve (2 columns)
+     - Row 3: Heat map (full width)
+     - Row 4: Activity stream (full width)
+
+3. **Visual Settings for Each Chart:**
+   - **Remove all default borders**
+   - **Use custom color palette** (navy/slate/semantic)
+   - **Add subtle shadows** (box-shadow: 0 1px 3px rgba(0,0,0,0.1))
+   - **Consistent spacing** (16px between widgets)
+   - **Professional fonts** (Inter or system-ui)
+   - **Subtle grid lines** (#f1f5f9)
+   - **White background** with subtle gray containers
+
+4. **Advanced Chart Configuration:**
+
+For each visualization, use these settings:
+
+**General:**
+- Background: White (#ffffff)
+- Plot area: White
+- Grid lines: Subtle gray (#f1f5f9)
+- Fonts: Inter, 12px
+- Margins: Consistent 40px
+
+**Line Charts:**
+- Line width: 2-3px
+- Marker size: 6-8px
+- No fill unless specifically needed
+- Hover: Unified mode
+- Annotations for key points
+
+**Bar Charts:**
+- Bar gap: 0.2
+- Rounded corners
+- Gradient fills
+- Value labels
+- Conditional formatting
+
+**Gauges:**
+- Modern arc style (not full circle)
+- Gradient fills
+- Clear threshold lines
+- Large, readable numbers
+
+---
+
+### 5. Professional Dashboard Export
+
+Create these SQL queries in organized manner:
+
+```sql
+-- Save as: dashboards/01_executive_kpis.sql
+-- Purpose: Main KPI scorecards
+-- Refresh: Real-time
+[KPI queries here]
+
+-- Save as: dashboards/02_liquidity_waterfall.sql  
+-- Purpose: LCR waterfall visualization
+-- Refresh: Daily
+[Waterfall queries here]
+
+-- Save as: dashboards/03_yield_curve.sql
+-- Purpose: Market environment tracking
+-- Refresh: Hourly
+[Yield curve queries here]
+
+-- Save as: dashboards/04_portfolio_heatmap.sql
+-- Purpose: Risk-return analysis
+-- Refresh: Daily
+[Heatmap queries here]
+```
+
+---
+
+## Success Criteria
+
+- [ ] Dashboards use professional color palette
+- [ ] Modern chart types (not basic)
+- [ ] Consistent spacing and typography
+- [ ] Data-dense but not cluttered
+- [ ] Suitable for C-level presentation
+- [ ] Auto-refresh configured
+- [ ] Export functionality enabled
+- [ ] Performance: Load time < 3 seconds
+
+## Expected Visual Quality
+
+**Industry Comparisons:**
+- ✅ Bloomberg Terminal level (data density)
+- ✅ Modern SaaS polish (Stripe, Notion aesthetics)
+- ✅ Financial Times visualization quality
+- ❌ NOT basic Excel charts
+- ❌ NOT default Tableau
+- ❌ NOT cluttered dashboards
+
+**When executives see it:**
+- "This looks professional"
+- "Data-rich but easy to read"
+- "Modern, not dated"
+- "Enterprise-grade"
+
+## Deliverables
+
+- SQL queries: `outputs/17_dashboard_queries.sql`
+- Plotly configs: `outputs/17_plotly_chart_configs.py`
+- Color scheme: `outputs/17_design_system.py`
+- Dashboard JSON exports (if available)
+- Screenshots for documentation
+
+## Estimated Duration
+⏱️ 2-3 hours (creating sophisticated visualizations)
+
+## When Complete
+You'll have enterprise-grade dashboards suitable for Fortune 500 banking executives.
+
+Begin execution now.

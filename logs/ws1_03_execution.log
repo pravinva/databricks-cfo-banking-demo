@@ -1,0 +1,26 @@
+Traceback (most recent call last):
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/outputs/03_generate_loan_portfolio.py", line 597, in <module>
+    exit_code = main()
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/outputs/03_generate_loan_portfolio.py", line 450, in main
+    loans = generate_loan_batch(
+        product['type'],
+    ...<3 lines>...
+        product['config']
+    )
+  File "/Users/pravin.varma/Documents/Demo/databricks-cfo-banking-demo/outputs/03_generate_loan_portfolio.py", line 174, in generate_loan_batch
+    loan_id = f"LOAN-{product_config['prefix']}-{loan_index:06d}"
+                      ~~~~~~~~~~~~~~^^^^^^^^^^
+KeyError: 'prefix'
+[2026-01-24 20:26:14] INFO: ================================================================================
+[2026-01-24 20:26:14] INFO: WS1-03: Loan Portfolio Generator
+[2026-01-24 20:26:14] INFO: ================================================================================
+[2026-01-24 20:26:14] INFO: ✓ Connected to Databricks
+[2026-01-24 20:26:14] INFO: ✓ Using SQL Warehouse: 4b9b953939869799
+[2026-01-24 20:26:14] INFO: 
+Creating bronze layer table...
+[2026-01-24 20:26:17] INFO: ✓ Created loan_portfolio table
+[2026-01-24 20:26:17] INFO: 
+Generating Commercial_RE loans (1,500)...
+[2026-01-24 20:26:17] ERROR: 
+
+Error: 'prefix'

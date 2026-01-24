@@ -1,0 +1,284 @@
+# Task: Execute WS3-01 Deposit Beta Model - Training and Deployment
+
+## Environment Status
+✅ Pre-flight checks passed
+✅ Working directory: ~/Documents/Demo/databricks-cfo-banking-demo
+✅ Python venv: .venv (activated)
+✅ Databricks: Connected to e2-demo-field-eng.cloud.databricks.com
+✅ User: pravin.varma@databricks.com
+✅ SQL Warehouse: 4b9b953939869799
+
+## Previous Tasks Status
+✅ WS1-04 Complete - Deposit portfolio with 36 months behavior history
+✅ WS2-01 Complete - Market data available
+
+## SQL Warehouse Configuration
+```python
+spark = SparkSession.builder \
+    .appName("CFO Banking Demo - WS3-01 Deposit Beta Model") \
+    .config("spark.databricks.sql.warehouse.id", "4b9b953939869799") \
+    .getOrCreate()
+```
+
+## Task Objective
+Build, train, and deploy a machine learning model that predicts deposit runoff sensitivity to interest rate changes (deposit beta).
+
+## Instructions
+
+### 1. Read Requirements
+From: `prompts/WS3-01_deposit_beta_model.md`
+
+### 2. Feature Engineering
+
+```python
+from pyspark.sql.window import Window
+from pyspark.sql.functions import *
+
+# Load deposit behavior history
+behavior_df = spark.table("cfo_banking_demo.bronze_core_banking.deposit_behavior_history")
+
+# Join with account metadata
+accounts_df = spark.table("cfo_banking_demo.silver_treasury.deposit_portfolio") \
+    .select('account_id', 'product_type', 'customer_segment', 'has_online_banking', 'beta')
+
+features_df = behavior_df.join(accounts_df, 'account_id', 'left')
+
+# Engineer features
+features_df = features_df.withColumn(
+    'rate_change_bps',
+    col('rate_change') * 10000
+).withColumn(
+    'rate_increasing',
+    (col('rate_change') > 0).cast('int')
+)
+
+# Lagged features
+window_spec = Window.partitionBy('account_id').orderBy('period_date')
+
+features_df = features_df.withColumn(
+    'balance_change_lag1',
+    lag('balance_change_pct', 1).over(window_spec)
+).withColumn(
+    'balance_change_lag2',
+    lag('balance_change_pct', 2).over(window_spec)
+)
+
+# Rolling features
+features_df = features_df.withColumn(
+    'balance_trend_3m',
+    avg('balance_change_pct').over(window_spec.rowsBetween(-3, -1))
+).withColumn(
+    'balance_volatility_6m',
+    stddev('balance_change_pct').over(window_spec.rowsBetween(-6, -1))
+)
+
+# Product type encoding
+from pyspark.ml.feature import StringIndexer
+
+indexer = StringIndexer(inputCol="product_type", outputCol="product_type_encoded")
+features_df = indexer.fit(features_df).transform(features_df)
+
+# Write features
+features_df.write \
+    .mode("overwrite") \
+    .saveAsTable("cfo_banking_demo.gold_analytics.deposit_beta_features")
+
+print("✓ Feature engineering complete")
+```
+
+### 3. Train Model Using AutoML
+
+```python
+import mlflow
+from databricks import automl
+
+# Load features as Pandas (AutoML requires Pandas)
+features_pd = spark.table("cfo_banking_demo.gold_analytics.deposit_beta_features") \
+    .filter(col("balance_change_lag1").isNotNull()) \
+    .toPandas()
+
+print(f"Training dataset: {len(features_pd)} records")
+
+# Define feature columns
+feature_cols = [
+    'rate_change_bps', 
+    'rate_increasing',
+    'fed_funds_rate',
+    'beginning_balance',
+    'product_type_encoded',
+    'balance_change_lag1',
+    'balance_change_lag2',
+    'balance_trend_3m',
+    'balance_volatility_6m'
+]
+
+# Run AutoML
+print("Starting AutoML training...")
+
+summary = automl.regress(
+    dataset=features_pd,
+    target_col="balance_change_pct",
+    feature_cols=feature_cols,
+    primary_metric="rmse",
+    timeout_minutes=30,
+    max_trials=20
+)
+
+print(f"✓ AutoML complete. Best trial: {summary.best_trial.model_description}")
+print(f"  RMSE: {summary.best_trial.metrics['val_rmse']:.4f}")
+print(f"  R²: {summary.best_trial.metrics['val_r2_score']:.4f}")
+
+# Get best model
+best_model_uri = summary.best_trial.model_path
+```
+
+### 4. Register Model in MLflow
+
+```python
+# Register model
+model_name = "deposit_beta_v1"
+
+model_version = mlflow.register_model(
+    model_uri=best_model_uri,
+    name=model_name,
+    tags={
+        "use_case": "ALM",
+        "frequency": "monthly",
+        "owner": "treasury",
+        "created_by": "field_engineering"
+    }
+)
+
+print(f"✓ Registered model: {model_name} version {model_version.version}")
+```
+
+### 5. Deploy to Model Serving
+
+```python
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.serving import *
+
+w = WorkspaceClient()
+
+# Create serving endpoint
+try:
+    endpoint = w.serving_endpoints.create(
+        name="deposit-beta-model",
+        config=EndpointCoreConfigInput(
+            served_models=[
+                ServedModelInput(
+                    model_name=model_name,
+                    model_version=str(model_version.version),
+                    scale_to_zero_enabled=True,
+                    workload_size="Small"
+                )
+            ]
+        )
+    )
+    print(f"✓ Created serving endpoint: {endpoint.name}")
+except Exception as e:
+    if "already exists" in str(e).lower():
+        # Update existing endpoint
+        w.serving_endpoints.update_config(
+            name="deposit-beta-model",
+            served_models=[
+                ServedModelInput(
+                    model_name=model_name,
+                    model_version=str(model_version.version),
+                    scale_to_zero_enabled=True,
+                    workload_size="Small"
+                )
+            ]
+        )
+        print("✓ Updated existing serving endpoint")
+    else:
+        raise
+
+# Wait for endpoint to be ready
+import time
+for i in range(60):
+    endpoint_status = w.serving_endpoints.get("deposit-beta-model")
+    if endpoint_status.state.config_update == EndpointStateConfigUpdate.NOT_UPDATING:
+        print("✓ Endpoint is ready")
+        break
+    time.sleep(10)
+    print(f"  Waiting for endpoint... ({i*10}s)")
+```
+
+### 6. Test Inference
+
+```python
+# Test model serving endpoint
+import requests
+
+# Prepare test input
+test_input = {
+    "dataframe_records": [{
+        "rate_change_bps": 50.0,  # 50 bps rate increase
+        "rate_increasing": 1,
+        "fed_funds_rate": 4.5,
+        "beginning_balance": 100000.0,
+        "product_type_encoded": 3.0,  # MMDA
+        "balance_change_lag1": -2.0,
+        "balance_change_lag2": -1.5,
+        "balance_trend_3m": -1.5,
+        "balance_volatility_6m": 3.2
+    }]
+}
+
+# Call endpoint
+endpoint_url = f"{w.config.host}/serving-endpoints/deposit-beta-model/invocations"
+headers = {"Authorization": f"Bearer {w.config.token}"}
+
+response = requests.post(endpoint_url, json=test_input, headers=headers)
+
+if response.status_code == 200:
+    prediction = response.json()
+    print(f"✓ Model inference successful")
+    print(f"  Predicted balance change: {prediction['predictions'][0]:.2f}%")
+else:
+    print(f"❌ Inference failed: {response.text}")
+```
+
+### 7. Save Outputs
+
+- Feature engineering: `outputs/10_deposit_beta_features.py`
+- Model training: `outputs/11_deposit_beta_training.py`
+- Model deployment: `outputs/12_deposit_beta_deployment.py`
+
+## Success Criteria
+- [ ] Using warehouse 4b9b953939869799
+- [ ] Features engineered successfully
+- [ ] AutoML training completed
+- [ ] Model R² > 0.70
+- [ ] Model registered in MLflow
+- [ ] Model deployed to serving endpoint
+- [ ] Test inference succeeds
+- [ ] Response time < 500ms
+
+## Expected Output
+
+```
+✓ Using SQL Warehouse: 4b9b953939869799
+
+Training dataset: 12,845,621 records
+
+Starting AutoML training...
+✓ AutoML complete. Best trial: XGBoost Regressor
+  RMSE: 4.12%
+  R²: 0.78
+
+✓ Registered model: deposit_beta_v1 version 1
+✓ Created serving endpoint: deposit-beta-model
+✓ Endpoint is ready
+
+Test Inference:
+Rate shock: +50 bps
+Predicted balance change: -8.23%
+```
+
+## Estimated Duration
+⏱️ 45-60 minutes (AutoML training)
+
+## When Complete
+Report ready for WS3-02 (LCR Calculator)
