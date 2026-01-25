@@ -2,18 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Bloomberg Terminal Color Palette */
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --bloomberg-bg: #000000;
+  --bloomberg-surface: #1a1a1a;
+  --bloomberg-border: #333333;
+  --bloomberg-orange: #ff8c00;
+  --bloomberg-amber: #ffb347;
+  --bloomberg-text: #ffffff;
+  --bloomberg-text-dim: #999999;
+  --bloomberg-green: #00ff00;
+  --bloomberg-red: #ff0000;
+  --bloomberg-blue: #00a0ff;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: #000000;
+  color: #ffffff;
+  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+}
+
+/* Bloomberg Terminal styling */
+.bloomberg-panel {
+  background: #1a1a1a;
+  border: 1px solid #333333;
+  box-shadow: 0 0 20px rgba(255, 140, 0, 0.2);
+}
+
+.bloomberg-header {
+  background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+  border-bottom: 2px solid #ff8c00;
+  box-shadow: 0 4px 10px rgba(255, 140, 0, 0.3);
+}
+
+.bloomberg-text-orange {
+  color: #ff8c00;
+}
+
+.bloomberg-text-amber {
+  color: #ffb347;
+}
+
+.bloomberg-mono {
+  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Glowing effects */
+.bloomberg-glow {
+  text-shadow: 0 0 10px rgba(255, 140, 0, 0.5);
+}
+
+.bloomberg-glow-green {
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+.bloomberg-glow-red {
+  text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
 }

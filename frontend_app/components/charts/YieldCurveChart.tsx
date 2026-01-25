@@ -43,7 +43,7 @@ export default function YieldCurveChart() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[300px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-700"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bloomberg-orange"></div>
       </div>
     )
   }
@@ -53,46 +53,50 @@ export default function YieldCurveChart() {
       <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="yieldGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#1e40af" stopOpacity={0.3}/>
-            <stop offset="95%" stopColor="#1e40af" stopOpacity={0}/>
+            <stop offset="5%" stopColor="#ff8c00" stopOpacity={0.4}/>
+            <stop offset="95%" stopColor="#ff8c00" stopOpacity={0}/>
           </linearGradient>
         </defs>
 
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#333333" vertical={false} />
 
         <XAxis
           dataKey="maturity"
-          stroke="#64748b"
+          stroke="#999999"
           fontSize={12}
+          fontFamily="'Courier New', Monaco, Menlo, monospace"
           tickLine={false}
-          axisLine={{ stroke: '#cbd5e1' }}
+          axisLine={{ stroke: '#333333' }}
         />
 
         <YAxis
-          stroke="#64748b"
+          stroke="#999999"
           fontSize={12}
+          fontFamily="'Courier New', Monaco, Menlo, monospace"
           tickLine={false}
-          axisLine={{ stroke: '#cbd5e1' }}
+          axisLine={{ stroke: '#333333' }}
           tickFormatter={(value) => `${value.toFixed(2)}%`}
           domain={['dataMin - 0.5', 'dataMax + 0.5']}
         />
 
         <Tooltip
           contentStyle={{
-            backgroundColor: 'white',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            padding: '12px'
+            backgroundColor: '#1a1a1a',
+            border: '2px solid #ff8c00',
+            borderRadius: '0',
+            boxShadow: '0 0 20px rgba(255, 140, 0, 0.3)',
+            padding: '12px',
+            fontFamily: "'Courier New', Monaco, Menlo, monospace",
+            color: '#ffffff'
           }}
-          labelStyle={{ fontWeight: 600, marginBottom: '4px' }}
+          labelStyle={{ fontWeight: 700, marginBottom: '4px', color: '#ff8c00' }}
           formatter={(value: number) => [`${value.toFixed(2)}%`, 'Yield']}
         />
 
         <Area
           type="monotone"
           dataKey="yield"
-          stroke="#1e40af"
+          stroke="#ff8c00"
           strokeWidth={3}
           fill="url(#yieldGradient)"
           animationDuration={1000}

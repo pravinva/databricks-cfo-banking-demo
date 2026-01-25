@@ -9,17 +9,31 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        bloomberg: {
+          bg: '#000000',
+          surface: '#1a1a1a',
+          border: '#333333',
+          orange: '#ff8c00',
+          amber: '#ffb347',
+          text: '#ffffff',
+          'text-dim': '#999999',
+          green: '#00ff00',
+          red: '#ff0000',
+          blue: '#00a0ff',
+        },
         primary: {
-          50: '#f0f4ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          500: '#3b82f6',
-          700: '#1e40af',
-          900: '#0c1e3d',
+          50: '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          500: '#ff8c00',
+          600: '#ea580c',
+          700: '#c2410c',
+          900: '#7c2d12',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['"Courier New"', 'Monaco', 'Menlo', 'monospace'],
+        mono: ['"Courier New"', 'Monaco', 'Menlo', 'monospace'],
       },
     },
   },

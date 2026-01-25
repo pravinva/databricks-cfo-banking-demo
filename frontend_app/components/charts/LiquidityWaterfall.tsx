@@ -26,17 +26,17 @@ export default function LiquidityWaterfall() {
         {
           name: 'HQLA',
           value: result.hqla / 1e9,
-          fill: '#10b981'
+          fill: '#00ff00'
         },
         {
           name: 'Outflows',
           value: -(result.net_outflows - result.hqla) / 1e9,
-          fill: '#dc2626'
+          fill: '#ff0000'
         },
         {
           name: 'Net Cash',
           value: result.net_outflows / 1e9,
-          fill: '#1e40af'
+          fill: '#ff8c00'
         }
       ]
       setData(waterfall)
@@ -50,7 +50,7 @@ export default function LiquidityWaterfall() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[300px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-700"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bloomberg-orange"></div>
       </div>
     )
   }
@@ -58,38 +58,42 @@ export default function LiquidityWaterfall() {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#333333" vertical={false} />
 
         <XAxis
           dataKey="name"
-          stroke="#64748b"
+          stroke="#999999"
           fontSize={12}
+          fontFamily="'Courier New', Monaco, Menlo, monospace"
           tickLine={false}
-          axisLine={{ stroke: '#cbd5e1' }}
+          axisLine={{ stroke: '#333333' }}
         />
 
         <YAxis
-          stroke="#64748b"
+          stroke="#999999"
           fontSize={12}
+          fontFamily="'Courier New', Monaco, Menlo, monospace"
           tickLine={false}
-          axisLine={{ stroke: '#cbd5e1' }}
+          axisLine={{ stroke: '#333333' }}
           tickFormatter={(value) => `$${Math.abs(value).toFixed(1)}B`}
         />
 
         <Tooltip
           contentStyle={{
-            backgroundColor: 'white',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            padding: '12px'
+            backgroundColor: '#1a1a1a',
+            border: '2px solid #ff8c00',
+            borderRadius: '0',
+            boxShadow: '0 0 20px rgba(255, 140, 0, 0.3)',
+            padding: '12px',
+            fontFamily: "'Courier New', Monaco, Menlo, monospace",
+            color: '#ffffff'
           }}
           formatter={(value: number) => [`$${Math.abs(value).toFixed(2)}B`, '']}
         />
 
-        <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={2} />
+        <ReferenceLine y={0} stroke="#333333" strokeWidth={2} />
 
-        <Bar dataKey="value" radius={[8, 8, 0, 0]} animationDuration={1000}>
+        <Bar dataKey="value" radius={[0, 0, 0, 0]} animationDuration={1000}>
           {data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={entry.fill} />
           ))}

@@ -24,9 +24,9 @@ export default function MetricCard({
 }: MetricCardProps) {
 
   const trendColors = {
-    up: 'text-green-600 bg-green-50 border-green-200',
-    down: 'text-red-600 bg-red-50 border-red-200',
-    neutral: 'text-slate-600 bg-slate-50 border-slate-200'
+    up: 'text-bloomberg-green bloomberg-glow-green',
+    down: 'text-bloomberg-red bloomberg-glow-red',
+    neutral: 'text-bloomberg-amber'
   }
 
   return (
@@ -36,24 +36,21 @@ export default function MetricCard({
       transition={{ duration: 0.3 }}
       whileHover={{
         y: -4,
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        boxShadow: '0 0 20px rgba(255, 140, 0, 0.3)'
       }}
     >
       <div
-        className={`bg-white rounded-lg border shadow-sm p-6 transition-all duration-200 relative ${
-          highlight ? 'ring-2 ring-primary-500 ring-offset-2' : 'border-slate-200'
+        className={`bloomberg-panel rounded-none p-6 transition-all duration-200 relative border-2 ${
+          highlight ? 'border-bloomberg-orange' : 'border-bloomberg-border hover:border-bloomberg-orange/50'
         }`}
       >
         {dataSource && (
           <div className="group absolute top-3 right-3">
-            <Info className="h-4 w-4 text-slate-400 cursor-help" />
+            <Info className="h-4 w-4 text-bloomberg-text-dim cursor-help" />
             <div className="absolute top-full right-0 mt-2 hidden group-hover:block z-50 w-72">
-              <div className="bg-slate-900 text-white text-xs rounded-lg p-3 shadow-lg">
-                <div className="font-medium mb-1">Data Source</div>
-                <div className="text-slate-300">{dataSource}</div>
-                <div className="absolute bottom-full right-4 mb-[-4px]">
-                  <div className="border-4 border-transparent border-b-slate-900"></div>
-                </div>
+              <div className="bg-bloomberg-surface border border-bloomberg-orange text-bloomberg-text text-xs p-3 shadow-lg">
+                <div className="font-bold mb-1 text-bloomberg-orange">DATA SOURCE</div>
+                <div className="text-bloomberg-text-dim font-mono text-[10px]">{dataSource}</div>
               </div>
             </div>
           </div>
@@ -61,23 +58,23 @@ export default function MetricCard({
 
         <div className="flex items-start justify-between mb-4">
           <motion.div
-            className={`p-2 rounded-lg ${trendColors[trend]}`}
+            className={`${trendColors[trend]}`}
             whileHover={{ scale: 1.1 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
           >
             {icon}
           </motion.div>
           <div
-            className={`text-xs font-medium px-2 py-1 rounded border ${trendColors[trend]}`}
+            className={`text-xs font-bold font-mono px-2 py-1 ${trendColors[trend]}`}
           >
             {change}
           </div>
         </div>
 
         <div>
-          <p className="text-sm text-slate-600 mb-1 font-medium">{title}</p>
+          <p className="text-xs text-bloomberg-text-dim mb-2 font-mono font-bold tracking-wider">{title.toUpperCase()}</p>
           <motion.p
-            className="text-3xl font-bold text-slate-900"
+            className="text-3xl font-bold text-bloomberg-orange bloomberg-glow font-mono tabular-nums"
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.2 }}

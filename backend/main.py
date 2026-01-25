@@ -480,6 +480,373 @@ async def get_recent_activity():
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+@app.get("/api/data/loans")
+async def get_loans(
+    product_type: str = None,
+    days: int = None,
+    limit: int = 100
+):
+    """
+    Get loan list with optional filters
+    Returns: List of loans matching criteria
+    """
+    if not agent_tools:
+        return JSONResponse({"error": "Agent tools not available"}, status_code=503)
+
+    try:
+        # Build query with filters
+        where_clauses = ["is_current = true"]
+
+        if product_type:
+            where_clauses.append(f"product_type = '{product_type}'")
+
+        if days:
+            where_clauses.append(f"DATEDIFF(CURRENT_DATE(), origination_date) <= {days}")
+
+        where_sql = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT
+                loan_id,
+                borrower_name,
+                product_type,
+                current_balance,
+                interest_rate,
+                payment_status,
+                origination_date
+            FROM cfo_banking_demo.silver_finance.loan_portfolio
+            WHERE {where_sql}
+            ORDER BY origination_date DESC
+            LIMIT {limit}
+        """
+
+        result = agent_tools.query_unity_catalog(query)
+
+        if result["success"]:
+            # Column names from SELECT statement
+            columns = ["loan_id", "borrower_name", "product_type", "current_balance",
+                      "interest_rate", "payment_status", "origination_date"]
+
+            loans = []
+            for row in result["data"]:
+                loan_dict = {}
+                for i in range(min(len(columns), len(row))):
+                    value = row[i]
+                    # Convert numeric strings to numbers
+                    if columns[i] in ["current_balance", "interest_rate"]:
+                        try:
+                            loan_dict[columns[i]] = float(value) if value else 0.0
+                        except (ValueError, TypeError):
+                            loan_dict[columns[i]] = 0.0
+                    else:
+                        loan_dict[columns[i]] = value
+                loans.append(loan_dict)
+
+            return {"loans": loans, "count": len(loans)}
+        else:
+            return JSONResponse({"error": "Failed to fetch loans"}, status_code=500)
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/loan-detail/{loan_id}")
+async def get_loan_detail(loan_id: str):
+    """
+    Get comprehensive loan details with related records
+    Returns: Loan info + GL entries + subledger + payment history
+    """
+    if not agent_tools:
+        return JSONResponse({"error": "Agent tools not available"}, status_code=503)
+
+    try:
+        # Note: MLflow logging removed to avoid parameter collision errors
+
+        # Helper function to safely convert to float
+        def to_float(value, default=0.0):
+            try:
+                return float(value) if value else default
+            except (ValueError, TypeError):
+                return default
+
+        def to_int(value, default=0):
+            try:
+                return int(float(value)) if value else default
+            except (ValueError, TypeError):
+                return default
+
+        # Get loan details with specific columns
+        loan_query = f"""
+            SELECT
+                loan_id,
+                borrower_name,
+                product_type,
+                current_balance,
+                original_amount,
+                interest_rate,
+                origination_date,
+                maturity_date,
+                payment_status,
+                days_past_due,
+                cecl_reserve,
+                pd,
+                lgd,
+                collateral_type,
+                collateral_value,
+                ltv_ratio,
+                officer_id,
+                branch_id
+            FROM cfo_banking_demo.silver_finance.loan_portfolio
+            WHERE loan_id = '{loan_id}'
+            AND is_current = true
+        """
+
+        loan_result = agent_tools.query_unity_catalog(loan_query)
+
+        if not loan_result["success"] or len(loan_result["data"]) == 0:
+            return JSONResponse({"error": "Loan not found"}, status_code=404)
+
+        # Map data to loan object
+        loan_data = loan_result["data"][0]
+        loan = {
+            "loan_id": loan_data[0],
+            "borrower_name": loan_data[1],
+            "product_type": loan_data[2],
+            "current_balance": to_float(loan_data[3]),
+            "original_amount": to_float(loan_data[4]),
+            "interest_rate": to_float(loan_data[5]),
+            "origination_date": loan_data[6],
+            "maturity_date": loan_data[7],
+            "payment_status": loan_data[8],
+            "days_past_due": to_int(loan_data[9]),
+            "cecl_reserve": to_float(loan_data[10]),
+            "pd": to_float(loan_data[11]),
+            "lgd": to_float(loan_data[12]),
+            "collateral_type": loan_data[13],
+            "collateral_value": to_float(loan_data[14]),
+            "ltv_ratio": to_float(loan_data[15]),
+            "officer_id": loan_data[16],
+            "branch_id": loan_data[17],
+        }
+
+        # Get related GL entries with specific columns
+        gl_query = f"""
+            SELECT
+                entry_id,
+                source_transaction_id,
+                entry_date,
+                entry_timestamp,
+                total_debits,
+                total_credits,
+                is_balanced,
+                description
+            FROM cfo_banking_demo.silver_finance.gl_entries
+            WHERE source_transaction_id = '{loan_id}'
+            ORDER BY entry_timestamp DESC
+            LIMIT 10
+        """
+
+        gl_result = agent_tools.query_unity_catalog(gl_query)
+        gl_entries_raw = gl_result["data"] if gl_result["success"] else []
+
+        # Convert GL entries to structured objects
+        gl_entries = []
+        if gl_entries_raw:
+            for row in gl_entries_raw:
+                gl_entries.append({
+                    "entry_id": row[0],
+                    "source_transaction_id": row[1],
+                    "entry_date": row[2],
+                    "entry_timestamp": row[3],
+                    "total_debits": to_float(row[4]),
+                    "total_credits": to_float(row[5]),
+                    "is_balanced": row[6],
+                    "description": row[7]
+                })
+
+        # Get subledger transactions with specific columns
+        subledger_query = f"""
+            SELECT
+                transaction_id,
+                loan_id,
+                transaction_timestamp,
+                transaction_type,
+                principal_amount,
+                interest_amount,
+                balance_after
+            FROM cfo_banking_demo.silver_finance.loan_subledger
+            WHERE loan_id = '{loan_id}'
+            ORDER BY transaction_timestamp DESC
+            LIMIT 20
+        """
+
+        subledger_result = agent_tools.query_unity_catalog(subledger_query)
+        subledger_entries_raw = subledger_result["data"] if subledger_result["success"] else []
+
+        # Convert subledger entries to structured objects
+        subledger_entries = []
+        if subledger_entries_raw:
+            for row in subledger_entries_raw:
+                subledger_entries.append({
+                    "transaction_id": row[0],
+                    "posting_date": row[2],
+                    "transaction_type": row[3],
+                    "principal_amount": to_float(row[4]),
+                    "interest_amount": to_float(row[5]),
+                    "balance_after": to_float(row[6])
+                })
+
+        # Combine all data
+        result = {
+            **loan,
+            "gl_entries": gl_entries,
+            "subledger_entries": subledger_entries,
+            "payment_history": []  # Could add payment history if available
+        }
+
+        # Note: MLflow logging removed to avoid parameter collision errors
+
+        return result
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/deposits")
+async def get_deposits(
+    product_type: str = None,
+    customer_segment: str = None,
+    limit: int = 100
+):
+    """Get deposit accounts with filters"""
+    if not agent_tools:
+        return JSONResponse({"error": "Agent tools not available"}, status_code=503)
+
+    try:
+        where_clauses = ["account_status = 'Active'"]
+
+        if product_type:
+            where_clauses.append(f"product_type = '{product_type}'")
+
+        if customer_segment:
+            where_clauses.append(f"customer_segment = '{customer_segment}'")
+
+        where_sql = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT
+                account_id,
+                customer_name,
+                product_type,
+                customer_segment,
+                current_balance,
+                stated_rate,
+                beta,
+                account_status
+            FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+            WHERE {where_sql}
+            ORDER BY current_balance DESC
+            LIMIT {limit}
+        """
+
+        result = agent_tools.query_unity_catalog(query)
+
+        if result["success"]:
+            # Convert array data to dictionaries with normalized field names
+            columns = ["account_id", "customer_name", "product_type", "customer_segment", "current_balance", "stated_rate", "beta", "account_status"]
+            deposits = []
+            for row in result["data"]:
+                # Normalize field names to match loan schema
+                deposit_dict = {
+                    "loan_id": row[0],  # account_id -> loan_id
+                    "borrower_name": row[1],  # customer_name -> borrower_name
+                    "product_type": row[2],
+                    "current_balance": float(row[4]) if row[4] else 0.0,
+                    "interest_rate": float(row[5]) if row[5] else 0.0,  # stated_rate -> interest_rate
+                    "payment_status": row[7] if row[7] else "Active",  # account_status -> payment_status
+                    "origination_date": "2024-01-01"  # Default date for deposits
+                }
+                deposits.append(deposit_dict)
+
+            return {"deposits": deposits, "count": len(deposits)}
+        else:
+            return JSONResponse({"error": "Failed to fetch deposits"}, status_code=500)
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/securities")
+async def get_securities(
+    security_type: str = None,
+    hqla_level: str = None,
+    limit: int = 100
+):
+    """Get securities portfolio with filters"""
+    if not agent_tools:
+        return JSONResponse({"error": "Agent tools not available"}, status_code=503)
+
+    try:
+        # Build filters
+        where_clauses = ["is_current = true"]
+
+        if security_type:
+            where_clauses.append(f"security_type = '{security_type}'")
+
+        where_sql = " AND ".join(where_clauses)
+
+        # If HQLA filter, join with HQLA table
+        if hqla_level:
+            query = f"""
+                SELECT
+                    s.security_id,
+                    s.issuer_name,
+                    s.security_type,
+                    s.maturity_date,
+                    s.market_value,
+                    s.yield_to_maturity,
+                    s.duration,
+                    h.hqla_level,
+                    h.hqla_value
+                FROM cfo_banking_demo.silver_treasury.securities_portfolio s
+                JOIN cfo_banking_demo.gold_regulatory.hqla_inventory h
+                    ON s.security_id = h.security_id
+                WHERE {where_sql}
+                AND h.hqla_level = '{hqla_level}'
+                ORDER BY s.market_value DESC
+                LIMIT {limit}
+            """
+        else:
+            query = f"""
+                SELECT
+                    security_id,
+                    issuer_name,
+                    security_type,
+                    maturity_date,
+                    market_value,
+                    yield_to_maturity,
+                    duration,
+                    credit_rating
+                FROM cfo_banking_demo.silver_treasury.securities_portfolio
+                WHERE {where_sql}
+                ORDER BY market_value DESC
+                LIMIT {limit}
+            """
+
+        result = agent_tools.query_unity_catalog(query)
+
+        if result["success"]:
+            # Convert array data to dictionaries
+            columns = result.get("columns", [])
+            securities = []
+            for row in result["data"]:
+                security_dict = {columns[i]: row[i] for i in range(len(columns))}
+                securities.append(security_dict)
+
+            return {"securities": securities, "count": len(securities)}
+        else:
+            return JSONResponse({"error": "Failed to fetch securities"}, status_code=500)
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 # Serve React static files (after npm run build in frontend_app)
 # This assumes the React app has been built to frontend_app/out/
 frontend_path = Path(__file__).parent.parent / "frontend_app" / "out"

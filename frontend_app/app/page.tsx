@@ -8,6 +8,11 @@ import YieldCurveChart from '@/components/charts/YieldCurveChart'
 import LiquidityWaterfall from '@/components/charts/LiquidityWaterfall'
 import MetricCard from '@/components/MetricCard'
 import Link from 'next/link'
+import { DrillDownProvider, useDrillDown } from '@/lib/drill-down-context'
+import Breadcrumbs from '@/components/Breadcrumbs'
+import LoanTable from '@/components/tables/LoanTable'
+import LoanDetailPanel from '@/components/panels/LoanDetailPanel'
+import PortfolioDetailTable from '@/components/tables/PortfolioDetailTable'
 
 function DataSourceTooltip({ source }: { source: string }) {
   return (
@@ -29,6 +34,7 @@ function DataSourceTooltip({ source }: { source: string }) {
 function PortfolioBreakdown({ type }: { type: 'loans' | 'deposits' }) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const { navigateTo } = useDrillDown()
 
   useEffect(() => {
     fetchData()
@@ -57,15 +63,21 @@ function PortfolioBreakdown({ type }: { type: 'loans' | 'deposits' }) {
       {data.map((item: any, index: number) => (
         <div
           key={index}
-          className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+          onClick={() => {
+            // Navigate to appropriate table filtered by product type
+            const productType = item[0]
+            const view = type === 'loans' ? 'loan-table' : 'deposit-table'
+            navigateTo(view, { product_type: productType }, `${productType} ${type === 'loans' ? 'Loans' : 'Deposits'}`)
+          }}
+          className="flex items-center justify-between p-4 border-2 border-bloomberg-border bg-bloomberg-surface hover:border-bloomberg-orange/70 transition-colors cursor-pointer group"
         >
           <div>
-            <div className="font-medium text-slate-900">{item[0]}</div>
-            <div className="text-xs text-slate-600">{Number(item[1]).toLocaleString()} accounts</div>
+            <div className="font-bold text-bloomberg-orange group-hover:text-bloomberg-amber transition-colors font-mono text-sm">{item[0]}</div>
+            <div className="text-xs text-bloomberg-text-dim font-mono mt-1">{Number(item[1]).toLocaleString()} accounts</div>
           </div>
           <div className="text-right">
-            <div className="font-semibold text-slate-900">${Number(item[2]).toFixed(2)}B</div>
-            <div className="text-xs text-slate-600">{Number(item[3]).toFixed(2)}% avg rate</div>
+            <div className="font-bold text-bloomberg-text font-mono text-lg">${Number(item[2]).toFixed(2)}B</div>
+            <div className="text-xs text-bloomberg-text-dim font-mono mt-1">{Number(item[3]).toFixed(2)}% avg rate</div>
           </div>
         </div>
       ))}
@@ -76,6 +88,7 @@ function PortfolioBreakdown({ type }: { type: 'loans' | 'deposits' }) {
 function RiskMetrics() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const { navigateTo } = useDrillDown()
 
   useEffect(() => {
     fetchData()
@@ -109,15 +122,22 @@ function RiskMetrics() {
         <h3 className="font-semibold text-slate-900">Credit Risk by Product</h3>
         <div className="space-y-3">
           {data.credit_risk?.map((item: any, index: number) => (
-            <div key={index} className="p-3 border border-slate-200 rounded-lg">
-              <div className="flex justify-between items-start mb-2">
-                <div className="font-medium text-slate-900">{item[0]}</div>
-                <div className="text-sm font-semibold text-slate-900">${Number(item[1]).toFixed(2)}B</div>
+            <div
+              key={index}
+              onClick={() => {
+                // Navigate to loan table filtered by product type
+                navigateTo('loan-table', { product_type: item[0] }, `${item[0]} Loans - Risk View`)
+              }}
+              className="p-4 border-2 border-bloomberg-border bg-bloomberg-surface hover:border-bloomberg-orange/70 transition-colors cursor-pointer group"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div className="font-bold text-bloomberg-orange group-hover:text-bloomberg-amber transition-colors font-mono text-sm">{item[0]}</div>
+                <div className="text-lg font-bold text-bloomberg-text font-mono">${Number(item[1]).toFixed(2)}B</div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                <div>NPL Rate: {Number(item[2]).toFixed(2)}%</div>
-                <div>Reserves: ${Number(item[3]).toFixed(2)}B</div>
-                <div className="col-span-2">Reserve Ratio: {Number(item[4]).toFixed(2)}%</div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-bloomberg-text-dim font-mono">
+                <div>NPL: <span className="text-bloomberg-red font-bold">{Number(item[2]).toFixed(2)}%</span></div>
+                <div>RSV: <span className="text-bloomberg-amber">${Number(item[3]).toFixed(2)}B</span></div>
+                <div className="col-span-2">Ratio: <span className="text-bloomberg-text">{Number(item[4]).toFixed(2)}%</span></div>
               </div>
             </div>
           ))}
@@ -128,39 +148,39 @@ function RiskMetrics() {
         <h3 className="font-semibold text-slate-900">Rate Shock Stress (100 bps)</h3>
         <div className="space-y-3">
           {data.rate_shock_stress?.map((item: any, index: number) => (
-            <div key={index} className="p-3 border border-slate-200 rounded-lg">
-              <div className="flex justify-between items-start mb-2">
-                <div className="font-medium text-slate-900">{item.product}</div>
-                <div className="text-sm text-red-600 font-semibold">
+            <div key={index} className="p-4 border-2 border-bloomberg-border bg-bloomberg-surface">
+              <div className="flex justify-between items-start mb-3">
+                <div className="font-bold text-bloomberg-orange font-mono text-sm">{item.product}</div>
+                <div className="text-sm text-bloomberg-red font-bold font-mono bloomberg-glow-red">
                   -${(item.runoff_100bps / 1e6).toFixed(1)}M
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                <div>Beta: {item.beta.toFixed(4)}</div>
-                <div>Runoff: {item.runoff_pct.toFixed(2)}%</div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-bloomberg-text-dim font-mono">
+                <div>BETA: <span className="text-bloomberg-text">{item.beta.toFixed(4)}</span></div>
+                <div>RUN: <span className="text-bloomberg-red">{item.runoff_pct.toFixed(2)}%</span></div>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg mt-4">
-          <h4 className="font-medium text-slate-900 mb-2">LCR Stress Test</h4>
+        <div className="p-4 bg-bloomberg-surface border-2 border-bloomberg-border mt-4">
+          <h4 className="font-bold text-bloomberg-orange mb-3 font-mono text-sm tracking-wider">LCR STRESS TEST</h4>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <div className="text-xs text-slate-600">Base Case</div>
-              <div className="font-semibold text-slate-900">
+              <div className="text-xs text-bloomberg-text-dim font-mono mb-1">BASE CASE</div>
+              <div className="font-bold text-bloomberg-text font-mono text-lg">
                 {data.lcr_stress?.base.ratio.toFixed(2)}%
               </div>
-              <div className={`text-xs ${data.lcr_stress?.base.status === 'Pass' ? 'text-green-600' : 'text-red-600'}`}>
+              <div className={`text-xs font-bold font-mono mt-1 ${data.lcr_stress?.base.status === 'Pass' ? 'text-bloomberg-green bloomberg-glow-green' : 'text-bloomberg-red bloomberg-glow-red'}`}>
                 {data.lcr_stress?.base.status}
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-600">1.5x Stress</div>
-              <div className="font-semibold text-slate-900">
+              <div className="text-xs text-bloomberg-text-dim font-mono mb-1">1.5X STRESS</div>
+              <div className="font-bold text-bloomberg-text font-mono text-lg">
                 {data.lcr_stress?.stressed.ratio.toFixed(2)}%
               </div>
-              <div className={`text-xs ${data.lcr_stress?.stressed.status === 'Pass' ? 'text-green-600' : 'text-red-600'}`}>
+              <div className={`text-xs font-bold font-mono mt-1 ${data.lcr_stress?.stressed.status === 'Pass' ? 'text-bloomberg-green bloomberg-glow-green' : 'text-bloomberg-red bloomberg-glow-red'}`}>
                 {data.lcr_stress?.stressed.status}
               </div>
             </div>
@@ -174,6 +194,7 @@ function RiskMetrics() {
 function RecentActivity() {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const { navigateTo } = useDrillDown()
 
   useEffect(() => {
     fetchData()
@@ -202,17 +223,21 @@ function RecentActivity() {
       {data.map((item: any, index: number) => (
         <div
           key={index}
-          className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+          onClick={() => {
+            // Navigate to loan table filtered by product type
+            navigateTo('loan-table', { product_type: item[1] }, `${item[1]} Loans`)
+          }}
+          className="flex items-center justify-between p-4 border-2 border-bloomberg-border bg-bloomberg-surface hover:border-bloomberg-orange/70 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-4">
             <div className="flex flex-col">
-              <div className="font-medium text-slate-900">{item[0]}</div>
-              <div className="text-xs text-slate-600">{item[1]}</div>
+              <div className="font-bold text-bloomberg-orange group-hover:text-bloomberg-amber transition-colors font-mono text-sm">{item[0]}</div>
+              <div className="text-xs text-bloomberg-text-dim font-mono mt-1">{item[1]}</div>
             </div>
           </div>
           <div className="text-right">
-            <div className="font-semibold text-slate-900">${(Number(item[2]) / 1000).toFixed(1)}K</div>
-            <div className="text-xs text-slate-600">{new Date(item[3]).toLocaleDateString()}</div>
+            <div className="font-bold text-bloomberg-text font-mono text-lg">${(Number(item[2]) / 1000).toFixed(1)}K</div>
+            <div className="text-xs text-bloomberg-text-dim font-mono mt-1">{new Date(item[3]).toLocaleDateString()}</div>
           </div>
         </div>
       ))}
@@ -220,9 +245,24 @@ function RecentActivity() {
   )
 }
 
-export default function Dashboard() {
+function DashboardContent() {
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [selectedLoan, setSelectedLoan] = useState<string | null>(null)
+  const [currentTime, setCurrentTime] = useState<string>('')
+  const { state, navigateTo } = useDrillDown()
+
+  useEffect(() => {
+    // Set initial time on client only
+    setCurrentTime(new Date().toLocaleTimeString())
+
+    // Update time every second
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString())
+    }, 1000)
+
+    return () => clearInterval(timeInterval)
+  }, [])
 
   useEffect(() => {
     fetchSummary()
@@ -243,31 +283,31 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
+    <div className="min-h-screen bg-bloomberg-bg">
+      {/* Header - Bloomberg Terminal Style */}
+      <header className="bloomberg-header sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">
-                Bank CFO Command Center
+              <h1 className="text-2xl font-bold text-bloomberg-orange bloomberg-glow tracking-wide">
+                BANK CFO COMMAND CENTER
               </h1>
-              <p className="text-sm text-slate-600">
-                Powered by Databricks Lakehouse
+              <p className="text-xs text-bloomberg-text-dim font-mono mt-1">
+                POWERED BY DATABRICKS LAKEHOUSE | REAL-TIME ANALYTICS
               </p>
             </div>
 
             <div className="flex items-center gap-6">
               <Link
                 href="/assistant"
-                className="text-sm font-medium text-primary-700 hover:text-primary-900 transition-colors"
+                className="text-sm font-bold text-bloomberg-amber hover:text-bloomberg-orange transition-colors tracking-wide"
               >
-                AI Assistant →
+                AI ASSISTANT →
               </Link>
-              <div className="flex items-center gap-4 text-sm text-slate-600">
-                <span>Last updated: {new Date().toLocaleTimeString()}</span>
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-green-600 font-medium">Live</span>
+              <div className="flex items-center gap-3 text-xs font-mono text-bloomberg-text-dim">
+                <span>{currentTime || '--:--:--'}</span>
+                <div className="h-2 w-2 rounded-full bg-bloomberg-green animate-pulse bloomberg-glow-green" />
+                <span className="text-bloomberg-green font-bold">LIVE</span>
               </div>
             </div>
           </div>
@@ -277,64 +317,83 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
 
-        {/* KPI Cards Row */}
+        {/* Breadcrumbs */}
+        <Breadcrumbs />
+
+        {/* Conditional View Rendering */}
+        {state.view === 'loan-table' ? (
+          <LoanTable
+            type="loans"
+            filters={state.filters}
+            onLoanClick={(loanId) => setSelectedLoan(loanId)}
+          />
+        ) : state.view === 'deposit-table' ? (
+          <LoanTable
+            type="deposits"
+            filters={state.filters}
+            onLoanClick={(loanId) => setSelectedLoan(loanId)}
+          />
+        ) : state.view === 'portfolio-loans' ? (
+          <PortfolioDetailTable type="loans" />
+        ) : state.view === 'portfolio-deposits' ? (
+          <PortfolioDetailTable type="deposits" />
+        ) : (
+          <>
+            {/* KPI Cards Row */}
         <div className="grid grid-cols-4 gap-6 mb-8">
-          <MetricCard
-            title="Total Assets"
-            value={summary?.success ? `$${(summary.total_assets / 1e9).toFixed(1)}B` : 'Loading...'}
-            change="+2.1%"
-            trend="up"
-            icon={<TrendingUp className="h-5 w-5" />}
-            dataSource="Unity Catalog: cfo_banking_demo.silver_finance.loan_portfolio (SUM current_balance) + silver_finance.securities (SUM market_value) → agent_tools.get_portfolio_summary()"
-          />
-          <MetricCard
-            title="Total Deposits"
-            value={summary?.success ? `$${(summary.deposits / 1e9).toFixed(1)}B` : 'Loading...'}
-            change="+1.8%"
-            trend="up"
-            icon={<Activity className="h-5 w-5" />}
-            dataSource="Unity Catalog: cfo_banking_demo.bronze_core_banking.deposit_accounts WHERE account_status = 'Active' (SUM current_balance) → agent_tools.get_portfolio_summary()"
-          />
-          <MetricCard
-            title="Loans"
-            value={summary?.success ? `$${(summary.loans / 1e9).toFixed(1)}B` : 'Loading...'}
-            change="-12 bps"
-            trend="down"
-            icon={<TrendingDown className="h-5 w-5" />}
-            dataSource="Unity Catalog: cfo_banking_demo.silver_finance.loan_portfolio WHERE is_current = true (SUM current_balance) → agent_tools.get_portfolio_summary()"
-          />
-          <MetricCard
-            title="Securities"
-            value={summary?.success ? `$${(summary.securities / 1e9).toFixed(1)}B` : 'Loading...'}
-            change="Compliant"
-            trend="neutral"
-            icon={<Shield className="h-5 w-5" />}
-            highlight
-            dataSource="Unity Catalog: cfo_banking_demo.silver_finance.securities (SUM market_value) → HQLA eligible securities for regulatory compliance → agent_tools.get_portfolio_summary()"
-          />
+          <div onClick={() => navigateTo('loan-table', {}, 'All Loans')} className="cursor-pointer">
+            <MetricCard
+              title="Total Assets"
+              value={summary?.success ? `$${(summary.total_assets / 1e9).toFixed(1)}B` : 'Loading...'}
+              change="+2.1%"
+              trend="up"
+              icon={<TrendingUp className="h-5 w-5" />}
+              dataSource="Unity Catalog: cfo_banking_demo.silver_finance.loan_portfolio (SUM current_balance) + silver_finance.securities (SUM market_value) → agent_tools.get_portfolio_summary()"
+            />
+          </div>
+          <div onClick={() => navigateTo('loan-table', {}, 'All Deposits')} className="cursor-pointer">
+            <MetricCard
+              title="Total Deposits"
+              value={summary?.success ? `$${(summary.deposits / 1e9).toFixed(1)}B` : 'Loading...'}
+              change="+1.8%"
+              trend="up"
+              icon={<Activity className="h-5 w-5" />}
+              dataSource="Unity Catalog: cfo_banking_demo.bronze_core_banking.deposit_accounts WHERE account_status = 'Active' (SUM current_balance) → agent_tools.get_portfolio_summary()"
+            />
+          </div>
+          <div onClick={() => navigateTo('loan-table', {}, 'All Loans')} className="cursor-pointer">
+            <MetricCard
+              title="Loans"
+              value={summary?.success ? `$${(summary.loans / 1e9).toFixed(1)}B` : 'Loading...'}
+              change="-12 bps"
+              trend="down"
+              icon={<TrendingDown className="h-5 w-5" />}
+              dataSource="Unity Catalog: cfo_banking_demo.silver_finance.loan_portfolio WHERE is_current = true (SUM current_balance) → agent_tools.get_portfolio_summary()"
+            />
+          </div>
+          <div onClick={() => navigateTo('loan-table', {}, 'All Securities')} className="cursor-pointer">
+            <MetricCard
+              title="Securities"
+              value={summary?.success ? `$${(summary.securities / 1e9).toFixed(1)}B` : 'Loading...'}
+              change="Compliant"
+              trend="neutral"
+              icon={<Shield className="h-5 w-5" />}
+              highlight
+              dataSource="Unity Catalog: cfo_banking_demo.silver_finance.securities (SUM market_value) → HQLA eligible securities for regulatory compliance → agent_tools.get_portfolio_summary()"
+            />
+          </div>
         </div>
 
         {/* Portfolio & Risk Analysis Tabs */}
         <Tabs defaultValue="portfolio" className="space-y-6 mb-8">
-          <TabsList className="bg-white border border-slate-200 shadow-sm p-1 rounded-lg">
-            <TabsTrigger
-              value="portfolio"
-              className="data-[state=active]:bg-primary-50 data-[state=active]:text-primary-900 data-[state=active]:border data-[state=active]:border-primary-200 hover:bg-slate-50 transition-all"
-            >
+          <TabsList>
+            <TabsTrigger value="portfolio">
               Portfolio
             </TabsTrigger>
-            <div className="w-px h-6 bg-slate-200 mx-1"></div>
-            <TabsTrigger
-              value="risk"
-              className="data-[state=active]:bg-primary-50 data-[state=active]:text-primary-900 data-[state=active]:border data-[state=active]:border-primary-200 hover:bg-slate-50 transition-all"
-            >
+            <TabsTrigger value="risk">
               Risk Analysis
             </TabsTrigger>
-            <div className="w-px h-6 bg-slate-200 mx-1"></div>
-            <TabsTrigger
-              value="activity"
-              className="data-[state=active]:bg-primary-50 data-[state=active]:text-primary-900 data-[state=active]:border data-[state=active]:border-primary-200 hover:bg-slate-50 transition-all"
-            >
+            <TabsTrigger value="activity">
               Recent Activity
             </TabsTrigger>
           </TabsList>
@@ -400,37 +459,56 @@ export default function Dashboard() {
 
         {/* Market & Liquidity Charts */}
         <div className="grid grid-cols-2 gap-6">
-          <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+          <Card>
             <CardHeader>
               <div className="flex items-center">
-                <CardTitle className="text-lg font-semibold text-slate-900">
-                  US Treasury Yield Curve
-                </CardTitle>
+                <h3 className="text-lg font-bold leading-none tracking-wider font-mono uppercase" style={{ color: '#ff8c00 !important' }}>
+                  US TREASURY YIELD CURVE
+                </h3>
                 <DataSourceTooltip source="Alpha Vantage API → agent_tools.get_current_treasury_yields() → U.S. Department of Treasury daily rates" />
               </div>
-              <p className="text-sm text-slate-600">Live market data</p>
+              <p className="text-sm font-mono" style={{ color: '#999999' }}>Live market data</p>
             </CardHeader>
             <CardContent>
               <YieldCurveChart />
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+          <Card>
             <CardHeader>
               <div className="flex items-center">
-                <CardTitle className="text-lg font-semibold text-slate-900">
-                  30-Day Liquidity Analysis
-                </CardTitle>
+                <h3 className="text-lg font-bold leading-none tracking-wider font-mono uppercase" style={{ color: '#ff8c00 !important' }}>
+                  30-DAY LIQUIDITY ANALYSIS
+                </h3>
                 <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.bronze_core_banking.deposit_accounts + silver_finance.securities → agent_tools.calculate_lcr()" />
               </div>
-              <p className="text-sm text-slate-600">LCR components</p>
+              <p className="text-sm font-mono" style={{ color: '#999999' }}>LCR components</p>
             </CardHeader>
             <CardContent>
               <LiquidityWaterfall />
             </CardContent>
           </Card>
         </div>
+          </>
+        )}
+
+        {/* Loan Detail Panel (Modal) */}
+        {selectedLoan && (
+          <LoanDetailPanel
+            loanId={selectedLoan}
+            open={!!selectedLoan}
+            onClose={() => setSelectedLoan(null)}
+          />
+        )}
       </main>
     </div>
+  )
+}
+
+export default function Page() {
+  return (
+    <DrillDownProvider>
+      <DashboardContent />
+    </DrillDownProvider>
   )
 }
