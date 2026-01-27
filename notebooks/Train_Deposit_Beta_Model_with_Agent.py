@@ -225,66 +225,91 @@ training_df.groupBy("product_type").count().orderBy("count", ascending=False).sh
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 3: Train Model with MLflow AutoML
+# MAGIC ## Step 3: Train Model with AutoML
 # MAGIC
-# MAGIC Now we'll use Databricks AutoML (which includes the Data Science Agent capabilities) to train the model:
+# MAGIC **OPTION A: Use AutoML UI (Recommended)**
+# MAGIC
+# MAGIC 1. In the left sidebar, click **Machine Learning** > **AutoML**
+# MAGIC 2. Click **Create AutoML Experiment**
+# MAGIC 3. Configure:
+# MAGIC    - **Cluster:** Select your ML cluster
+# MAGIC    - **ML Problem Type:** Regression
+# MAGIC    - **Input training dataset:** `cfo_banking_demo.ml_models.deposit_beta_training_data`
+# MAGIC    - **Prediction target:** `target_beta`
+# MAGIC    - **Evaluation metric:** RMSE
+# MAGIC    - **Timeout:** 20 minutes
+# MAGIC    - **Max trials:** 10
+# MAGIC 4. Click **Start AutoML** and wait for completion
+# MAGIC 5. After training, continue to Step 4 below to register the best model
+# MAGIC
+# MAGIC **OPTION B: Manual Training (If AutoML not available)**
+# MAGIC
+# MAGIC Run the cells below to train with XGBoost manually:
 
 # COMMAND ----------
 
-import databricks.automl as automl
+# Manual XGBoost training (if AutoML not available)
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import mlflow
+import mlflow.xgboost
 from datetime import datetime
 
-# Convert to Pandas for AutoML
+# Convert to Pandas
 training_pdf = training_df.toPandas()
 
-# Define feature columns (exclude target and identifiers)
+# Define feature columns
 feature_cols = [
-    # Product characteristics
-    'product_type_encoded',
-    'segment_encoded',
-    'current_balance',
-    'stated_rate',
-    'account_age_months',
-
-    # Churn features
-    'churned',
-    'dormant',
-    'balance_volatility_30d',
-    'rate_gap',
-    'churn_risk_score',
-
-    # Rate environment features
-    'current_market_rate',
-    'market_rate_5y',
-    'market_rate_10y',
-
-    # Balance features
-    'log_balance',
-    'balance_millions',
-    'balance_trend_30d',
-
-    # Rate spread features
-    'rate_spread',
-    'rate_spread_x_balance',
-
-    # Activity features
-    'transaction_count_30d'
+    'product_type_encoded', 'segment_encoded', 'current_balance', 'stated_rate',
+    'account_age_months', 'churned', 'dormant', 'balance_volatility_30d',
+    'rate_gap', 'churn_risk_score', 'current_market_rate', 'market_rate_5y',
+    'market_rate_10y', 'log_balance', 'balance_millions', 'balance_trend_30d',
+    'rate_spread', 'rate_spread_x_balance', 'transaction_count_30d'
 ]
 
-target_col = 'target_beta'
+X = training_pdf[feature_cols]
+y = training_pdf['target_beta']
 
-# Run AutoML
-summary = automl.regress(
-    dataset=training_pdf,
-    target_col=target_col,
-    primary_metric="rmse",
-    timeout_minutes=20,
-    max_trials=10
-)
+# Train/test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-print(f"\n✓ AutoML training complete!")
-print(f"Best trial ID: {summary.best_trial.mlflow_run_id}")
-print(f"Best RMSE: {summary.best_trial.metrics['val_rmse_score']:.4f}")
+# Start MLflow run
+with mlflow.start_run(run_name="deposit_beta_xgboost") as run:
+    # Train XGBoost model
+    params = {
+        'max_depth': 6,
+        'learning_rate': 0.1,
+        'n_estimators': 100,
+        'objective': 'reg:squarederror',
+        'random_state': 42
+    }
+
+    model = xgb.XGBRegressor(**params)
+    model.fit(X_train, y_train)
+
+    # Predict and evaluate
+    y_pred = model.predict(X_test)
+    rmse = mean_squared_error(y_test, y_pred, squared=False)
+    mae = mean_absolute_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+
+    # Log metrics
+    mlflow.log_params(params)
+    mlflow.log_metric("rmse", rmse)
+    mlflow.log_metric("mae", mae)
+    mlflow.log_metric("r2", r2)
+
+    # Log model
+    mlflow.xgboost.log_model(model, "model", input_example=X_train.head(1))
+
+    best_run_id = run.info.run_id
+
+    print(f"\n✓ Training complete!")
+    print(f"Run ID: {best_run_id}")
+    print(f"RMSE: {rmse:.4f}")
+    print(f"MAE: {mae:.4f}")
+    print(f"R²: {r2:.4f}")
 
 # COMMAND ----------
 
@@ -293,13 +318,9 @@ print(f"Best RMSE: {summary.best_trial.metrics['val_rmse_score']:.4f}")
 
 # COMMAND ----------
 
-import mlflow
 from mlflow import MlflowClient
 
 client = MlflowClient()
-
-# Get best model from AutoML
-best_run_id = summary.best_trial.mlflow_run_id
 
 # Model details
 model_name = "cfo_banking_demo.models.deposit_beta_model"
