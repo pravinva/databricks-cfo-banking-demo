@@ -8,7 +8,7 @@
 
 # next.js
 /.next/
-/out/
+# /out/  # Commented out - need to commit build for Databricks Apps
 
 # production
 /build
