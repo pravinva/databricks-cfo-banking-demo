@@ -100,7 +100,7 @@ WITH deposit_history AS (
         current_balance,
         stated_rate,
         beta,
-        open_date,
+        account_open_date,
         account_status,
 
         -- Churn indicators
@@ -148,7 +148,7 @@ SELECT
     (d.churned * 0.4 + d.dormant * 0.3 + (d.rate_gap * 10) * 0.3) as churn_risk_score,
 
     -- Derived features
-    DATEDIFF(CURRENT_DATE(), d.open_date) / 30.0 as account_age_months,
+    DATEDIFF(CURRENT_DATE(), d.account_open_date) / 30.0 as account_age_months,
 
     -- Historical rate environment
     COALESCE(y.rate_1y, 0.03) as current_market_rate,
