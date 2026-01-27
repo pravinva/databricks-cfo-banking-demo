@@ -111,13 +111,13 @@ export default function AIAssistant() {
 
           {/* Example Queries */}
           <div className="bg-slate-50 p-4 border-b border-slate-200">
-            <p className="text-xs font-medium text-slate-600 mb-2">Quick queries:</p>
+            <p className="text-xs font-medium text-slate-700 mb-2">Quick queries:</p>
             <div className="flex gap-2 flex-wrap">
               {exampleQueries.map(query => (
                 <motion.button
                   key={query}
                   onClick={() => setInput(query)}
-                  className="text-xs px-3 py-1.5 rounded-md bg-white border border-slate-300 hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                  className="text-xs px-3 py-1.5 rounded-md bg-white border border-slate-300 text-slate-700 hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-colors"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -151,14 +151,14 @@ export default function AIAssistant() {
                   <div
                     className={`max-w-[80%] rounded-lg p-4 ${
                       message.role === 'user'
-                        ? 'bg-primary-700 text-white'
-                        : 'bg-slate-100 border border-slate-200 text-slate-900'
+                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md'
+                        : 'bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-300 text-slate-900 shadow-sm'
                     }`}
                   >
                     <div className="prose prose-sm max-w-none">
-                      <pre className="whitespace-pre-wrap font-sans">{message.content}</pre>
+                      <pre className={`whitespace-pre-wrap font-sans ${message.role === 'assistant' ? 'text-slate-800' : 'text-white'}`}>{message.content}</pre>
                     </div>
-                    <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-primary-200' : 'text-slate-500'}`}>
+                    <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-blue-200' : 'text-slate-600'}`}>
                       {message.timestamp.toLocaleTimeString()}
                     </p>
                   </div>
