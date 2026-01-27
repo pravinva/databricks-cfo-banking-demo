@@ -1,0 +1,41 @@
+# Databricks Apps Deployment - Exclude unnecessary files
+
+# Development and build artifacts
+.venv/
+.git/
+.claude/
+node_modules/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Logs and databases (not needed in app)
+logs/
+mlflow.db
+mlruns/
+
+# Documentation and prompts (not needed at runtime)
+prompts/
+outputs/docs/
+outputs/config/
+README.md
+AUTOML_TRAINING_INSTRUCTIONS.md
+
+# Unused frontend (we're using frontend_app)
+frontend/
+
+# Development configs
+.DS_Store
+.alpha_vantage_key
+.gitignore
+
+# Keep only what's needed:
+# - backend/ (FastAPI app)
+# - frontend_app/out/ (production build)
+# - outputs/agent_tools_library.py (needed by backend)
+# - notebooks/ (for reference/training)
+# - app.yml (deployment config)
+# - databricks.yml (legacy config)
