@@ -17,11 +17,17 @@ from pathlib import Path
 # Add outputs directory to path for importing agent tools
 sys.path.insert(0, str(Path(__file__).parent.parent / "outputs"))
 
+# Get warehouse ID from environment or use default
+WAREHOUSE_ID = os.getenv("DATABRICKS_WAREHOUSE_ID", "4b9b953939869799")
+
 try:
     from agent_tools_library import CFOAgentTools
-    agent_tools = CFOAgentTools(warehouse_id="4b9b953939869799")
+    agent_tools = CFOAgentTools(warehouse_id=WAREHOUSE_ID)
+    print(f"✓ Successfully loaded agent tools with warehouse: {WAREHOUSE_ID}")
 except Exception as e:
-    print(f"Warning: Could not load agent tools: {e}")
+    print(f"❌ ERROR: Could not load agent tools: {e}")
+    import traceback
+    traceback.print_exc()
     agent_tools = None
 
 # Initialize FastAPI
