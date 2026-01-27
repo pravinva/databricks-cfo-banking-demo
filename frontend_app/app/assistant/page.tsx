@@ -111,13 +111,13 @@ export default function AIAssistant() {
 
           {/* Example Queries */}
           <div className="bg-slate-50 p-4 border-b border-slate-200">
-            <p className="text-xs font-medium text-slate-700 mb-2">Quick queries:</p>
+            <p className="text-xs font-medium text-slate-900 mb-2">Quick queries:</p>
             <div className="flex gap-2 flex-wrap">
               {exampleQueries.map(query => (
                 <motion.button
                   key={query}
                   onClick={() => setInput(query)}
-                  className="text-xs px-3 py-1.5 rounded-md bg-white border border-slate-300 text-slate-700 hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-colors"
+                  className="text-xs px-3 py-1.5 rounded-md bg-white border border-slate-300 text-slate-900 font-medium hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-colors"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
