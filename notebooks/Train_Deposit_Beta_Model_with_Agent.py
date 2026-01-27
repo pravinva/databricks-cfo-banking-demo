@@ -92,7 +92,7 @@
 sql_query = """
 CREATE OR REPLACE TABLE cfo_banking_demo.ml_models.deposit_beta_training_data AS
 WITH deposit_history AS (
-    -- Get historical balance changes (simulated churn behavior)
+    -- Get deposit accounts with churn behavior features
     SELECT
         account_id,
         product_type,
@@ -102,6 +102,9 @@ WITH deposit_history AS (
         beta,
         account_open_date,
         account_status,
+        average_balance_30d,
+        average_balance_90d,
+        transaction_count_30d,
 
         -- Churn indicators
         CASE WHEN account_status = 'Closed' THEN 1 ELSE 0 END as churned,
@@ -116,17 +119,14 @@ WITH deposit_history AS (
     FROM cfo_banking_demo.silver_treasury.deposit_portfolio
 ),
 rate_history AS (
-    -- Historical rate environment
+    -- Get latest rate environment (use 2-year as proxy for deposit rates)
     SELECT
-        rate_1y,
+        rate_2y,
         rate_5y,
         rate_10y,
-        rate_date,
-        -- Calculate rate changes
-        LAG(rate_1y, 30) OVER (ORDER BY rate_date) as rate_1y_30d_ago,
-        LAG(rate_1y, 90) OVER (ORDER BY rate_date) as rate_1y_90d_ago
+        date as rate_date
     FROM cfo_banking_demo.silver_treasury.yield_curves
-    WHERE rate_date = (SELECT MAX(rate_date) FROM cfo_banking_demo.silver_treasury.yield_curves)
+    WHERE date = (SELECT MAX(date) FROM cfo_banking_demo.silver_treasury.yield_curves)
 )
 SELECT
     -- Target variable
@@ -150,14 +150,17 @@ SELECT
     -- Derived features
     DATEDIFF(CURRENT_DATE(), d.account_open_date) / 30.0 as account_age_months,
 
-    -- Historical rate environment
-    COALESCE(y.rate_1y, 0.03) as current_market_rate,
-    COALESCE(y.rate_1y_30d_ago, 0.03) as market_rate_30d_ago,
-    COALESCE(y.rate_1y_90d_ago, 0.03) as market_rate_90d_ago,
+    -- Balance trend features
+    CASE
+        WHEN d.average_balance_30d > 0
+        THEN (d.current_balance - d.average_balance_30d) / d.average_balance_30d
+        ELSE 0
+    END as balance_trend_30d,
 
-    -- Rate change velocities (key for beta prediction)
-    COALESCE(y.rate_1y - y.rate_1y_30d_ago, 0.0) as rate_change_30d,
-    COALESCE(y.rate_1y - y.rate_1y_90d_ago, 0.0) as rate_change_90d,
+    -- Historical rate environment (use 2Y rate as deposit rate proxy)
+    COALESCE(y.rate_2y, 0.036) as current_market_rate,
+    COALESCE(y.rate_5y, 0.038) as market_rate_5y,
+    COALESCE(y.rate_10y, 0.043) as market_rate_10y,
 
     -- Categorical encodings
     CASE
@@ -180,11 +183,14 @@ SELECT
     LOG(d.current_balance + 1) as log_balance,
     d.current_balance / 1000000.0 as balance_millions,
 
-    -- Rate spread features (critical for churn prediction)
-    d.stated_rate - COALESCE(y.rate_1y, 0.03) as rate_spread,
+    -- Rate spread features (critical for beta prediction)
+    d.stated_rate - COALESCE(y.rate_2y, 0.036) as rate_spread,
 
     -- Interaction features
-    (d.stated_rate - COALESCE(y.rate_1y, 0.03)) * d.current_balance / 1000000.0 as rate_spread_x_balance
+    (d.stated_rate - COALESCE(y.rate_2y, 0.036)) * d.current_balance / 1000000.0 as rate_spread_x_balance,
+
+    -- Transaction activity
+    d.transaction_count_30d
 
 FROM deposit_history d
 CROSS JOIN rate_history y
@@ -249,18 +255,20 @@ feature_cols = [
 
     # Rate environment features
     'current_market_rate',
-    'market_rate_30d_ago',
-    'market_rate_90d_ago',
-    'rate_change_30d',
-    'rate_change_90d',
+    'market_rate_5y',
+    'market_rate_10y',
 
     # Balance features
     'log_balance',
     'balance_millions',
+    'balance_trend_30d',
 
     # Rate spread features
     'rate_spread',
-    'rate_spread_x_balance'
+    'rate_spread_x_balance',
+
+    # Activity features
+    'transaction_count_30d'
 ]
 
 target_col = 'target_beta'
@@ -340,10 +348,20 @@ test_scenarios = [
         'current_balance': 50000,
         'stated_rate': 0.01,
         'account_age_months': 24,
-        'current_market_rate': 0.045,
+        'churned': 0,
+        'dormant': 0,
+        'balance_volatility_30d': 2500,
+        'rate_gap': 0.035,
+        'churn_risk_score': 0.105,
+        'current_market_rate': 0.036,
+        'market_rate_5y': 0.038,
+        'market_rate_10y': 0.043,
         'log_balance': 10.82,
         'balance_millions': 0.05,
-        'rate_spread': -0.035
+        'balance_trend_30d': 0.02,
+        'rate_spread': -0.026,
+        'rate_spread_x_balance': -0.0013,
+        'transaction_count_30d': 12
     },
     {
         'product_type': 'Savings',
@@ -352,10 +370,20 @@ test_scenarios = [
         'current_balance': 25000,
         'stated_rate': 0.02,
         'account_age_months': 36,
-        'current_market_rate': 0.045,
+        'churned': 0,
+        'dormant': 0,
+        'balance_volatility_30d': 1250,
+        'rate_gap': 0.025,
+        'churn_risk_score': 0.075,
+        'current_market_rate': 0.036,
+        'market_rate_5y': 0.038,
+        'market_rate_10y': 0.043,
         'log_balance': 10.13,
         'balance_millions': 0.025,
-        'rate_spread': -0.025
+        'balance_trend_30d': 0.05,
+        'rate_spread': -0.016,
+        'rate_spread_x_balance': -0.0004,
+        'transaction_count_30d': 8
     },
     {
         'product_type': 'MMDA',
@@ -364,10 +392,20 @@ test_scenarios = [
         'current_balance': 500000,
         'stated_rate': 0.035,
         'account_age_months': 12,
-        'current_market_rate': 0.045,
+        'churned': 0,
+        'dormant': 0,
+        'balance_volatility_30d': 25000,
+        'rate_gap': 0.01,
+        'churn_risk_score': 0.03,
+        'current_market_rate': 0.036,
+        'market_rate_5y': 0.038,
+        'market_rate_10y': 0.043,
         'log_balance': 13.12,
         'balance_millions': 0.5,
-        'rate_spread': -0.01
+        'balance_trend_30d': -0.02,
+        'rate_spread': -0.001,
+        'rate_spread_x_balance': -0.0005,
+        'transaction_count_30d': 15
     },
     {
         'product_type': 'CD',
@@ -376,10 +414,20 @@ test_scenarios = [
         'current_balance': 1000000,
         'stated_rate': 0.04,
         'account_age_months': 6,
-        'current_market_rate': 0.045,
+        'churned': 0,
+        'dormant': 0,
+        'balance_volatility_30d': 50000,
+        'rate_gap': 0.005,
+        'churn_risk_score': 0.015,
+        'current_market_rate': 0.036,
+        'market_rate_5y': 0.038,
+        'market_rate_10y': 0.043,
         'log_balance': 13.82,
         'balance_millions': 1.0,
-        'rate_spread': -0.005
+        'balance_trend_30d': 0.0,
+        'rate_spread': 0.004,
+        'rate_spread_x_balance': 0.004,
+        'transaction_count_30d': 2
     }
 ]
 
