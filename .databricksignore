@@ -1,0 +1,25 @@
+# Exclude from Databricks Apps deployment (but keep in git)
+
+# Development artifacts
+.venv/
+.git/
+.claude/
+__pycache__/
+*.pyc
+
+# Logs and local databases
+logs/
+mlflow.db
+mlruns/
+
+# Documentation (not needed at runtime)
+prompts/
+outputs/docs/
+outputs/config/
+
+# Unused frontend
+frontend/
+
+# Development files
+.DS_Store
+.alpha_vantage_key
