@@ -187,6 +187,10 @@ feature_cols = [
 X = training_pdf[feature_cols]
 y = training_pdf['target_beta']
 
+# Convert all features to float to avoid dtype issues with XGBoost
+X = X.astype(float)
+y = y.astype(float)
+
 # Train/test split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
