@@ -46,7 +46,7 @@ CREATE OR REPLACE TABLE cfo_banking_demo.ml_models.non_interest_income_training_
 WITH monthly_metrics AS (
     -- Generate monthly time series
     SELECT
-        DATE_TRUNC('month', d.report_date) as month,
+        DATE_TRUNC('month', d.effective_date) as month,
 
         -- Deposit-related fee drivers
         COUNT(DISTINCT d.account_id) as active_deposit_accounts,
@@ -72,8 +72,8 @@ WITH monthly_metrics AS (
     FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
     LEFT JOIN cfo_banking_demo.bronze_core_banking.loan_portfolio l
         ON DATE_TRUNC('month', d.effective_date) = DATE_TRUNC('month', l.effective_date)
-    WHERE d.report_date >= DATE_SUB(CURRENT_DATE(), 730)  -- 2 years history
-    GROUP BY DATE_TRUNC('month', d.report_date)
+    WHERE d.effective_date >= DATE_SUB(CURRENT_DATE(), 730)  -- 2 years history
+    GROUP BY DATE_TRUNC('month', d.effective_date)
 ),
 market_conditions AS (
     -- Economic indicators that affect fee income
@@ -346,7 +346,7 @@ sql_query_nie = """
 CREATE OR REPLACE TABLE cfo_banking_demo.ml_models.non_interest_expense_training_data AS
 WITH monthly_metrics AS (
     SELECT
-        DATE_TRUNC('month', d.report_date) as month,
+        DATE_TRUNC('month', d.effective_date) as month,
 
         -- Business volume drivers (scale indicators)
         COUNT(DISTINCT d.account_id) as active_accounts,
@@ -369,8 +369,8 @@ WITH monthly_metrics AS (
     FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
     LEFT JOIN cfo_banking_demo.bronze_core_banking.loan_portfolio l
         ON DATE_TRUNC('month', d.effective_date) = DATE_TRUNC('month', l.effective_date)
-    WHERE d.report_date >= DATE_SUB(CURRENT_DATE(), 730)
-    GROUP BY DATE_TRUNC('month', d.report_date)
+    WHERE d.effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+    GROUP BY DATE_TRUNC('month', d.effective_date)
 ),
 market_conditions AS (
     SELECT
