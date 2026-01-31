@@ -183,6 +183,10 @@ SELECT
     -- Target variable
     d.beta as target_beta,
 
+    -- Cohort information (for Phase 2 vintage analysis)
+    d.account_open_date,
+    DATE_TRUNC('quarter', d.account_open_date) as cohort_quarter,
+
     -- Base features (existing model)
     d.product_type,
     d.customer_segment,
