@@ -2,9 +2,9 @@
 
 ## Overview
 
-This folder contains **3 professional executive dashboards** designed for CFO banking operations, built using Databricks AI/BI Dashboard Agent.
+This folder contains **7 professional executive dashboards** designed for complete CFO banking operations, built using Databricks AI/BI Dashboard Agent.
 
-**Total Value:** 8 analytical capabilities across executive, operational, and customer insights.
+**Total Value:** Comprehensive analytics across executive, operational, regulatory, model governance, and real-time treasury operations.
 
 ---
 
@@ -63,6 +63,87 @@ This folder contains **3 professional executive dashboards** designed for CFO ba
 - Balance tier distribution
 
 **Refresh Frequency:** Daily (6am)
+
+---
+
+### **Dashboard 4: Real-Time Gap Analysis & ALM**
+**File:** `04_Gap_Analysis_ALM_Dashboard.sql`
+**Audience:** ALCO Committee, Treasury, ALM Team
+**Purpose:** Interest rate risk management and balance sheet positioning
+
+**Key Features:**
+- Duration gap, repricing gap, EVE sensitivity, gap limit usage KPIs
+- Repricing gap waterfall by maturity bucket
+- EVE sensitivity decomposition (Taylor series attribution)
+- Repricing gap heatmap (time × product)
+- Gap limit monitoring (policy vs actual)
+- Multi-period NII sensitivity by rate scenario
+- Duration distribution histogram
+- 12-month gap position trend
+
+**Refresh Frequency:** Hourly (real-time ALM monitoring)
+
+---
+
+### **Dashboard 5: CCAR/DFAST Regulatory Reporting**
+**File:** `05_CCAR_DFAST_Regulatory_Dashboard.sql`
+**Audience:** CFO, Chief Risk Officer, Board Risk Committee, Regulators
+**Purpose:** Stress testing and regulatory capital compliance
+
+**Key Features:**
+- 5 regulatory KPIs (CET1, NII Impact, Deposit Runoff, LCR)
+- 9-quarter capital ratio projections by scenario
+- Balance sheet projections under severely adverse
+- NII waterfall (pre-tax pre-provision)
+- Deposit runoff by segment (stress assumptions)
+- LCR components (HQLA vs net outflows)
+- Standardized CCAR template (PP&R Schedule A)
+- RWA evolution and stress test pass/fail summary
+
+**Refresh Frequency:** Quarterly (stress testing cycle)
+
+---
+
+### **Dashboard 6: Model Performance & Recalibration Monitoring**
+**File:** `06_Model_Performance_Recalibration_Dashboard.sql`
+**Audience:** Data Science Team, Model Risk Management, Model Validation
+**Purpose:** ML model governance and quarterly recalibration workflow
+
+**Key Features:**
+- Phase 1/2/3 model MAPE, MAE, RMSE tracking
+- Days since recalibration counter
+- PSI (Population Stability Index) drift monitoring
+- MAPE trends over time (6-month history)
+- Actual vs Predicted beta scatter plot with residuals
+- Feature importance rankings (top 10)
+- PSI by feature (drift detection)
+- Residual distribution histogram
+- Recalibration trigger alerts (traffic light dashboard)
+- Quarterly recalibration history timeline
+- Model validation metrics comparison (radar chart)
+
+**Refresh Frequency:** Weekly (model monitoring)
+
+---
+
+### **Dashboard 7: Treasury Operations Command Center**
+**File:** `07_Treasury_Operations_Command_Center.sql`
+**Audience:** Treasury Operations, Funding Desk, Liquidity Management
+**Purpose:** Real-time funding, liquidity, and operational monitoring
+
+**Key Features:**
+- 6 real-time KPIs (liquidity, funding position, wholesale %, deposit flow, rates, brokered)
+- Intraday deposit flows (hourly updates)
+- Funding composition donut (cost by source)
+- Deposit rate positioning vs competitors
+- 10-day LCR trend and liquidity buffer
+- Wholesale funding maturity schedule
+- 30-day deposit flow trends
+- Brokered deposits tracker (maturity schedule)
+- Funding cost waterfall (blended rate evolution)
+- Real-time treasury alert feed
+
+**Refresh Frequency:** Real-time (1-minute auto-refresh)
 
 ---
 
@@ -308,18 +389,26 @@ For questions or improvements:
 
 ## Next Steps
 
-1. ✅ Build Dashboard 1 (Executive Overview) - Start here for quick wins
-2. ✅ Build Dashboard 2 (ALM Operations) - For treasury team
-3. ✅ Build Dashboard 3 (Customer Analytics) - For product team
-4. 📊 Share with stakeholders for feedback
-5. 🔄 Schedule automated refresh
-6. 📈 Monitor usage analytics in Databricks workspace
+### Quick Wins (Week 1):
+1. ✅ Build Dashboard 1 (Executive Overview) - CFO visibility
+2. ✅ Build Dashboard 7 (Treasury Command Center) - Real-time operations
+3. 📊 Share with CFO and Treasury for immediate feedback
+
+### Core Analytics (Week 2):
+4. ✅ Build Dashboard 2 (ALM & Treasury Operations) - ALCO meetings
+5. ✅ Build Dashboard 4 (Gap Analysis & ALM) - Interest rate risk
+6. ✅ Build Dashboard 3 (Customer Analytics) - Product team
+
+### Advanced Capabilities (Week 3-4):
+7. ✅ Build Dashboard 5 (CCAR/DFAST Regulatory) - Quarterly stress testing
+8. ✅ Build Dashboard 6 (Model Performance) - ML governance
+9. 🔄 Schedule automated refresh for all dashboards
+10. 📈 Monitor usage analytics in Databricks workspace
 
 **Estimated Build Time:**
-- Dashboard 1: 30-45 minutes
-- Dashboard 2: 45-60 minutes
-- Dashboard 3: 45-60 minutes
-- **Total: ~2-3 hours for all 3 dashboards**
+- Dashboards 1-3 (Core): 30-45 min each = **2-3 hours**
+- Dashboards 4-7 (Advanced): 45-60 min each = **3-4 hours**
+- **Total: ~5-7 hours for complete 7-dashboard suite**
 
 ---
 
