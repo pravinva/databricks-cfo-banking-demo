@@ -407,7 +407,7 @@ closure_rate_annualized AS (
             ELSE 0
         END as annualized_closure_rate_lambda
 
-    FROM closure_rate_components
+    FROM closure_rates_by_segment
 ),
 balance_growth_among_survivors AS (
     -- Calculate ABGR (g) for accounts that remain open
