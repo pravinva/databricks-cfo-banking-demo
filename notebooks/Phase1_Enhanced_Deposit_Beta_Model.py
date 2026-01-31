@@ -870,6 +870,6 @@ else:
 # MAGIC - **Business Impact:** More accurate deposit repricing cost forecasts
 # MAGIC
 # MAGIC ### Next Steps:
-# MAGIC - **Phase 2 (3-6 months):** Vintage analysis, component decay modeling
-# MAGIC - **Phase 3 (6-12 months):** Dynamic beta functions for stress testing
-# MAGIC - **Ongoing:** Quarterly recalibration and monitoring
+# MAGIC - **Phase 2 notebook:** Vintage analysis and component decay modeling (cohort survival, runoff forecasting)
+# MAGIC - **Phase 3 notebook:** Dynamic beta functions and stress testing (CCAR/DFAST scenarios, EVE sensitivity)
+# MAGIC - **Ongoing:** Quarterly model recalibration and performance monitoring
