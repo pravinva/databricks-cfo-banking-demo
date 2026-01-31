@@ -83,7 +83,7 @@ WITH base_deposits AS (
 market_data AS (
     SELECT
         date as market_date,
-        rate_fed_funds,
+        fed_funds_rate,
         rate_3m,
         rate_2y,
         rate_10y,
@@ -91,13 +91,13 @@ market_data AS (
 
         -- Market regime classification (Chen framework)
         CASE
-            WHEN rate_fed_funds < 1.0 THEN 'low'
-            WHEN rate_fed_funds < 3.0 THEN 'medium'
+            WHEN fed_funds_rate < 1.0 THEN 'low'
+            WHEN fed_funds_rate < 3.0 THEN 'medium'
             ELSE 'high'
         END as rate_regime,
 
         -- Rate velocity (speed of change)
-        rate_fed_funds - LAG(rate_fed_funds, 90) OVER (ORDER BY date) as rate_change_velocity_3m
+        fed_funds_rate - LAG(fed_funds_rate, 90) OVER (ORDER BY date) as rate_change_velocity_3m
 
     FROM cfo_banking_demo.silver_treasury.yield_curves
     WHERE date = (SELECT MAX(date) FROM cfo_banking_demo.silver_treasury.yield_curves)
@@ -180,7 +180,7 @@ SELECT
     d.transaction_count_30d,
 
     -- Rate gap (existing feature)
-    m.rate_fed_funds - d.stated_rate as rate_gap,
+    m.fed_funds_rate - d.stated_rate as rate_gap,
     m.rate_3m - d.stated_rate as rate_spread_3m,
 
     -- Digital engagement (existing)
@@ -205,7 +205,7 @@ SELECT
     r.has_any_autopay as cross_sell_autopay,
 
     -- PHASE 1 ENHANCEMENT: Market Regime Features (Chen framework)
-    m.rate_fed_funds as market_rate_fed_funds,
+    m.fed_funds_rate as market_fed_funds_rate,
     m.rate_3m as market_rate_3m,
     m.yield_curve_slope,
     m.rate_regime,
@@ -375,7 +375,7 @@ phase1_enhanced_features = base_features + [
     'cross_sell_autopay',
 
     # Market regime features
-    'market_rate_fed_funds',
+    'market_fed_funds_rate',
     'yield_curve_slope',
     'rate_change_velocity_3m',
     'yield_curve_inverted',
@@ -708,7 +708,7 @@ output_cols = [
     'target_beta', 'predicted_beta_baseline', 'predicted_beta_enhanced',
     'product_type', 'customer_segment', 'relationship_category', 'rate_regime',
     'primary_bank_flag', 'direct_deposit_flag', 'product_count',
-    'balance_millions', 'stated_rate', 'market_rate_fed_funds'
+    'balance_millions', 'stated_rate', 'market_fed_funds_rate'
 ]
 
 # Convert to Spark DataFrame

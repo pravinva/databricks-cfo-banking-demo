@@ -55,7 +55,7 @@ historical_df = spark.table("cfo_banking_demo.ml_models.deposit_beta_training_ph
 historical_pdf = historical_df.toPandas()
 
 # Aggregate beta by market rate level and relationship category
-rate_beta_relationship = historical_pdf.groupby(['market_rate_fed_funds', 'relationship_category']).agg({
+rate_beta_relationship = historical_pdf.groupby(['market_fed_funds_rate', 'relationship_category']).agg({
     'target_beta': 'mean',
     'account_id': 'count'
 }).reset_index()
@@ -236,7 +236,7 @@ feature_cols = [
     'account_age_years', 'balance_millions', 'stated_rate', 'rate_gap',
     'transaction_count_30d', 'digital_user', 'product_count',
     'relationship_length_years', 'primary_bank_flag', 'direct_deposit_flag',
-    'market_rate_fed_funds', 'yield_curve_slope', 'competitor_rate_spread',
+    'market_fed_funds_rate', 'yield_curve_slope', 'competitor_rate_spread',
     'cohort_12m_survival', 'segment_closure_rate', 'segment_abgr'
 ]
 
@@ -250,9 +250,9 @@ X = training_encoded[all_features].fillna(0).astype(float)
 y = training_encoded['target_beta'].astype(float)
 
 # Split by rate regime
-low_mask = training_encoded['market_rate_fed_funds'] < 0.01
-med_mask = (training_encoded['market_rate_fed_funds'] >= 0.01) & (training_encoded['market_rate_fed_funds'] < 0.03)
-high_mask = training_encoded['market_rate_fed_funds'] >= 0.03
+low_mask = training_encoded['market_fed_funds_rate'] < 0.01
+med_mask = (training_encoded['market_fed_funds_rate'] >= 0.01) & (training_encoded['market_fed_funds_rate'] < 0.03)
+high_mask = training_encoded['market_fed_funds_rate'] >= 0.03
 
 X_low, y_low = X[low_mask], y[low_mask]
 X_med, y_med = X[med_mask], y[med_mask]

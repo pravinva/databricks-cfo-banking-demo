@@ -628,7 +628,7 @@ phase2_features = [
     'account_age_years', 'balance_millions', 'stated_rate', 'rate_gap',
     'transaction_count_30d', 'digital_user', 'product_count',
     'relationship_length_years', 'relationship_score', 'primary_bank_flag',
-    'direct_deposit_flag', 'market_rate_fed_funds', 'yield_curve_slope',
+    'direct_deposit_flag', 'market_fed_funds_rate', 'yield_curve_slope',
     'rate_change_velocity_3m', 'competitor_rate_spread',
 
     # Phase 2 additions: Vintage metrics
