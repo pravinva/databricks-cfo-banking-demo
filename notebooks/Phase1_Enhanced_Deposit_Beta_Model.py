@@ -391,6 +391,9 @@ phase1_enhanced_features = base_features + [
 categorical_features = ['product_type', 'customer_segment', 'balance_tier',
                         'relationship_category', 'rate_regime']
 
+# Keep original categorical columns for output later
+training_pdf_original_cats = training_pdf[categorical_features].copy()
+
 training_pdf_encoded = pd.get_dummies(
     training_pdf,
     columns=categorical_features,
@@ -704,6 +707,10 @@ training_pdf_encoded['predicted_beta_enhanced'] = model_enhanced.predict(X)
 X_baseline_full = X[base_feature_cols]
 training_pdf_encoded['predicted_beta_baseline'] = model_baseline.predict(X_baseline_full)
 
+# Merge back original categorical columns for output
+training_pdf_output = training_pdf_encoded.copy()
+training_pdf_output[categorical_features] = training_pdf_original_cats
+
 # Select key columns for output
 output_cols = [
     'account_id', 'customer_id', 'effective_date',
@@ -714,7 +721,7 @@ output_cols = [
 ]
 
 # Convert to Spark DataFrame
-predictions_spark = spark.createDataFrame(training_pdf_encoded[output_cols])
+predictions_spark = spark.createDataFrame(training_pdf_output[output_cols])
 
 predictions_spark.write \
     .format("delta") \
