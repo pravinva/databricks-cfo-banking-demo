@@ -74,6 +74,7 @@ WITH account_history AS (
         current_balance,
         effective_date,
         is_current,
+        is_closed,
 
         -- Calculate account age in months
         MONTHS_BETWEEN(effective_date, account_open_date) as months_since_open,
@@ -425,7 +426,7 @@ balance_growth_among_survivors AS (
         NULLIF(LAG(c.current_balance, 1) OVER (PARTITION BY c.account_id ORDER BY c.months_since_open), 0) as monthly_growth_rate
 
     FROM cfo_banking_demo.ml_models.deposit_cohort_analysis c
-    WHERE c.is_current = TRUE  -- Only survivors
+    WHERE c.is_closed = FALSE  -- Only survivors (not closed accounts)
     AND c.months_since_open >= 1
 ),
 abgr_by_segment AS (
