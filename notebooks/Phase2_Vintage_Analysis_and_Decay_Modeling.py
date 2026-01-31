@@ -408,13 +408,23 @@ abgr_by_segment AS (
         is_surge_balance,
         COUNT(DISTINCT account_id) as survivor_accounts,
         AVG(monthly_growth_rate) as avg_monthly_growth_rate,
-        POWER(1 + AVG(monthly_growth_rate), 12) - 1 as annualized_abgr_g,
         STDDEV(monthly_growth_rate) as stddev_monthly_growth
 
     FROM balance_growth_among_survivors
     WHERE monthly_growth_rate IS NOT NULL
     AND monthly_growth_rate BETWEEN -0.5 AND 0.5  -- Filter outliers
     GROUP BY relationship_category, product_type, is_surge_balance
+),
+abgr_annualized AS (
+    SELECT
+        relationship_category,
+        product_type,
+        is_surge_balance,
+        survivor_accounts,
+        avg_monthly_growth_rate,
+        stddev_monthly_growth,
+        POWER(1 + avg_monthly_growth_rate, 12) - 1 as annualized_abgr_g
+    FROM abgr_by_segment
 )
 SELECT
     c.relationship_category,
@@ -440,7 +450,7 @@ SELECT
     END as abgr_classification
 
 FROM closure_rate_annualized c
-LEFT JOIN abgr_by_segment a
+LEFT JOIN abgr_annualized a
     ON c.relationship_category = a.relationship_category
     AND c.product_type = a.product_type
     AND c.is_surge_balance = a.is_surge_balance
