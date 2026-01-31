@@ -86,31 +86,40 @@ WITH account_history AS (
     FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
     WHERE account_open_date IS NOT NULL
 ),
+customer_aggregates AS (
+    SELECT
+        customer_id,
+        COUNT(DISTINCT account_id) as account_count,
+        MIN(account_open_date) as first_account_date,
+        SUM(current_balance) as total_balance
+    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+    WHERE is_current = TRUE
+    GROUP BY customer_id
+),
+customer_classification AS (
+    SELECT
+        customer_id,
+        account_count as product_count,
+        CASE
+            WHEN (LEAST(account_count, 5) * 2) +
+                 LEAST(DATEDIFF(CURRENT_DATE(), first_account_date) / 365.25, 10) +
+                 LEAST(total_balance / 100000, 5) >= 15 THEN 'Strategic'
+            WHEN (LEAST(account_count, 5) * 2) +
+                 LEAST(DATEDIFF(CURRENT_DATE(), first_account_date) / 365.25, 10) +
+                 LEAST(total_balance / 100000, 5) >= 8 THEN 'Tactical'
+            ELSE 'Expendable'
+        END as relationship_category
+    FROM customer_aggregates
+),
 cohort_relationships AS (
-    -- Join with relationship classification from Phase 1
+    -- Join with relationship classification
     SELECT
         h.*,
-        COALESCE(r.relationship_category, 'Unknown') as relationship_category,
-        COALESCE(r.product_count, 1) as product_count
+        COALESCE(c.relationship_category, 'Unknown') as relationship_category,
+        COALESCE(c.product_count, 1) as product_count
 
     FROM account_history h
-    LEFT JOIN (
-        SELECT
-            customer_id,
-            MAX(CASE
-                WHEN (LEAST(COUNT(DISTINCT account_id), 5) * 2) +
-                     LEAST(DATEDIFF(CURRENT_DATE(), MIN(account_open_date)) / 365.25, 10) +
-                     LEAST(SUM(current_balance) / 100000, 5) >= 15 THEN 'Strategic'
-                WHEN (LEAST(COUNT(DISTINCT account_id), 5) * 2) +
-                     LEAST(DATEDIFF(CURRENT_DATE(), MIN(account_open_date)) / 365.25, 10) +
-                     LEAST(SUM(current_balance) / 100000, 5) >= 8 THEN 'Tactical'
-                ELSE 'Expendable'
-            END) as relationship_category,
-            COUNT(DISTINCT account_id) as product_count
-        FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
-        WHERE is_current = TRUE
-        GROUP BY customer_id
-    ) r ON h.customer_id = r.customer_id
+    LEFT JOIN customer_classification c ON h.customer_id = c.customer_id
 ),
 surge_balance_flags AS (
     -- Abrigo Warning: Flag pandemic-era surge balances (2020-2022)
@@ -208,6 +217,7 @@ INNER JOIN cohort_initial_balances i
     AND t.relationship_category = i.relationship_category
     AND t.product_type = i.product_type
     AND t.is_surge_balance = i.is_surge_balance
+    AND t.opening_regime = i.opening_regime
 WHERE t.months_since_open > 0  -- Exclude month 0 (100% survival)
 """
 
