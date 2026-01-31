@@ -658,10 +658,16 @@ SELECT
 FROM base_training b
 LEFT JOIN (
     SELECT * FROM cohort_metrics WHERE months_since_open = 12
-) c12 ON TRUE  -- Cross join for now (simplified)
+) c12
+    ON b.cohort_quarter = c12.cohort_quarter
+    AND b.relationship_category = c12.relationship_category
+    AND b.product_type = c12.product_type
 LEFT JOIN (
     SELECT * FROM cohort_metrics WHERE months_since_open = 24
-) c24 ON TRUE
+) c24
+    ON b.cohort_quarter = c24.cohort_quarter
+    AND b.relationship_category = c24.relationship_category
+    AND b.product_type = c24.product_type
 LEFT JOIN decay_components d
     ON b.relationship_category = d.relationship_category
     AND b.product_type = d.product_type
