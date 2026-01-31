@@ -707,9 +707,8 @@ training_pdf_encoded['predicted_beta_enhanced'] = model_enhanced.predict(X)
 X_baseline_full = X[base_feature_cols]
 training_pdf_encoded['predicted_beta_baseline'] = model_baseline.predict(X_baseline_full)
 
-# Merge back original categorical columns for output
-training_pdf_output = training_pdf_encoded.copy()
-training_pdf_output[categorical_features] = training_pdf_original_cats
+# Merge back original categorical columns (for both output and analysis)
+training_pdf_encoded[categorical_features] = training_pdf_original_cats
 
 # Select key columns for output
 output_cols = [
@@ -721,7 +720,7 @@ output_cols = [
 ]
 
 # Convert to Spark DataFrame
-predictions_spark = spark.createDataFrame(training_pdf_output[output_cols])
+predictions_spark = spark.createDataFrame(training_pdf_encoded[output_cols])
 
 predictions_spark.write \
     .format("delta") \
