@@ -176,8 +176,14 @@ for idx, category in enumerate(['Strategic', 'Tactical', 'Expendable']):
 
         except Exception as e:
             print(f"\n⚠️ Could not calibrate {category}: {e}")
-            # Use defaults
-            dynamic_params[category] = p0
+            # Use defaults with proper structure
+            beta_min, beta_max, k, R0 = p0
+            dynamic_params[category] = {
+                'beta_min': beta_min,
+                'beta_max': beta_max,
+                'k': k,
+                'R0': R0
+            }
 
 plt.tight_layout()
 plt.show()
@@ -837,6 +843,15 @@ print("\n" + gap_analysis_summary.to_string(index=False))
 # MAGIC ### Step 6.1: Save Dynamic Beta Parameters
 
 # COMMAND ----------
+
+# Check if calibration succeeded, otherwise use defaults
+if not dynamic_params:
+    print("⚠️ No calibrated parameters available, using default values")
+    dynamic_params = {
+        'Strategic': {'beta_min': 0.05, 'beta_max': 0.60, 'k': 2.0, 'R0': 0.025},
+        'Tactical': {'beta_min': 0.10, 'beta_max': 0.75, 'k': 2.0, 'R0': 0.025},
+        'Expendable': {'beta_min': 0.20, 'beta_max': 0.90, 'k': 2.0, 'R0': 0.025}
+    }
 
 # Convert to DataFrame for storage
 dynamic_params_df = pd.DataFrame([
