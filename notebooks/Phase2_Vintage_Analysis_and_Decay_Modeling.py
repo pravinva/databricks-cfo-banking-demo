@@ -83,7 +83,7 @@ WITH account_history AS (
         YEAR(account_open_date) as cohort_year,
         QUARTER(account_open_date) as cohort_q
 
-    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
     WHERE account_open_date IS NOT NULL
 ),
 customer_aggregates AS (
@@ -92,7 +92,7 @@ customer_aggregates AS (
         COUNT(DISTINCT account_id) as account_count,
         MIN(account_open_date) as first_account_date,
         SUM(current_balance) as total_balance
-    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
     WHERE is_current = TRUE
     GROUP BY customer_id
 ),
@@ -808,7 +808,7 @@ WITH current_portfolio AS (
         COUNT(DISTINCT account_id) as current_account_count,
         SUM(current_balance) / 1e9 as current_balance_billions
 
-    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
     WHERE is_current = TRUE
     GROUP BY relationship_category, product_type
 ),
