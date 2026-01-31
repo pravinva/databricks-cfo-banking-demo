@@ -357,17 +357,29 @@ closure_rates_by_segment AS (
         COUNT(DISTINCT account_id) as total_accounts,
         SUM(is_closed) as closed_accounts,
         SUM(is_closed) / NULLIF(COUNT(DISTINCT account_id), 0) as closure_rate_cumulative,
-        AVG(account_lifetime_years) as avg_lifetime_years,
-
-        -- Annualized closure rate (λ)
-        CASE
-            WHEN AVG(account_lifetime_years) > 0
-            THEN SUM(is_closed) / NULLIF(COUNT(DISTINCT account_id), 0) / AVG(account_lifetime_years)
-            ELSE 0
-        END as annualized_closure_rate_lambda
+        AVG(account_lifetime_years) as avg_lifetime_years
 
     FROM account_status_transitions
     GROUP BY relationship_category, product_type, is_surge_balance
+),
+closure_rate_annualized AS (
+    SELECT
+        relationship_category,
+        product_type,
+        is_surge_balance,
+        total_accounts,
+        closed_accounts,
+        closure_rate_cumulative,
+        avg_lifetime_years,
+
+        -- Annualized closure rate (λ) - calculated after grouping
+        CASE
+            WHEN avg_lifetime_years > 0
+            THEN closure_rate_cumulative / avg_lifetime_years
+            ELSE 0
+        END as annualized_closure_rate_lambda
+
+    FROM closure_rate_components
 ),
 balance_growth_among_survivors AS (
     -- Calculate ABGR (g) for accounts that remain open
@@ -427,7 +439,7 @@ SELECT
         ELSE 'Non-Stable (Rate-Sensitive)'
     END as abgr_classification
 
-FROM closure_rates_by_segment c
+FROM closure_rate_annualized c
 LEFT JOIN abgr_by_segment a
     ON c.relationship_category = a.relationship_category
     AND c.product_type = a.product_type
