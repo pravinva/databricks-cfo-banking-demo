@@ -161,23 +161,41 @@ display(cohort_df.limit(10))
 
 sql_survival_rates = """
 CREATE OR REPLACE TABLE cfo_banking_demo.ml_models.cohort_survival_rates AS
-WITH cohort_initial_balances AS (
-    -- Get opening balance for each cohort
+WITH cohort_min_months AS (
+    -- Find the earliest month for each cohort (may not be 0 if no historical data)
     SELECT
         cohort_quarter,
-        cohort_year,
-        cohort_q,
         relationship_category,
         product_type,
         is_surge_balance,
         opening_regime,
-        COUNT(DISTINCT account_id) as initial_account_count,
-        SUM(current_balance) as initial_balance
-
+        MIN(months_since_open) as min_month
     FROM cfo_banking_demo.ml_models.deposit_cohort_analysis
-    WHERE months_since_open = 0
-    GROUP BY cohort_quarter, cohort_year, cohort_q, relationship_category,
-             product_type, is_surge_balance, opening_regime
+    GROUP BY cohort_quarter, relationship_category, product_type, is_surge_balance, opening_regime
+),
+cohort_initial_balances AS (
+    -- Get opening balance for each cohort (earliest available month)
+    SELECT
+        c.cohort_quarter,
+        c.cohort_year,
+        c.cohort_q,
+        c.relationship_category,
+        c.product_type,
+        c.is_surge_balance,
+        c.opening_regime,
+        COUNT(DISTINCT c.account_id) as initial_account_count,
+        SUM(c.current_balance) as initial_balance
+
+    FROM cfo_banking_demo.ml_models.deposit_cohort_analysis c
+    INNER JOIN cohort_min_months m
+        ON c.cohort_quarter = m.cohort_quarter
+        AND c.relationship_category = m.relationship_category
+        AND c.product_type = m.product_type
+        AND c.is_surge_balance = m.is_surge_balance
+        AND c.opening_regime = m.opening_regime
+        AND c.months_since_open = m.min_month
+    GROUP BY c.cohort_quarter, c.cohort_year, c.cohort_q, c.relationship_category,
+             c.product_type, c.is_surge_balance, c.opening_regime
 ),
 cohort_balances_over_time AS (
     -- Track balance evolution for each cohort over time
