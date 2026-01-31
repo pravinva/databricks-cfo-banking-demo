@@ -700,7 +700,9 @@ print(f"  Improvement vs Baseline: {(test_mape - test_mape_enh) / test_mape * 10
 
 # Apply model to full dataset
 training_pdf_encoded['predicted_beta_enhanced'] = model_enhanced.predict(X)
-training_pdf_encoded['predicted_beta_baseline'] = model_baseline.predict(X_train_baseline)
+# Create baseline feature matrix from full dataset
+X_baseline_full = X[base_feature_cols]
+training_pdf_encoded['predicted_beta_baseline'] = model_baseline.predict(X_baseline_full)
 
 # Select key columns for output
 output_cols = [
