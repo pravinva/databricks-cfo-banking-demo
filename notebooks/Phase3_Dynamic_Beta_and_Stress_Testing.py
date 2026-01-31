@@ -435,10 +435,25 @@ for scenario_id, scenario in stress_scenarios.items():
 
 # COMMAND ----------
 
-# Load current deposit portfolio
-current_deposits = spark.table("cfo_banking_demo.bronze_core_banking.deposit_accounts") \
-    .filter("is_current = TRUE") \
-    .toPandas()
+# Load current deposit portfolio with relationship category from cohort analysis
+current_deposits_query = """
+SELECT
+    d.account_id,
+    d.current_balance,
+    d.beta,
+    d.stated_rate,
+    c.relationship_category
+FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
+LEFT JOIN (
+    SELECT DISTINCT account_id, relationship_category
+    FROM cfo_banking_demo.ml_models.deposit_cohort_analysis
+    WHERE is_current = TRUE
+) c ON d.account_id = c.account_id
+WHERE d.is_current = TRUE
+  AND c.relationship_category IS NOT NULL
+"""
+
+current_deposits = spark.sql(current_deposits_query).toPandas()
 
 # Aggregate by repricing characteristics
 portfolio_summary = current_deposits.groupby('relationship_category').agg({
