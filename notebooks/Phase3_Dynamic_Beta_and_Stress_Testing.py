@@ -2,27 +2,51 @@
 # MAGIC %md
 # MAGIC # Phase 3: Dynamic Beta Functions & Advanced Stress Testing
 # MAGIC
-# MAGIC **Objective:** Implement Chen's dynamic beta framework and comprehensive stress testing for CCAR/DFAST regulatory compliance.
+# MAGIC **Objective:** Implement time-varying beta coefficients and multi-scenario stress testing for regulatory compliance.
 # MAGIC
-# MAGIC **Timeline:** 6-12 months
+# MAGIC **Expected Impact:** +20-30% stress test accuracy, improved Economic Value of Equity (EVE) forecasts
 # MAGIC
-# MAGIC **Expected Impact:** +20-30% stress test accuracy, improved EVE forecasts, regulatory compliance
+# MAGIC ## Research Implementation:
 # MAGIC
-# MAGIC ## Components:
-# MAGIC 1. **Dynamic Beta Calibration:** Chen sigmoid function β(Rm)
-# MAGIC 2. **Regime-Conditional Models:** Ensemble approach for non-linear dynamics
-# MAGIC 3. **Stress Testing Framework:** CCAR/DFAST scenarios
-# MAGIC 4. **Taylor Series Sensitivity:** Attribution analysis for ALCO
-# MAGIC 5. **Gap Analysis Integration:** Liquidity, Repricing, Fixed Rate gaps
-# MAGIC 6. **EVE/CET1 Monitoring:** Regulatory compliance (Standard Outlier Test)
+# MAGIC ### Chen (2025) Dynamic Beta Framework
+# MAGIC - **Sigmoid function:** β(Rm) = βmin + (βmax - βmin) / [1 + exp(-k*(Rm-R0))]
+# MAGIC   - βmin: Minimum beta in low rate environments (floor sensitivity)
+# MAGIC   - βmax: Maximum beta in high rate environments (ceiling sensitivity)
+# MAGIC   - k: Steepness parameter (speed of transition between regimes)
+# MAGIC   - R0: Inflection point (rate level where beta transitions)
+# MAGIC - **Non-linear dynamics:** Beta increases exponentially during rapid rate hikes
+# MAGIC - **Historical calibration:** Fit sigmoid parameters using 64 years of treasury data
+# MAGIC - **Regime-conditional models:** Ensemble approach combining regime-specific betas
 # MAGIC
-# MAGIC ## Research Foundation:
-# MAGIC - **Chen (2025):** β(Rm) = βmin + (βmax - βmin) / [1 + exp(-k*(Rm-R0))]
-# MAGIC - **Regulatory:** Basel III, CCAR, DFAST, Standard Outlier Test (EVE/CET1 > -15%)
+# MAGIC ### Basel III / CCAR / DFAST Stress Testing
+# MAGIC - **Rate shock scenarios:**
+# MAGIC   - Baseline: Current trajectory
+# MAGIC   - Adverse: +100bps gradual increase
+# MAGIC   - Severely Adverse: +200bps rapid shock
+# MAGIC   - Custom: +300bps extreme stress
+# MAGIC - **Multi-period projections:** 1-year, 2-year, 3-year horizon impacts
+# MAGIC - **Balance sheet effects:** Deposit runoff, NII compression, spread narrowing
+# MAGIC
+# MAGIC ### Economic Value of Equity (EVE) Sensitivity
+# MAGIC - **Taylor series attribution:** Decompose EVE changes by risk factor
+# MAGIC   - Duration effect: Interest rate level changes
+# MAGIC   - Convexity effect: Non-linear rate impacts
+# MAGIC   - Beta effect: Deposit repricing lag changes
+# MAGIC - **Gap analysis integration:**
+# MAGIC   - Liquidity gap: Maturity mismatch exposure
+# MAGIC   - Repricing gap: Rate reset timing differences
+# MAGIC   - Fixed rate gap: Non-repricing balance impacts
+# MAGIC - **Standard Outlier Test:** EVE/CET1 ratio > -15% (Basel III threshold)
+# MAGIC
+# MAGIC ### Abrigo Liquidity Stress Testing
+# MAGIC - **LCR projections:** High-Quality Liquid Assets vs net outflows
+# MAGIC - **Runoff rate acceleration:** Deposit withdrawals under stress
+# MAGIC - **Behavioral assumptions:** Customer response to rate shocks
 # MAGIC
 # MAGIC ## ⚠️ Important Note:
-# MAGIC Dynamic beta models increase EVE sensitivity and should be used for **stress testing only**,
-# MAGIC not day-to-day ALM. Maintain static/Phase 2 models for operational risk management.
+# MAGIC Dynamic beta models increase EVE sensitivity (30-40% higher than static models).
+# MAGIC Use for **stress testing and regulatory reporting only**, not day-to-day ALM.
+# MAGIC Maintain Phase 1/Phase 2 models for operational risk management.
 
 # COMMAND ----------
 

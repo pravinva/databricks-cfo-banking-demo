@@ -2,22 +2,39 @@
 # MAGIC %md
 # MAGIC # Phase 2: Vintage Analysis and Component-Based Decay Modeling
 # MAGIC
-# MAGIC **Objective:** Implement Abrigo vintage analysis and Chen's component decay framework for deposit runoff forecasting.
+# MAGIC **Objective:** Implement cohort-based survival analysis and component decay models for deposit runoff forecasting.
 # MAGIC
-# MAGIC **Timeline:** 3-6 months
+# MAGIC **Expected Impact:** +10-15% MAPE improvement, +25% runoff forecasting accuracy
 # MAGIC
-# MAGIC **Expected Impact:** +10-15% MAPE improvement, 25%+ better runoff forecasting
+# MAGIC ## Research Implementation:
 # MAGIC
-# MAGIC ## Components:
-# MAGIC 1. **Vintage Analysis (Abrigo):** Track cohort survival rates over time
-# MAGIC 2. **Component Decay Model (Chen):** Separate closure rate (λ) from balance growth (ABGR)
-# MAGIC 3. **Surge Balance Detection:** Flag pandemic-era (2020-2022) deposits
-# MAGIC 4. **Segmented Runoff Models:** Different decay curves by customer category
+# MAGIC ### Abrigo Vintage Analysis (Cohort Survival Framework)
+# MAGIC - **Cohort definitions:** Group deposits by opening date quarter (e.g., Q1 2020, Q2 2020...)
+# MAGIC - **Survival rates:** Track % of cohort remaining after 1, 3, 6, 12, 24+ months
+# MAGIC - **Attrition curves:** Kaplan-Meier survival estimation by cohort and segment
+# MAGIC - **Vintage-specific betas:** Beta coefficients vary by cohort age and origination environment
+# MAGIC - **Runoff tables:** Liquidity Coverage Ratio (LCR) pool projections by vintage
 # MAGIC
-# MAGIC ## Research Foundation:
-# MAGIC - **Abrigo:** "Year over year data to analyze deposit balances" for decay rate measurement
-# MAGIC - **Chen (2025):** D(t+1) = D(t) * (1 - λ) * (1 + g) where λ=closure, g=ABGR
-# MAGIC - **Moody's:** Bottom-up segmentation enhances decay prediction accuracy
+# MAGIC ### Chen (2025) Component Decay Model
+# MAGIC - **Two-component separation:** D(t+1) = D(t) × (1 - λ) × (1 + g)
+# MAGIC   - λ = Account closure rate (attrition)
+# MAGIC   - g = Average Balance Growth Rate (ABGR) for remaining accounts
+# MAGIC - **Core vs non-core classification:** Operational (λ<5%) vs promotional (λ>15%) deposits
+# MAGIC - **Surge balance detection:** Flag pandemic-era (2020-2022) rate-driven growth
+# MAGIC - **Decay velocity:** Speed of balance runoff varies by rate regime and tenure
+# MAGIC
+# MAGIC ### Moody's Segmented Decay (Category-Specific Runoff)
+# MAGIC - **Strategic deposits:** Low closure rate (2-3%), sticky operational balances
+# MAGIC - **Tactical deposits:** Moderate closure rate (5-8%), relationship-driven
+# MAGIC - **Expendable deposits:** High closure rate (15-25%), rate-sensitive
+# MAGIC - **Product-specific decay:** Checking < Savings < Money Market < CD runoff rates
+# MAGIC
+# MAGIC ## Implementation Components:
+# MAGIC 1. Cohort creation and survival tracking (Abrigo)
+# MAGIC 2. Closure rate (λ) and ABGR (g) estimation (Chen)
+# MAGIC 3. Core vs non-core classification (Chen + Moody's)
+# MAGIC 4. Segmented runoff projections (Moody's)
+# MAGIC 5. LCR liquidity pool optimization
 
 # COMMAND ----------
 

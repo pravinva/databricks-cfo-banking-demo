@@ -1,23 +1,37 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Phase 1: Enhanced Deposit Beta Model - Quick Wins
+# MAGIC # Phase 1: Enhanced Deposit Beta Model
 # MAGIC
-# MAGIC **Objective:** Enhance existing XGBoost deposit beta model with high-impact features from Moody's, Abrigo, and Chen research.
-# MAGIC
-# MAGIC **Timeline:** 1-3 months
+# MAGIC **Objective:** Enhance existing XGBoost deposit beta model with high-impact features from industry research.
 # MAGIC
 # MAGIC **Expected Impact:** +5-10% improvement in beta prediction accuracy (MAPE)
 # MAGIC
-# MAGIC ## Enhancements:
-# MAGIC 1. **Relationship Features:** Tenure, product count, primary bank flag, direct deposit
-# MAGIC 2. **Market Regime Features:** Rate environment classification (low/medium/high)
-# MAGIC 3. **Competitive Context:** Rate spreads vs. competitors
-# MAGIC 4. **Behavioral Depth:** Cross-sell, digital engagement, operational flags
+# MAGIC ## Research Implementation:
 # MAGIC
-# MAGIC ## Research Sources:
-# MAGIC - Moody's: Bottom-up modeling with 6 data categories
-# MAGIC - Abrigo: Beta/lag estimation, competitive pressure
-# MAGIC - Chen (2025): Dynamic beta functions and conditional modeling
+# MAGIC ### Moody's Analytics Framework (Category 3: Customer Relationships)
+# MAGIC - **Relationship depth:** Product count per customer (cross-sell indicators)
+# MAGIC - **Relationship tenure:** Years since first account opening
+# MAGIC - **Relationship value:** Total relationship balance across all products
+# MAGIC - **Primary bank classification:** Strategic/Tactical/Expendable segmentation
+# MAGIC - **Operational indicators:** Direct deposit flag (stickier deposits)
+# MAGIC
+# MAGIC ### Chen (2025) Dynamic Beta Framework
+# MAGIC - **Rate regime classification:** Low (<1%), Medium (1-3%), High (>3%) rate environments
+# MAGIC - **Rate velocity:** Speed of rate changes over 3-month windows
+# MAGIC - **Yield curve slope:** 10Y-2Y spread as recession indicator
+# MAGIC - **Yield curve inversion flag:** Identifies rare recession-predictive events
+# MAGIC
+# MAGIC ### Abrigo Deposit Modeling (Category 5: Competitive Pressure)
+# MAGIC - **Competitor rate spreads:** Our rate vs competitor average
+# MAGIC - **Online bank spreads:** Comparison with digital-only competitors
+# MAGIC - **Market benchmark spreads:** Position relative to treasury benchmarks
+# MAGIC - **Below-market flags:** Deposits at risk due to uncompetitive pricing
+# MAGIC
+# MAGIC ## Feature Summary:
+# MAGIC - **Baseline model:** 15 features (product type, segment, balance, age, digital engagement)
+# MAGIC - **Enhanced model:** 40+ features (baseline + relationship + market regime + competitive)
+# MAGIC - **Training data:** 321,600 deposit accounts with beta coefficients
+# MAGIC - **Historical market data:** 64 years (1962-2026) covering all economic cycles
 
 # COMMAND ----------
 
