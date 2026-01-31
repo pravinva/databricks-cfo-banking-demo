@@ -815,7 +815,7 @@ WITH current_portfolio AS (
         COUNT(DISTINCT account_id) as current_account_count,
         SUM(current_balance) / 1e9 as current_balance_billions
 
-    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
+    FROM cfo_banking_demo.ml_models.deposit_cohort_analysis
     WHERE is_current = TRUE
     GROUP BY relationship_category, product_type
 ),
