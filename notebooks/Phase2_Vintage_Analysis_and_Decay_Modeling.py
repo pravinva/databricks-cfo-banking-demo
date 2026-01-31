@@ -657,16 +657,34 @@ SELECT
 
 FROM base_training b
 LEFT JOIN (
-    SELECT * FROM cohort_metrics WHERE months_since_open = 12
+    -- Get average 12-month survival by segment (not cohort-specific)
+    SELECT
+        relationship_category,
+        product_type,
+        AVG(cohort_account_survival) as cohort_account_survival,
+        AVG(cohort_balance_survival) as cohort_balance_survival,
+        AVG(cohort_account_decay) as cohort_account_decay,
+        AVG(cohort_balance_decay) as cohort_balance_decay
+    FROM cohort_metrics
+    WHERE months_since_open = 12
+    GROUP BY relationship_category, product_type
 ) c12
-    ON b.cohort_quarter = c12.cohort_quarter
-    AND b.relationship_category = c12.relationship_category
+    ON b.relationship_category = c12.relationship_category
     AND b.product_type = c12.product_type
 LEFT JOIN (
-    SELECT * FROM cohort_metrics WHERE months_since_open = 24
+    -- Get average 24-month survival by segment (not cohort-specific)
+    SELECT
+        relationship_category,
+        product_type,
+        AVG(cohort_account_survival) as cohort_account_survival,
+        AVG(cohort_balance_survival) as cohort_balance_survival,
+        AVG(cohort_account_decay) as cohort_account_decay,
+        AVG(cohort_balance_decay) as cohort_balance_decay
+    FROM cohort_metrics
+    WHERE months_since_open = 24
+    GROUP BY relationship_category, product_type
 ) c24
-    ON b.cohort_quarter = c24.cohort_quarter
-    AND b.relationship_category = c24.relationship_category
+    ON b.relationship_category = c24.relationship_category
     AND b.product_type = c24.product_type
 LEFT JOIN decay_components d
     ON b.relationship_category = d.relationship_category
