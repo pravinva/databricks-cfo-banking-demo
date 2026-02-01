@@ -13,6 +13,9 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import LoanTable from '@/components/tables/LoanTable'
 import LoanDetailPanel from '@/components/panels/LoanDetailPanel'
 import PortfolioDetailTable from '@/components/tables/PortfolioDetailTable'
+import DepositBetaDashboard from '@/components/treasury/DepositBetaDashboard'
+import VintageAnalysisDashboard from '@/components/treasury/VintageAnalysisDashboard'
+import StressTestDashboard from '@/components/treasury/StressTestDashboard'
 
 function DataSourceTooltip({ source }: { source: string }) {
   return (
@@ -396,6 +399,15 @@ function DashboardContent() {
             <TabsTrigger value="activity">
               Recent Activity
             </TabsTrigger>
+            <TabsTrigger value="deposit-beta" className="text-bloomberg-orange">
+              Deposit Beta
+            </TabsTrigger>
+            <TabsTrigger value="vintage" className="text-bloomberg-orange">
+              Vintage Analysis
+            </TabsTrigger>
+            <TabsTrigger value="stress-test" className="text-bloomberg-orange">
+              CCAR/DFAST
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="portfolio" className="space-y-6">
@@ -454,6 +466,18 @@ function DashboardContent() {
                 <RecentActivity />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="deposit-beta" className="space-y-6">
+            <DepositBetaDashboard />
+          </TabsContent>
+
+          <TabsContent value="vintage" className="space-y-6">
+            <VintageAnalysisDashboard />
+          </TabsContent>
+
+          <TabsContent value="stress-test" className="space-y-6">
+            <StressTestDashboard />
           </TabsContent>
         </Tabs>
 

@@ -226,19 +226,42 @@ ORDER BY sort_order;
 -- ============================================================================
 -- QUERY 7: Deposit Flow Trends (Last 30 Days)
 -- ============================================================================
-WITH daily_flows AS (
+WITH account_daily_changes AS (
+  -- First, calculate balance changes per account per day
   SELECT
+    account_id,
     DATE_TRUNC('day', effective_date) as flow_date,
-    SUM(CASE WHEN current_balance > LAG(current_balance) OVER (PARTITION BY account_id ORDER BY effective_date)
-         THEN current_balance - LAG(current_balance) OVER (PARTITION BY account_id ORDER BY effective_date)
-         ELSE 0 END) / 1e6 as inflows_millions,
-    SUM(CASE WHEN current_balance < LAG(current_balance) OVER (PARTITION BY account_id ORDER BY effective_date)
-         THEN LAG(current_balance) OVER (PARTITION BY account_id ORDER BY effective_date) - current_balance
-         ELSE 0 END) / 1e6 as outflows_millions
+    current_balance,
+    LAG(current_balance) OVER (PARTITION BY account_id ORDER BY effective_date) as prev_balance
   FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
-  WHERE effective_date >= DATE_TRUNC('day', ADD_DAYS(CURRENT_DATE(), -30))
+  WHERE effective_date >= DATE_ADD(CURRENT_DATE(), -31)
     AND effective_date < CURRENT_DATE()
-  GROUP BY DATE_TRUNC('day', effective_date)
+),
+account_flows AS (
+  -- Calculate inflows and outflows per account
+  SELECT
+    flow_date,
+    CASE
+      WHEN current_balance > COALESCE(prev_balance, 0)
+      THEN current_balance - COALESCE(prev_balance, 0)
+      ELSE 0
+    END as account_inflow,
+    CASE
+      WHEN current_balance < COALESCE(prev_balance, 0)
+      THEN COALESCE(prev_balance, 0) - current_balance
+      ELSE 0
+    END as account_outflow
+  FROM account_daily_changes
+  WHERE prev_balance IS NOT NULL  -- Only compare when we have previous balance
+),
+daily_flows AS (
+  -- Aggregate to daily totals
+  SELECT
+    flow_date,
+    SUM(account_inflow) / 1e6 as inflows_millions,
+    SUM(account_outflow) / 1e6 as outflows_millions
+  FROM account_flows
+  GROUP BY flow_date
 )
 SELECT
   flow_date,

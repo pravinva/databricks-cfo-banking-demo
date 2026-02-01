@@ -190,3 +190,247 @@ INFO:     127.0.0.1:61187 - "GET /api/data/summary HTTP/1.1" 200 OK
 INFO:     127.0.0.1:61452 - "GET /api/data/summary HTTP/1.1" 200 OK
 INFO:     127.0.0.1:61791 - "GET /api/data/yield-curve HTTP/1.1" 200 OK
 INFO:     127.0.0.1:61792 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62151 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62333 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62453 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62589 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63098 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63101 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63098 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63597 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63680 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63756 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63849 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63851 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63942 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64049 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64130 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64207 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64293 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:64295 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64378 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64466 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64547 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64627 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64709 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:64711 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64799 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64894 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64974 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65047 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65147 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:65149 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65233 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65322 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65405 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65477 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49175 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:49177 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49263 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49358 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49446 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49523 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49612 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:49613 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49704 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49798 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49888 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49974 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50063 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:50066 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50158 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50257 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50337 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50416 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50491 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:50494 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50570 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50650 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50734 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50802 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50887 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:50889 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50966 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51046 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51111 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51181 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51260 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:51262 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51353 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51438 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51514 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51591 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51673 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:51674 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51764 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51895 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51975 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52149 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:52151 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52246 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52339 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52447 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52590 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52680 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:52682 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52775 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52887 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52969 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53069 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53153 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53155 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53244 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53330 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53420 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53491 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53580 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53582 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53665 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53766 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53847 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53932 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54012 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:54014 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54102 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54189 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54278 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54359 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54443 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:54444 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54535 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54635 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54708 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54790 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54864 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:54866 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54957 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55042 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55134 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55212 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55286 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55288 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55365 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55454 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55524 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55599 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55671 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55674 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55758 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55831 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55904 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55975 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56060 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:56062 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56142 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56232 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56305 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56383 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56477 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:56479 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56579 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56703 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56782 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56862 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56938 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:56941 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57030 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57126 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57200 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57282 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57370 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57372 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57472 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57558 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57654 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57742 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57830 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57831 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57991 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58094 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58180 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58416 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58573 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:58574 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58678 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58758 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58836 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58915 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58994 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:58996 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59098 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59188 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59280 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59361 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59452 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:59454 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59557 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59638 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59726 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59807 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59881 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:59883 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59980 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60080 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60161 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60236 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60316 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:60318 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60414 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60492 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60571 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60653 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60738 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:60741 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60843 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60924 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60995 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61066 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61144 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:61145 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61236 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61310 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61374 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61447 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61524 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:61526 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61616 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61706 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61799 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61885 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61968 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:61971 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62070 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62157 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62239 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62405 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62406 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62499 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62602 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62675 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62751 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62829 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:62831 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62928 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63014 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63106 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63182 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63264 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63266 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63363 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63458 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63543 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63625 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63704 - "GET /api/data/yield-curve HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63707 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63804 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63890 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63968 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64047 - "GET /api/data/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55783 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55876 - "GET /api/data/loans?limit=3 HTTP/1.1" 404 Not Found
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [64535]

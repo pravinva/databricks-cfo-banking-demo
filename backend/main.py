@@ -853,6 +853,278 @@ async def get_securities(
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+# =============================================================================
+# TREASURY DEPOSIT MODELING API ENDPOINTS (Phase 1-3)
+# =============================================================================
+
+@app.get("/api/data/deposit-beta-metrics")
+async def get_deposit_beta_metrics():
+    """Phase 1: Deposit beta portfolio metrics"""
+    try:
+        query = """
+            SELECT
+                COUNT(*) as total_accounts,
+                SUM(current_balance) as total_balance,
+                AVG(predicted_beta) as avg_beta,
+                SUM(CASE WHEN below_market_flag = TRUE THEN 1 ELSE 0 END) as at_risk_accounts,
+                SUM(CASE WHEN below_market_flag = TRUE THEN current_balance ELSE 0 END) as at_risk_balance,
+                SUM(CASE WHEN relationship_category = 'Strategic' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as strategic_pct,
+                SUM(CASE WHEN relationship_category = 'Tactical' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as tactical_pct,
+                SUM(CASE WHEN relationship_category = 'Expendable' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as expendable_pct
+            FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
+            WHERE is_current = TRUE
+        """
+        result = agent_tools.query_unity_catalog(query)
+        if result["success"] and result["data"]:
+            columns = result.get("columns", [])
+            row = result["data"][0]
+            data = {columns[i]: row[i] for i in range(len(columns))}
+            return {"success": True, "data": data}
+        return JSONResponse({"error": "No data found"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/deposit-beta-distribution")
+async def get_deposit_beta_distribution():
+    """Phase 1: Beta distribution by product and relationship"""
+    try:
+        query = """
+            SELECT
+                product_type,
+                COUNT(*) as account_count,
+                SUM(current_balance) as total_balance,
+                AVG(predicted_beta) as avg_beta,
+                relationship_category
+            FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
+            WHERE is_current = TRUE
+            GROUP BY product_type, relationship_category
+            ORDER BY total_balance DESC
+        """
+        result = agent_tools.query_unity_catalog(query)
+        if result["success"]:
+            columns = result.get("columns", [])
+            data = [
+                {columns[i]: row[i] for i in range(len(columns))}
+                for row in result["data"]
+            ]
+            return {"success": True, "data": data}
+        return JSONResponse({"error": "No data found"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/at-risk-deposits")
+async def get_at_risk_deposits():
+    """Phase 1: Top at-risk accounts priced below market"""
+    try:
+        query = """
+            SELECT
+                account_id,
+                product_type,
+                current_balance,
+                stated_rate,
+                current_market_rate as market_rate,
+                rate_gap,
+                predicted_beta,
+                relationship_category
+            FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
+            WHERE below_market_flag = TRUE
+              AND is_current = TRUE
+            ORDER BY current_balance DESC
+            LIMIT 50
+        """
+        result = agent_tools.query_unity_catalog(query)
+        if result["success"]:
+            columns = result.get("columns", [])
+            data = [
+                {columns[i]: row[i] for i in range(len(columns))}
+                for row in result["data"]
+            ]
+            return {"success": True, "data": data}
+        return JSONResponse({"error": "No data found"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/component-decay-metrics")
+async def get_component_decay_metrics():
+    """Phase 2: Component decay metrics (λ and g) by segment"""
+    try:
+        query = """
+            SELECT
+                relationship_category,
+                closure_rate,
+                abgr,
+                (1 - closure_rate) * (1 + abgr) as compound_factor,
+                year_1_retention,
+                year_2_retention,
+                year_3_retention
+            FROM cfo_banking_demo.ml_models.component_decay_metrics
+            ORDER BY relationship_category
+        """
+        result = agent_tools.query_unity_catalog(query)
+        if result["success"]:
+            columns = result.get("columns", [])
+            data = [
+                {columns[i]: row[i] for i in range(len(columns))}
+                for row in result["data"]
+            ]
+            return {"success": True, "data": data}
+        return JSONResponse({"error": "No data found"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/cohort-survival")
+async def get_cohort_survival():
+    """Phase 2: Cohort survival rates for Kaplan-Meier curves"""
+    try:
+        query = """
+            SELECT
+                relationship_category,
+                months_since_opening,
+                avg_survival_rate as survival_rate
+            FROM cfo_banking_demo.ml_models.cohort_survival_rates
+            WHERE months_since_opening <= 36
+            ORDER BY relationship_category, months_since_opening
+        """
+        result = agent_tools.query_unity_catalog(query)
+        if result["success"]:
+            columns = result.get("columns", [])
+            data = [
+                {columns[i]: row[i] for i in range(len(columns))}
+                for row in result["data"]
+            ]
+            return {"success": True, "data": data}
+        return JSONResponse({"error": "No data found"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/runoff-forecasts")
+async def get_runoff_forecasts():
+    """Phase 2: 3-year deposit runoff projections"""
+    try:
+        query = """
+            SELECT
+                relationship_category,
+                year,
+                beginning_balance,
+                projected_balance,
+                runoff_amount,
+                cumulative_runoff_pct
+            FROM cfo_banking_demo.ml_models.deposit_runoff_forecasts
+            ORDER BY relationship_category, year
+        """
+        result = agent_tools.query_unity_catalog(query)
+        if result["success"]:
+            columns = result.get("columns", [])
+            data = [
+                {columns[i]: row[i] for i in range(len(columns))}
+                for row in result["data"]
+            ]
+            return {"success": True, "data": data}
+        return JSONResponse({"error": "No data found"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/dynamic-beta-parameters")
+async def get_dynamic_beta_parameters():
+    """Phase 3: Dynamic beta sigmoid function parameters"""
+    try:
+        # Since dynamic_beta_parameters might be stored differently, use default values
+        # In production, query from ml_models.dynamic_beta_parameters table
+        data = [
+            {
+                "relationship_category": "Strategic",
+                "beta_min": 0.05,
+                "beta_max": 0.60,
+                "k": 2.0,
+                "R0": 0.025
+            },
+            {
+                "relationship_category": "Tactical",
+                "beta_min": 0.10,
+                "beta_max": 0.75,
+                "k": 2.0,
+                "R0": 0.025
+            },
+            {
+                "relationship_category": "Expendable",
+                "beta_min": 0.20,
+                "beta_max": 0.90,
+                "k": 2.0,
+                "R0": 0.025
+            }
+        ]
+        return {"success": True, "data": data}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/stress-test-results")
+async def get_stress_test_results():
+    """Phase 3: CCAR/DFAST stress test results (9 quarters)"""
+    try:
+        # Generate synthetic stress test results
+        # In production, query from ml_models.stress_test_results table
+        scenarios = ["Baseline", "Adverse", "Severely Adverse"]
+        data = []
+
+        for scenario in scenarios:
+            base_cet1 = 11.5 if scenario == "Baseline" else (10.2 if scenario == "Adverse" else 8.5)
+            decline_rate = 0.05 if scenario == "Baseline" else (0.15 if scenario == "Adverse" else 0.30)
+
+            for quarter in range(10):
+                cet1 = base_cet1 - (quarter * decline_rate)
+                data.append({
+                    "scenario": scenario,
+                    "quarter": quarter,
+                    "cet1_ratio_pct": max(cet1, 7.0),
+                    "tier1_ratio_pct": max(cet1 + 1.5, 8.5),
+                    "total_capital_ratio_pct": max(cet1 + 3.0, 10.5),
+                    "nii_impact": -50000000 * quarter if scenario != "Baseline" else 0,
+                    "deposit_runoff": -1000000000 * quarter if scenario != "Baseline" else 0,
+                    "lcr_ratio": 115.0 - (quarter * 2.0) if scenario != "Baseline" else 120.0
+                })
+
+        return {"success": True, "data": data}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/stress-test-summary")
+async def get_stress_test_summary():
+    """Phase 3: Stress test summary by scenario"""
+    try:
+        data = [
+            {
+                "scenario": "Baseline",
+                "cet1_minimum": 11.2,
+                "nii_impact_total": 0,
+                "deposit_runoff_total": 0,
+                "lcr_minimum": 120.0,
+                "pass_status": "PASS"
+            },
+            {
+                "scenario": "Adverse",
+                "cet1_minimum": 9.1,
+                "nii_impact_total": -180000000,
+                "deposit_runoff_total": -4500000000,
+                "lcr_minimum": 108.0,
+                "pass_status": "PASS"
+            },
+            {
+                "scenario": "Severely Adverse",
+                "cet1_minimum": 8.2,
+                "nii_impact_total": -285000000,
+                "deposit_runoff_total": -8500000000,
+                "lcr_minimum": 105.0,
+                "pass_status": "PASS"
+            }
+        ]
+        return {"success": True, "data": data}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+# =============================================================================
+# END TREASURY DEPOSIT MODELING API ENDPOINTS
+# =============================================================================
+
 # Serve React static files (after npm run build in frontend_app)
 # This assumes the React app has been built to frontend_app/out/
 frontend_path = Path(__file__).parent.parent / "frontend_app" / "out"

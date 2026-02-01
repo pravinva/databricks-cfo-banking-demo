@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ignition to Databricks Zerobus - Purdue Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            width: 1200px;
+            height: 628px;
+            background: #f8f9fa;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .content {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 25px 35px;
+        }
+        
+        /* Header */
+        .header {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 5px;
+            letter-spacing: -0.5px;
+        }
+        
+        .subtitle {
+            font-size: 15px;
+            color: #FF3621;
+            font-weight: 600;
+        }
+        
+        /* Purdue Model Architecture */
+        .architecture {
+            display: flex;
+            gap: 18px;
+            flex: 1;
+        }
+        
+        /* Left side - Purdue Layers */
+        .purdue-layers {
+            flex: 0 0 180px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .layer {
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 2px solid;
+            background: white;
+        }
+        
+        .layer-title {
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        
+        .layer-subtitle {
+            font-size: 9px;
+            opacity: 0.7;
+        }
+        
+        .level-4 {
+            border-color: #9c27b0;
+            color: #9c27b0;
+        }
+        
+        .level-35 {
+            border-color: #ff9800;
+            color: #ff9800;
+            background: #fff3e0;
+        }
+        
+        .level-3 {
+            border-color: #2196f3;
+            color: #2196f3;
+        }
+        
+        .level-2 {
+            border-color: #4682B4;
+            color: #4682B4;
+            background: #e3f2fd;
+        }
+        
+        .level-1 {
+            border-color: #4caf50;
+            color: #4caf50;
+        }
+        
+        .level-0 {
+            border-color: #607d8b;
+            color: #607d8b;
+        }
+        
+        /* Main flow */
+        .main-flow {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            justify-content: center;
+        }
+        
+        /* OT Zone */
+        .zone-section {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .zone-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #666;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .ot-zone {
+            border-color: #4682B4;
+        }
+        
+        .dmz-zone {
+            border-color: #ff9800;
+            background: #fff8f0;
+            flex: 1.3;
+        }
+        
+        .cloud-zone {
+            border-color: #FF3621;
+            flex: 1.2;
+        }
+        
+        /* Flow boxes */
+        .flow-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .protocols-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .protocols-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #4682B4;
+            text-align: center;
+        }
+        
+        .protocols-box {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .protocol-tag {
+            background: #e3f2fd;
+            border: 1px solid #4682B4;
+            border-radius: 4px;
+            padding: 5px 10px;
+            color: #4682B4;
+            font-size: 10px;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .gateway-container {
+            background: linear-gradient(135deg, #4682B4 0%, #5a9fd4 100%);
+            border: 3px solid #87CEEB;
+            border-radius: 10px;
+            padding: 18px;
+            color: #ffffff;
+            text-align: center;
+            min-width: 220px;
+            box-shadow: 0 4px 12px rgba(70, 130, 180, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .gateway-header {
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 8px;
+        }
+        
+        .gateway-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+        
+        .gateway-subtitle {
+            font-size: 10px;
+            opacity: 0.9;
+        }
+        
+        .module-badge {
+            background: rgba(255, 54, 33, 0.9);
+            border: 2px solid #ffffff;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .module-icon {
+            font-size: 14px;
+        }
+        
+        .firewall-badge {
+            background: white;
+            border: 2px solid #ff9800;
+            border-radius: 6px;
+            padding: 8px 12px;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: #ff9800;
+        }
+        
+        .cloud-content {
+            display: flex;
+            gap: 15px;
+            align-items: stretch;
+        }
+        
+        .zerobus-box {
+            background: linear-gradient(135deg, #FF3621 0%, #ff5544 100%);
+            border: 2px solid #ff6655;
+            border-radius: 8px;
+            padding: 15px 20px;
+            color: #ffffff;
+            text-align: center;
+            min-width: 130px;
+            box-shadow: 0 4px 12px rgba(255, 54, 33, 0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .zerobus-title {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+        
+        .lakehouse-section {
+            flex: 1;
+            background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%);
+            border: 2px solid #00A1E0;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .lakehouse-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0088cc;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .delta-tables {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .table-box {
+            background: white;
+            border: 2px solid #00A1E0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            flex: 1;
+            text-align: center;
+        }
+        
+        .table-icon {
+            font-size: 18px;
+            margin-bottom: 3px;
+        }
+        
+        .table-name {
+            font-size: 10px;
+            font-weight: 600;
+            color: #0088cc;
+            margin-bottom: 2px;
+        }
+        
+        .table-type {
+            font-size: 8px;
+            color: #666;
+        }
+        
+        .use-cases {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .use-case {
+            background: white;
+            border: 1px solid #00A1E0;
+            border-radius: 4px;
+            padding: 6px 8px;
+            flex: 1;
+            text-align: center;
+            font-size: 9px;
+            font-weight: 600;
+            color: #0088cc;
+        }
+        
+        /* Arrows */
+        .arrow {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .arrow-line {
+            height: 2px;
+            width: 35px;
+            background: #999;
+            position: relative;
+        }
+        
+        .arrow-head {
+            width: 0;
+            height: 0;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-left: 12px solid #999;
+        }
+        
+        .arrow-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .arrow-line-vertical {
+            width: 2px;
+            height: 25px;
+            background: #999;
+        }
+        
+        .arrow-head-vertical {
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 12px solid #999;
+        }
+        
+        /* Badge */
+        .badge {
+            position: absolute;
+            top: 18px;
+            right: 35px;
+            background: #fff;
+            border: 2px solid #FF3621;
+            border-radius: 20px;
+            padding: 6px 16px;
+            color: #FF3621;
+            font-size: 12px;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+            <div class="header">
+                <div class="title">Industrial Data to Databricks Lakehouse via Purdue Architecture</div>
+                <div class="subtitle">Secure OT-to-Cloud Integration Through DMZ</div>
+            </div>
+            
+            <div class="architecture">
+                <!-- Purdue Model Layers -->
+                <div class="purdue-layers">
+                    <div class="layer level-4">
+                        <div class="layer-title">Level 4</div>
+                        <div class="layer-subtitle">Enterprise</div>
+                    </div>
+                    <div class="layer level-35">
+                        <div class="layer-title">Level 3.5</div>
+                        <div class="layer-subtitle">DMZ</div>
+                    </div>
+                    <div class="layer level-3">
+                        <div class="layer-title">Level 3</div>
+                        <div class="layer-subtitle">MES</div>
+                    </div>
+                    <div class="layer level-2">
+                        <div class="layer-title">Level 2</div>
+                        <div class="layer-subtitle">SCADA</div>
+                    </div>
+                    <div class="layer level-1">
+                        <div class="layer-title">Level 1</div>
+                        <div class="layer-subtitle">PLCs</div>
+                    </div>
+                    <div class="layer level-0">
+                        <div class="layer-title">Level 0</div>
+                        <div class="layer-subtitle">Process</div>
+                    </div>
+                </div>
+                
+                <!-- Main flow -->
+                <div class="main-flow">
+                    <!-- OT Zone -->
+                    <div class="zone-section ot-zone">
+                        <div class="zone-title">OT Zone (Level 0-2)</div>
+                        <div class="flow-row" style="justify-content: center;">
+                            <div class="protocols-group">
+                                <div class="protocols-label">Industrial Protocols</div>
+                                <div class="protocols-box">
+                                    <div class="protocol-tag">OPC UA</div>
+                                    <div class="protocol-tag">MQTT</div>
+                                    <div class="protocol-tag">Modbus</div>
+                                    <div class="protocol-tag">PLCs</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Arrow down -->
+                    <div class="arrow-vertical">
+                        <div class="arrow-line-vertical"></div>
+                        <div class="arrow-head-vertical"></div>
+                    </div>
+                    
+                    <!-- DMZ Zone -->
+                    <div class="zone-section dmz-zone">
+                        <div class="zone-title">DMZ (Level 3.5) - OT/IT Boundary</div>
+                        <div class="flow-row">
+                            <div class="gateway-container">
+                                <div class="gateway-header">
+                                    <div class="gateway-title">Ignition Gateway</div>
+                                    <div class="gateway-subtitle">Tag Normalization & Aggregation</div>
+                                </div>
+                                <div class="module-badge">
+                                    <span class="module-icon">📦</span>
+                                    <span>Zerobus Connector Module</span>
+                                </div>
+                            </div>
+                            <div class="arrow">
+                                <div class="arrow-line"></div>
+                                <div class="arrow-head"></div>
+                            </div>
+                            <div class="firewall-badge">
+                                🔒 Firewall<br/>
+                                Outbound HTTPS/gRPC
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Arrow down -->
+                    <div class="arrow-vertical">
+                        <div class="arrow-line-vertical"></div>
+                        <div class="arrow-head-vertical"></div>
+                    </div>
+                    
+                    <!-- Cloud Zone -->
+                    <div class="zone-section cloud-zone">
+                        <div class="zone-title">Cloud - Databricks Lakehouse Platform</div>
+                        <div class="cloud-content">
+                            <div class="zerobus-box">
+                                <div class="zerobus-title">Zerobus</div>
+                                <div class="gateway-subtitle">Ingest API</div>
+                            </div>
+                            <div class="arrow">
+                                <div class="arrow-line"></div>
+                                <div class="arrow-head"></div>
+                            </div>
+                            <div class="lakehouse-section">
+                                <div class="lakehouse-title">Delta Lake Tables (Unity Catalog)</div>
+                                <div class="delta-tables">
+                                    <div class="table-box">
+                                        <div class="table-icon">📊</div>
+                                        <div class="table-name">tag_events</div>
+                                        <div class="table-type">Bronze</div>
+                                    </div>
+                                    <div class="table-box">
+                                        <div class="table-icon">📈</div>
+                                        <div class="table-name">metrics</div>
+                                        <div class="table-type">Silver</div>
+                                    </div>
+                                    <div class="table-box">
+                                        <div class="table-icon">🎯</div>
+                                        <div class="table-name">analytics</div>
+                                        <div class="table-type">Gold</div>
+                                    </div>
+                                </div>
+                                <div class="use-cases">
+                                    <div class="use-case">Dashboards</div>
+                                    <div class="use-case">ML Models</div>
+                                    <div class="use-case">Real-Time Analytics</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="badge">No Kafka Required</div>
+    </div>
+</body>
+</html>
