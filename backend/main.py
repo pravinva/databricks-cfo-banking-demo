@@ -864,15 +864,15 @@ async def get_deposit_beta_metrics():
         query = """
             SELECT
                 COUNT(*) as total_accounts,
-                SUM(current_balance) as total_balance,
-                AVG(predicted_beta) as avg_beta,
-                SUM(CASE WHEN below_market_flag = TRUE THEN 1 ELSE 0 END) as at_risk_accounts,
-                SUM(CASE WHEN below_market_flag = TRUE THEN current_balance ELSE 0 END) as at_risk_balance,
+                SUM(balance_millions * 1000000) as total_balance,
+                AVG(target_beta) as avg_beta,
+                SUM(CASE WHEN below_competitor_rate = 1 THEN 1 ELSE 0 END) as at_risk_accounts,
+                SUM(CASE WHEN below_competitor_rate = 1 THEN balance_millions * 1000000 ELSE 0 END) as at_risk_balance,
                 SUM(CASE WHEN relationship_category = 'Strategic' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as strategic_pct,
                 SUM(CASE WHEN relationship_category = 'Tactical' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as tactical_pct,
                 SUM(CASE WHEN relationship_category = 'Expendable' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as expendable_pct
             FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
-            WHERE is_current = TRUE
+            WHERE effective_date = (SELECT MAX(effective_date) FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced)
         """
         result = agent_tools.query_unity_catalog(query)
         if result["success"] and result["data"]:
@@ -892,11 +892,11 @@ async def get_deposit_beta_distribution():
             SELECT
                 product_type,
                 COUNT(*) as account_count,
-                SUM(current_balance) as total_balance,
-                AVG(predicted_beta) as avg_beta,
+                SUM(balance_millions * 1000000) as total_balance,
+                AVG(target_beta) as avg_beta,
                 relationship_category
             FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
-            WHERE is_current = TRUE
+            WHERE effective_date = (SELECT MAX(effective_date) FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced)
             GROUP BY product_type, relationship_category
             ORDER BY total_balance DESC
         """
@@ -920,16 +920,16 @@ async def get_at_risk_deposits():
             SELECT
                 account_id,
                 product_type,
-                current_balance,
+                balance_millions * 1000000 as current_balance,
                 stated_rate,
-                current_market_rate as market_rate,
+                market_fed_funds_rate as market_rate,
                 rate_gap,
-                predicted_beta,
+                target_beta as predicted_beta,
                 relationship_category
             FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
-            WHERE below_market_flag = TRUE
-              AND is_current = TRUE
-            ORDER BY current_balance DESC
+            WHERE below_competitor_rate = 1
+              AND effective_date = (SELECT MAX(effective_date) FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced)
+            ORDER BY balance_millions DESC
             LIMIT 50
         """
         result = agent_tools.query_unity_catalog(query)
@@ -951,13 +951,14 @@ async def get_component_decay_metrics():
         query = """
             SELECT
                 relationship_category,
-                closure_rate,
-                abgr,
-                (1 - closure_rate) * (1 + abgr) as compound_factor,
-                year_1_retention,
-                year_2_retention,
-                year_3_retention
+                AVG(lambda_closure_rate) as closure_rate,
+                AVG(g_abgr) as abgr,
+                AVG((1 - lambda_closure_rate) * (1 + g_abgr)) as compound_factor,
+                AVG(POW(1 - lambda_closure_rate, 1) * POW(1 + g_abgr, 1)) as year_1_retention,
+                AVG(POW(1 - lambda_closure_rate, 2) * POW(1 + g_abgr, 2)) as year_2_retention,
+                AVG(POW(1 - lambda_closure_rate, 3) * POW(1 + g_abgr, 3)) as year_3_retention
             FROM cfo_banking_demo.ml_models.component_decay_metrics
+            GROUP BY relationship_category
             ORDER BY relationship_category
         """
         result = agent_tools.query_unity_catalog(query)
@@ -979,11 +980,13 @@ async def get_cohort_survival():
         query = """
             SELECT
                 relationship_category,
-                months_since_opening,
-                avg_survival_rate as survival_rate
+                months_since_open as months_since_opening,
+                AVG(account_survival_rate) as survival_rate,
+                '' as cohort_quarter
             FROM cfo_banking_demo.ml_models.cohort_survival_rates
-            WHERE months_since_opening <= 36
-            ORDER BY relationship_category, months_since_opening
+            WHERE months_since_open <= 36
+            GROUP BY relationship_category, months_since_open
+            ORDER BY relationship_category, months_since_open
         """
         result = agent_tools.query_unity_catalog(query)
         if result["success"]:
@@ -1004,13 +1007,14 @@ async def get_runoff_forecasts():
         query = """
             SELECT
                 relationship_category,
-                year,
-                beginning_balance,
-                projected_balance,
-                runoff_amount,
-                cumulative_runoff_pct
+                CAST(months_ahead / 12 AS INT) as year,
+                current_balance_billions as beginning_balance,
+                projected_balance_billions as projected_balance,
+                (projected_balance_billions - current_balance_billions) as runoff_amount,
+                ((projected_balance_billions - current_balance_billions) / current_balance_billions * 100) as cumulative_runoff_pct
             FROM cfo_banking_demo.ml_models.deposit_runoff_forecasts
-            ORDER BY relationship_category, year
+            WHERE months_ahead IN (12, 24, 36)
+            ORDER BY relationship_category, months_ahead
         """
         result = agent_tools.query_unity_catalog(query)
         if result["success"]:
@@ -1028,60 +1032,76 @@ async def get_runoff_forecasts():
 async def get_dynamic_beta_parameters():
     """Phase 3: Dynamic beta sigmoid function parameters"""
     try:
-        # Since dynamic_beta_parameters might be stored differently, use default values
-        # In production, query from ml_models.dynamic_beta_parameters table
-        data = [
-            {
-                "relationship_category": "Strategic",
-                "beta_min": 0.05,
-                "beta_max": 0.60,
-                "k": 2.0,
-                "R0": 0.025
-            },
-            {
-                "relationship_category": "Tactical",
-                "beta_min": 0.10,
-                "beta_max": 0.75,
-                "k": 2.0,
-                "R0": 0.025
-            },
-            {
-                "relationship_category": "Expendable",
-                "beta_min": 0.20,
-                "beta_max": 0.90,
-                "k": 2.0,
-                "R0": 0.025
-            }
-        ]
-        return {"success": True, "data": data}
+        query = """
+            SELECT
+                relationship_category,
+                beta_min,
+                beta_max,
+                k_steepness as k,
+                R0_inflection as R0
+            FROM cfo_banking_demo.ml_models.dynamic_beta_parameters
+            ORDER BY relationship_category
+        """
+        result = agent_tools.query_unity_catalog(query)
+        if result["success"]:
+            columns = result.get("columns", [])
+            data = [
+                {columns[i]: row[i] for i in range(len(columns))}
+                for row in result["data"]
+            ]
+            return {"success": True, "data": data}
+        return JSONResponse({"error": "No data found"}, status_code=404)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.get("/api/data/stress-test-results")
 async def get_stress_test_results():
-    """Phase 3: CCAR/DFAST stress test results (9 quarters)"""
+    """Phase 3: CCAR/DFAST stress test results - adapt rate shock data to 9-quarter projections"""
     try:
-        # Generate synthetic stress test results
-        # In production, query from ml_models.stress_test_results table
-        scenarios = ["Baseline", "Adverse", "Severely Adverse"]
+        # Query the rate shock scenarios from stress_test_results
+        query = """
+            SELECT
+                scenario_name,
+                rate_shock_bps,
+                stressed_avg_beta,
+                delta_nii_millions,
+                delta_eve_billions,
+                eve_cet1_ratio,
+                sot_status
+            FROM cfo_banking_demo.ml_models.stress_test_results
+            WHERE scenario_id IN ('baseline', 'adverse', 'severely_adverse')
+            ORDER BY rate_shock_bps
+        """
+        result = agent_tools.query_unity_catalog(query)
+
+        # Transform rate shock data into 9-quarter projections
         data = []
+        if result["success"] and len(result["data"]) > 0:
+            for row in result["data"]:
+                scenario_name = row[0].replace(" (No Shock)", "").replace(" (+200 bps)", "").replace(" (+300 bps)", "")
+                rate_shock = row[1]
+                delta_nii = row[3]
+                eve_cet1_impact = row[5]
 
-        for scenario in scenarios:
-            base_cet1 = 11.5 if scenario == "Baseline" else (10.2 if scenario == "Adverse" else 8.5)
-            decline_rate = 0.05 if scenario == "Baseline" else (0.15 if scenario == "Adverse" else 0.30)
+                # Starting capital ratio
+                base_cet1 = 11.5 if rate_shock == 0 else (10.2 if rate_shock == 200 else 8.5)
 
-            for quarter in range(10):
-                cet1 = base_cet1 - (quarter * decline_rate)
-                data.append({
-                    "scenario": scenario,
-                    "quarter": quarter,
-                    "cet1_ratio_pct": max(cet1, 7.0),
-                    "tier1_ratio_pct": max(cet1 + 1.5, 8.5),
-                    "total_capital_ratio_pct": max(cet1 + 3.0, 10.5),
-                    "nii_impact": -50000000 * quarter if scenario != "Baseline" else 0,
-                    "deposit_runoff": -1000000000 * quarter if scenario != "Baseline" else 0,
-                    "lcr_ratio": 115.0 - (quarter * 2.0) if scenario != "Baseline" else 120.0
-                })
+                # Generate 9-quarter projection
+                for quarter in range(10):
+                    # CET1 declines more severely in adverse scenarios
+                    decline_rate = 0.05 if rate_shock == 0 else (0.15 if rate_shock == 200 else 0.30)
+                    cet1 = base_cet1 - (quarter * decline_rate) + (eve_cet1_impact / 10)
+
+                    data.append({
+                        "scenario": scenario_name,
+                        "quarter": quarter,
+                        "cet1_ratio_pct": max(cet1, 7.0),
+                        "tier1_ratio_pct": max(cet1 + 1.5, 8.5),
+                        "total_capital_ratio_pct": max(cet1 + 3.0, 10.5),
+                        "nii_impact": delta_nii * 1000000 * quarter / 9 if rate_shock != 0 else 0,
+                        "deposit_runoff": -abs(delta_nii) * 50000000 * quarter / 9 if rate_shock != 0 else 0,
+                        "lcr_ratio": 115.0 - (quarter * 2.0) if rate_shock != 0 else 120.0
+                    })
 
         return {"success": True, "data": data}
     except Exception as e:
@@ -1091,32 +1111,46 @@ async def get_stress_test_results():
 async def get_stress_test_summary():
     """Phase 3: Stress test summary by scenario"""
     try:
-        data = [
-            {
-                "scenario": "Baseline",
-                "cet1_minimum": 11.2,
-                "nii_impact_total": 0,
-                "deposit_runoff_total": 0,
-                "lcr_minimum": 120.0,
-                "pass_status": "PASS"
-            },
-            {
-                "scenario": "Adverse",
-                "cet1_minimum": 9.1,
-                "nii_impact_total": -180000000,
-                "deposit_runoff_total": -4500000000,
-                "lcr_minimum": 108.0,
-                "pass_status": "PASS"
-            },
-            {
-                "scenario": "Severely Adverse",
-                "cet1_minimum": 8.2,
-                "nii_impact_total": -285000000,
-                "deposit_runoff_total": -8500000000,
-                "lcr_minimum": 105.0,
-                "pass_status": "PASS"
-            }
-        ]
+        query = """
+            SELECT
+                scenario_name,
+                rate_shock_bps,
+                delta_nii_millions,
+                delta_eve_billions,
+                eve_cet1_ratio,
+                sot_status
+            FROM cfo_banking_demo.ml_models.stress_test_results
+            WHERE scenario_id IN ('baseline', 'adverse', 'severely_adverse')
+            ORDER BY rate_shock_bps
+        """
+        result = agent_tools.query_unity_catalog(query)
+
+        data = []
+        if result["success"] and len(result["data"]) > 0:
+            for row in result["data"]:
+                scenario_name = row[0].replace(" (No Shock)", "").replace(" (+200 bps)", "").replace(" (+300 bps)", "")
+                rate_shock = row[1]
+                delta_nii = row[2]
+                eve_cet1_impact = row[4]
+
+                # Calculate minimum CET1 over 9 quarters
+                base_cet1 = 11.5 if rate_shock == 0 else (10.2 if rate_shock == 200 else 8.5)
+                decline_rate = 0.05 if rate_shock == 0 else (0.15 if rate_shock == 200 else 0.30)
+                cet1_minimum = max(base_cet1 - (9 * decline_rate) + eve_cet1_impact, 7.0)
+
+                # Pass if CET1 >= 7% and LCR >= 100%
+                lcr_minimum = 120.0 if rate_shock == 0 else (108.0 if rate_shock == 200 else 105.0)
+                pass_status = "PASS" if cet1_minimum >= 7.0 and lcr_minimum >= 100.0 else "FAIL"
+
+                data.append({
+                    "scenario": scenario_name,
+                    "cet1_minimum": cet1_minimum,
+                    "nii_impact_total": delta_nii * 1000000 if rate_shock != 0 else 0,
+                    "deposit_runoff_total": -abs(delta_nii) * 50000000 if rate_shock != 0 else 0,
+                    "lcr_minimum": lcr_minimum,
+                    "pass_status": pass_status
+                })
+
         return {"success": True, "data": data}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
