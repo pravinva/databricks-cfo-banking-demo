@@ -64,7 +64,26 @@
   - `has_online_banking`, `has_mobile_banking` - Channel flags
 - **Usage:** Source for deposit beta modeling, LCR cash outflows, ALM gap analysis
 
-### 4. **deposit_behavior_history**
+### 4. **deposit_accounts_historical**
+- **Purpose:** Historical monthly snapshots of deposit accounts (36 months)
+- **Row Count:** ~12.7M rows (402,000 accounts × 36 months - closed accounts)
+- **Key Columns:**
+  - `account_id` - Account identifier
+  - `effective_date` - Snapshot date (monthly: 2023-01-01 to 2026-01-01)
+  - `current_balance` - Account balance at snapshot
+  - `stated_rate` - Interest rate at snapshot
+  - `account_status` - Active, Closed
+  - `customer_segment`, `product_type` - Account attributes
+  - `opening_date` - Account opening date
+  - `closing_date` - Account closing date (if closed)
+  - `is_current` - Boolean flag for latest snapshot
+- **Usage:**
+  - Vintage analysis (cohort survival by opening quarter)
+  - Component decay modeling (closure rate λ and balance growth g)
+  - Historical deposit flow trends
+  - Training data for deposit beta modeling
+
+### 5. **deposit_behavior_history**
 - **Purpose:** Historical deposit balance changes with rate environment
 - **Key Columns:**
   - `account_id` - Account identifier
@@ -479,21 +498,96 @@
 ## ML Models
 **Schema:** `ml_models`
 
-### 38. **deposit_beta_training_data**
-- **Purpose:** Training dataset for deposit beta model
-- **Row Count:** ~100,000+ observations
-- **Features:**
-  - Product features: `product_type_encoded`, `segment_encoded`
-  - Account features: `current_balance`, `stated_rate`, `account_age_months`
-  - Churn features: `churned`, `dormant`, `balance_volatility_30d`, `rate_gap`, `churn_risk_score`
-  - Market features: `current_market_rate`, `market_rate_5y`, `market_rate_10y`
-  - Balance features: `log_balance`, `balance_millions`, `balance_trend_30d`
-  - Rate features: `rate_spread`, `rate_spread_x_balance`
-  - Activity features: `transaction_count_30d`
-- **Target:** `target_beta` (deposit rate sensitivity 0-1.5)
-- **Usage:** Train XGBoost regression model for beta prediction
+### 38. **deposit_beta_training_enhanced** (Phase 1)
+- **Purpose:** Enhanced training dataset with 40+ features for deposit beta modeling
+- **Row Count:** 402,000 accounts
+- **Key Features:**
+  - **Product features:** `product_type`, `customer_segment`
+  - **Balance features:** `current_balance`, `average_balance_30d`, `average_balance_90d`, `balance_tier`, `log_balance`
+  - **Rate features:** `stated_rate`, `current_market_rate`, `rate_spread`, `competitive_position`
+  - **Relationship features (Moody's):** `relationship_category` (Strategic/Tactical/Expendable), `relationship_depth_score`, `product_holdings_count`, `cross_sell_score`
+  - **Regime features (Chen):** `opening_regime` (Low/Medium/High), `current_regime`, `regime_transition_flag`
+  - **Competitive features (Abrigo):** `below_market_flag`, `at_risk_amount`
+  - **Account features:** `account_age_months`, `account_tenure_years`
+  - **Churn features:** `churned`, `balance_volatility_30d`, `churn_risk_score`
+  - **Digital features:** `has_online_banking`, `has_mobile_banking`
+  - **Convenience features:** `has_direct_deposit`, `has_autopay`
+- **Target:** `predicted_beta` (deposit rate sensitivity 0-1.5)
+- **Accuracy:** MAPE 7.2% (vs 12.3% baseline)
+- **Usage:** Phase 1 deposit beta model training and validation
 
-### 39. **deposit_beta_predictions**
+### 39. **deposit_cohort_analysis** (Phase 2)
+- **Purpose:** Vintage analysis tracking deposit retention by opening quarter
+- **Row Count:** ~10,000+ cohort-product combinations
+- **Key Columns:**
+  - `cohort_quarter` - Opening quarter (e.g., 2020-Q1, 2020-Q2)
+  - `product_type` - Deposit product
+  - `relationship_category` - Strategic/Tactical/Expendable
+  - `months_since_opening` - Account age in months (0-36)
+  - `cohort_size` - Number of accounts in cohort
+  - `remaining_accounts` - Accounts still open
+  - `survival_rate` - % accounts still open
+  - `total_balance` - Current balance for cohort
+  - `balance_per_account` - Average balance per account
+- **Usage:**
+  - Kaplan-Meier survival curves by cohort
+  - Retention analysis by product and relationship type
+  - Identify high-performing cohorts
+
+### 40. **cohort_survival_rates** (Phase 2)
+- **Purpose:** Aggregated survival rates by segment
+- **Key Columns:**
+  - `relationship_category` - Strategic/Tactical/Expendable
+  - `months_since_opening` - Months after opening
+  - `avg_survival_rate` - Average % accounts surviving
+  - `avg_balance_retention` - Average % balance retained
+- **Usage:** Segment-level retention benchmarks for dashboards
+
+### 41. **component_decay_metrics** (Phase 2)
+- **Purpose:** Chen component decay model parameters by segment
+- **Key Columns:**
+  - `relationship_category` - Strategic/Tactical/Expendable
+  - `closure_rate` (λ) - Annual account closure rate
+  - `abgr` (g) - Average Balance Growth Rate for surviving accounts
+  - `compound_factor` - (1-λ) × (1+g), net retention factor
+  - `year_1_retention`, `year_2_retention`, `year_3_retention` - Projected retention
+- **Example Values:**
+  - **Strategic:** λ=0.85%, g=+3.0% → 46.8% runoff over 3 years
+  - **Expendable:** λ=6.68%, g=-5.0% → 71.7% runoff over 3 years
+- **Usage:**
+  - Multi-year deposit runoff forecasting
+  - ALCO liquidity planning
+  - LCR scenario assumptions
+
+### 42. **deposit_beta_training_phase2** (Phase 2)
+- **Purpose:** Enhanced Phase 1 data with Phase 2 cohort enrichment
+- **Enhancements:**
+  - Added `cohort_quarter`, `opening_regime`
+  - Added `closure_rate`, `abgr`, `survival_rate`
+  - Joined from `deposit_cohort_analysis`
+- **Usage:** Combined beta and runoff modeling
+
+### 43. **deposit_runoff_forecasts** (Phase 2)
+- **Purpose:** 3-year deposit runoff projections by segment
+- **Key Columns:**
+  - `relationship_category` - Segment
+  - `year` - Forecast year (1, 2, 3)
+  - `beginning_balance` - Starting balance
+  - `projected_balance` - Ending balance
+  - `runoff_amount` - Expected runoff
+  - `cumulative_runoff_pct` - Cumulative % runoff
+- **Usage:**
+  - ALCO 3-year funding forecasts
+  - LCR structural liquidity planning
+
+### 44. **deposit_beta_training_data** (Legacy)
+- **Purpose:** Original basic training dataset (pre-Phase 1 enhancement)
+- **Row Count:** ~100,000+ observations
+- **Features:** Basic 15 features (product, balance, rate, churn)
+- **Target:** `target_beta`
+- **Status:** Superseded by `deposit_beta_training_enhanced`
+
+### 45. **deposit_beta_predictions**
 - **Purpose:** Model predictions for current portfolio
 - **Key Columns:**
   - `account_id` - Account ID
@@ -503,6 +597,40 @@
   - `prediction_timestamp` - Prediction time
   - `model_version` - Model alias (@champion)
 - **Usage:** Rate sensitivity for ALM, scenario analysis
+
+### 46. **dynamic_beta_parameters** (Phase 3)
+- **Purpose:** Chen sigmoid function parameters for dynamic beta modeling
+- **Key Columns:**
+  - `relationship_category` - Strategic/Tactical/Expendable
+  - `beta_min` - Minimum beta (at 0% rates)
+  - `beta_max` - Maximum beta (at 6%+ rates)
+  - `k` - Sigmoid steepness parameter
+  - `R0` - Inflection point (rate where beta = midpoint)
+- **Sigmoid Function:** β(Rm) = β_min + (β_max - β_min) / [1 + exp(-k*(Rm-R0))]
+- **Example Values:**
+  - **Strategic:** β_min=0.05, β_max=0.60, k=2.0, R0=0.025
+  - Shows beta increases from 0.05 to 0.60 as rates rise
+- **Usage:**
+  - CCAR/DFAST stress testing
+  - Regulatory capital planning
+  - Non-linear rate shock scenarios
+
+### 47. **stress_test_results** (Phase 3)
+- **Purpose:** CCAR/DFAST stress test outputs
+- **Key Columns:**
+  - `scenario` - Baseline, Adverse, Severely Adverse
+  - `quarter` - Forecast quarter (Q0-Q9)
+  - `cet1_ratio_pct` - CET1 capital ratio
+  - `tier1_ratio_pct` - Tier 1 capital ratio
+  - `total_capital_ratio_pct` - Total capital ratio
+  - `nii_impact` - Net Interest Income impact ($M)
+  - `deposit_runoff` - Deposit runoff amount ($B)
+  - `lcr_ratio` - LCR under stress
+- **Regulatory Thresholds:**
+  - CET1 minimum: 7% (stress)
+  - Tier 1 minimum: 8.5% (stress)
+  - LCR minimum: 100%
+- **Usage:** Annual CCAR submission to Federal Reserve
 
 ---
 
@@ -597,10 +725,31 @@ _training_data                         ↓                             |
 - **Final Report:** `gold_regulatory.capital_adequacy`
 - **Requirements:** CET1 ≥ 4.5%, Tier 1 ≥ 6%, Total ≥ 8%
 
-### 3. **Deposit Beta Modeling**
-- **Training:** `ml_models.deposit_beta_training_data` → `models.deposit_beta_model@champion`
-- **Inference:** `silver_treasury.deposit_portfolio` → `ml_models.deposit_beta_predictions`
-- **Analytics:** `gold_analytics.deposit_runoff_predictions` (rate shock scenarios)
+### 3. **Deposit Beta Modeling (3 Phases)**
+
+**Phase 1: Enhanced Deposit Beta Model**
+- **Training:** `ml_models.deposit_beta_training_enhanced` (40+ features) → `models.deposit_beta_model@champion`
+- **Features:** Moody's Relationship Framework, Chen Market Regimes, Abrigo Competitive Pressure
+- **Accuracy:** MAPE 7.2% (vs 12.3% baseline = 41% improvement)
+- **Output:** Account-level beta predictions for rate sensitivity
+
+**Phase 2: Vintage Analysis & Component Decay**
+- **Data:** `bronze_core_banking.deposit_accounts_historical` (36 months, 12.7M rows)
+- **Outputs:**
+  - `ml_models.deposit_cohort_analysis` - Kaplan-Meier survival curves by cohort
+  - `ml_models.component_decay_metrics` - λ (closure rate) and g (ABGR) by segment
+  - `ml_models.deposit_runoff_forecasts` - 3-year deposit runoff projections
+- **Model:** D(t+1) = D(t) × (1-λ) × (1+g)
+- **Usage:** ALCO liquidity planning, LCR structural assumptions
+
+**Phase 3: Dynamic Beta & Stress Testing**
+- **Data:** `ml_models.dynamic_beta_parameters` - Chen sigmoid function parameters
+- **Function:** β(Rm) = β_min + (β_max - β_min) / [1 + exp(-k*(Rm-R0))]
+- **Output:** `ml_models.stress_test_results` - 9-quarter CCAR/DFAST projections
+- **Usage:** Regulatory stress testing, Federal Reserve submissions
+
+**Integration:**
+- Phase 1 predicts beta → Phase 2 uses beta for runoff → Phase 3 uses both for stress testing
 
 ### 4. **Interest Rate Risk**
 - **Source:** `silver_treasury.loan_portfolio`, `silver_treasury.deposit_portfolio`, `silver_treasury.securities_portfolio`
@@ -623,7 +772,15 @@ _training_data                         ↓                             |
 
 ## Document Version
 - **Created:** 2026-01-29
+- **Last Updated:** 2026-02-01
 - **Catalog:** cfo_banking_demo
 - **Total Schemas:** 18
-- **Total Tables:** ~40+
+- **Total Tables:** 47+ (including Phase 1-3 deposit modeling tables)
 - **Purpose:** Banking data lakehouse for Treasury, ALM, Risk, and Regulatory reporting
+
+## Recent Additions (2026-02-01)
+- Added `deposit_accounts_historical` (12.7M rows, 36 months of monthly snapshots)
+- Added Phase 2 tables: `deposit_cohort_analysis`, `cohort_survival_rates`, `component_decay_metrics`, `deposit_runoff_forecasts`
+- Added Phase 3 tables: `dynamic_beta_parameters`, `stress_test_results`
+- Enhanced `deposit_beta_training_enhanced` documentation with 40+ features
+- Updated deposit modeling use case to reflect 3-phase approach
