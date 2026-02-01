@@ -824,72 +824,722 @@ Start: 0%
 databricks-cfo-banking-demo/
 │
 ├── notebooks/                          # Databricks demo notebooks
-│   ├── WS1_Data_Foundation_Demo.py    # Unity Catalog & data foundation
-│   ├── WS2_RealTime_Streaming_Demo.py # Real-time pipelines
-│   ├── WS3_Mosaic_AI_Model_Training_Demo.py  # ML model training
-│   ├── WS3_Regulatory_Reporting_Demo.py      # Regulatory automation
-│   └── End_to_End_CFO_Demo.py         # Executive presentation
+│   ├── Batch_Inference_Deposit_Beta_Model.py      # Phase 3: Batch scoring ML model
+│   ├── Complete_Deposit_Beta_Model_Workflow.py    # Phase 3: End-to-end ML workflow
+│   ├── DFAST_CCAR_Stress_Testing.py               # Phase 3: Regulatory stress tests
+│   ├── Deploy_Deposit_Beta_Model.py               # Phase 3: Model deployment
+│   ├── Generate_Deposit_Runoff_Forecasts.py       # Phase 3: Runoff projections
+│   ├── Generate_Dynamic_Beta_Parameters.py        # Phase 3: Dynamic beta curves
+│   ├── Generate_Stress_Test_Results.py            # Phase 3: CCAR scenario results
+│   ├── Generate_Stress_Test_Summary.py            # Phase 3: Stress test dashboard
+│   ├── Generate_Vintage_Analysis_Tables.py        # Phase 3: Cohort survival analysis
+│   ├── Phase_1_Bronze_Tables.py                   # Phase 1: Raw data ingestion
+│   ├── Phase_2_DLT_Pipelines.py                   # Phase 2: Delta Live Tables ETL
+│   └── Train_Deposit_Beta_XGBoost_Model.py        # Phase 3: XGBoost model training
 │
-├── outputs/                            # Generated scripts and documentation
+├── outputs/                            # Generated scripts and libraries
+│   ├── agent_tools_library.py          # CFO agent tools (LCR, deposit beta, Unity Catalog)
 │   ├── scripts/                        # Executable Python scripts
 │   │   ├── agents/                     # AI agent implementations
 │   │   ├── dashboards/                 # Dashboard generation scripts
 │   │   ├── data_generation/            # Data population scripts
 │   │   ├── frontend/                   # Frontend setup scripts
 │   │   ├── models/                     # ML model scripts
-│   │   ├── pipelines/                  # Data pipeline scripts
+│   │   ├── pipelines/                  # Data pipeline scripts (includes 07_alpha_vantage_integration.py)
 │   │   └── utilities/                  # Utility and setup scripts
-│   ├── docs/                           # Documentation and guides
-│   │   ├── 17_LAKEVIEW_DASHBOARD_GUIDE.md
-│   │   ├── 22_EXACT_DASHBOARD_SPECS.md
-│   │   ├── 23_GAP_ANALYSIS.md
-│   │   ├── 25_DEMO_NOTEBOOKS_SUMMARY.md
-│   │   ├── 27_FINAL_COMPLETION_SUMMARY.md
-│   │   └── WS6_REACT_FRONTEND_SUMMARY.md
-│   ├── config/                         # Configuration and audit files
-│   └── README.md                       # Outputs directory guide
+│   └── docs/                           # Documentation and guides
+│       ├── 17_LAKEVIEW_DASHBOARD_GUIDE.md
+│       ├── 22_EXACT_DASHBOARD_SPECS.md
+│       ├── 23_GAP_ANALYSIS.md
+│       ├── 25_DEMO_NOTEBOOKS_SUMMARY.md
+│       ├── 27_FINAL_COMPLETION_SUMMARY.md
+│       └── WS6_REACT_FRONTEND_SUMMARY.md
 │
 ├── prompts/                            # Ralph-Wiggum agent prompts
 │   ├── ralph_ws1_01_prompt.txt         # WS1: Unity Catalog setup
-│   ├── ralph_ws1_02_prompt.txt         # WS1: Securities portfolio
-│   ├── ralph_ws1_03_prompt.txt         # WS1: Loan portfolio
-│   ├── ralph_ws1_04_prompt.txt         # WS1: Deposit portfolio
-│   ├── ralph_ws1_05_prompt.txt         # WS1: Balance sheet
-│   ├── ralph_ws1_06_prompt.txt         # WS1: GL and subledger
-│   ├── ralph_ws2_01_prompt.txt         # WS2: Loan origination
-│   ├── ralph_ws2_02_prompt.txt         # WS2: DLT pipeline
-│   ├── ralph_ws3_01_prompt.txt         # WS3: Deposit beta model
-│   ├── ralph_ws3_02_lcr.txt            # WS3: LCR calculator
-│   ├── ralph_ws4_01_agent.txt          # WS4: CFO agent
+│   ├── ralph_ws2_01_prompt.txt         # WS2: Loan origination streaming
+│   ├── ralph_ws3_01_prompt.txt         # WS3: Deposit beta ML model
+│   ├── ralph_ws4_01_agent.txt          # WS4: CFO AI agent
 │   ├── ralph_ws5_dashboards.txt        # WS5: Lakeview dashboards
 │   ├── ralph_ws6_react_app.txt         # WS6: React frontend
-│   ├── start_ralph.sh                  # Ralph-Wiggum launcher
-│   └── README.md                       # Prompts documentation
+│   └── start_ralph.sh                  # Ralph-Wiggum launcher script
 │
-├── frontend_app/                       # React frontend
+├── frontend_app/                       # Next.js React frontend
 │   ├── app/                            # Next.js 14 app directory
-│   │   ├── layout.tsx                  # Root layout
-│   │   ├── page.tsx                    # Main dashboard page
-│   │   └── globals.css                 # Global styles
+│   │   ├── assistant/                  # AI assistant chat page
+│   │   │   └── page.tsx
+│   │   ├── layout.tsx                  # Root layout with metadata
+│   │   ├── page.tsx                    # Main dashboard (Bloomberg Terminal style)
+│   │   └── globals.css                 # Global styles and Tailwind
 │   ├── components/                     # React components
-│   │   ├── ui/                         # Reusable UI components
-│   │   └── ...
+│   │   ├── ui/                         # Reusable UI components (buttons, cards, tabs)
+│   │   ├── charts/                     # Chart components (YieldCurve, LiquidityWaterfall)
+│   │   ├── tables/                     # Data table components (LoanTable, PortfolioDetailTable)
+│   │   ├── treasury/                   # Treasury modeling dashboards
+│   │   │   ├── DepositBetaDashboard.tsx         # Deposit beta analysis
+│   │   │   ├── VintageAnalysisDashboard.tsx     # Cohort survival curves
+│   │   │   └── StressTestDashboard.tsx          # CCAR/DFAST 9-quarter projections
+│   │   ├── panels/                     # Detail panel modals
+│   │   ├── Breadcrumbs.tsx             # Drill-down navigation breadcrumbs
+│   │   └── MetricCard.tsx              # KPI display cards
+│   ├── lib/                            # Utility libraries
+│   │   ├── drill-down-context.tsx      # Context for drill-down state management
+│   │   └── utils.ts                    # Utility functions
 │   ├── public/                         # Static assets
+│   │   └── favicon.ico                 # $ symbol favicon (Databricks colors)
+│   ├── out/                            # Static export output (generated by npm run build)
+│   │   ├── index.html                  # Main page
+│   │   ├── assistant.html              # AI assistant page
+│   │   ├── favicon.ico                 # Favicon
+│   │   └── _next/                      # Next.js static assets
 │   ├── package.json                    # Node.js dependencies
-│   └── next.config.js                  # Next.js configuration
+│   ├── next.config.js                  # Next.js configuration (output: 'export')
+│   ├── tailwind.config.ts              # Tailwind CSS configuration
+│   └── tsconfig.json                   # TypeScript configuration
 │
-├── backend/                            # FastAPI backend
-│   ├── main.py                         # API server
-│   └── requirements.txt                # Python dependencies
+├── backend/                            # FastAPI Python backend
+│   ├── main.py                         # REST API server + static file serving
+│   │                                   # Endpoints: /api/data/*, /api/chat, catchall for frontend
+│   └── requirements.txt                # Python dependencies (fastapi, uvicorn, databricks-sdk)
+│
+├── dashboards/                         # Lakeview dashboard exports
+│   └── (dashboard JSON files)
+│
+├── sql/                                # SQL scripts
+│   └── grant_permissions.sql           # Unity Catalog permission grants
 │
 ├── logs/                               # Execution logs
-│   └── ws_*.log                        # Workstream execution logs
+│   └── ws6_fastapi_server.log          # Backend server logs
 │
-├── databricks.yml                      # Databricks Apps configuration
+├── docs/                               # Top-level documentation
+│   ├── DEMO_TALK_TRACK.md              # 15-20 minute walkthrough script
+│   ├── CFO_Banking_Demo_Dataset_Documentation.md  # Data dictionary
+│   ├── GLOSSARY_AND_METHODOLOGY.md     # Financial terms glossary
+│   ├── TREASURY_DEMO_SCRIPT.md         # Treasury modeling demo script
+│   ├── UPDATE_NOTEBOOKS.md             # Notebook update instructions
+│   ├── PROGRESS_SUMMARY.md             # Development progress tracker
+│   └── NEXT_STEPS.md                   # Future enhancements roadmap
+│
+├── databricks.yml                      # Databricks Apps deployment config
+├── app.yml                             # Alternative app config
 ├── .gitignore                          # Git ignore rules
+├── .databricksignore                   # Databricks Repos ignore rules
 ├── README.md                           # This file
-└── requirements.txt                    # Python dependencies
+├── requirements.txt                    # Python dependencies
+├── mlflow.db                           # Local MLflow tracking database
+│
+├── Data generation & validation scripts (root level):
+│   ├── analyze_schema_gaps.py          # Validate table schemas
+│   ├── backfill_historical_yields.py   # Populate treasury yields from Alpha Vantage
+│   ├── check_*.py                      # Various data validation scripts
+│   ├── create_*.py                     # Endpoint and resource creation scripts
+│   ├── diagnose_*.py                   # Data quality diagnostic scripts
+│   ├── explore_catalog.py              # Unity Catalog exploration utility
+│   ├── generate_deposit_history.py     # Historical deposit data generator
+│   ├── grant_*.py/sql                  # Permission grant scripts
+│   ├── run_gl_backfill.py              # GL entries backfill script
+│   └── verify_*.py                     # Data verification scripts
+│
+└── AUTOML_TRAINING_INSTRUCTIONS.md     # AutoML setup guide
 ```
+
+### Key Directories Explained
+
+**notebooks/** - Databricks notebooks organized in 3 phases:
+- Phase 1: Bronze layer data ingestion
+- Phase 2: Delta Live Tables silver/gold pipelines
+- Phase 3: ML models (deposit beta, stress testing, vintage analysis)
+
+**frontend_app/** - Next.js 14 React application:
+- Bloomberg Terminal-inspired UI with navy/cyan color scheme
+- 6 tabs: Portfolio, Risk Analysis, Recent Activity, Deposit Beta, Vintage Analysis, CCAR/DFAST
+- Treasury modeling dashboards with advanced visualizations (survival curves, stress test projections)
+- AI assistant chat interface powered by Claude Sonnet 4.5
+
+**backend/** - FastAPI server:
+- REST API endpoints for Unity Catalog data (`/api/data/*`)
+- AI assistant chat endpoint (`/api/chat`)
+- Serves static frontend files from `frontend_app/out/`
+- Agent tools integration for deposit beta and LCR calculations
+
+**outputs/** - Generated artifacts:
+- `agent_tools_library.py`: Reusable Python functions for CFO agent (deposit beta model inference, LCR calculation, Unity Catalog queries)
+- `scripts/`: Organized by subdirectory (agents, dashboards, data_generation, models, pipelines, utilities)
+- `docs/`: Generated documentation and specifications
+
+**docs/** - Documentation:
+- `DEMO_TALK_TRACK.md`: Complete 15-20 minute walkthrough with detailed explanations of all 6 tabs
+- Financial glossary and methodology guides
+
+---
+
+## Code Flow
+
+This section explains how data and user requests flow through the application across different scenarios.
+
+### 1. User Request Flow (Frontend → Backend → Unity Catalog)
+
+When a user interacts with the dashboard, requests flow through multiple layers:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER INTERACTION                        │
+│                   (Browser: React Component)                    │
+├─────────────────────────────────────────────────────────────────┤
+│ User clicks "Portfolio Analytics" or changes filters            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                      FRONTEND COMPONENT                         │
+│            (frontend_app/app/page.tsx or components/)           │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. React component calls useEffect() or event handler          │
+│ 2. Executes fetch() to backend API endpoint                    │
+│    Example: fetch('/api/data/portfolio-summary')               │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                      FASTAPI BACKEND                            │
+│                   (backend/main.py endpoints)                   │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. FastAPI route handler receives request                      │
+│    @app.get("/api/data/portfolio-summary")                     │
+│ 2. Constructs SQL query for Unity Catalog                      │
+│ 3. Calls agent_tools.query_unity_catalog(sql)                  │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                      AGENT TOOLS LIBRARY                        │
+│              (outputs/agent_tools_library.py)                   │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. CFOAgentTools.query_unity_catalog() method                  │
+│ 2. Uses Databricks SDK to execute SQL                          │
+│    w.statement_execution.execute_statement(statement=sql)      │
+│ 3. Polls for result completion                                 │
+│ 4. Returns structured response: {                              │
+│      "success": True,                                           │
+│      "columns": [],  # Note: Empty from Unity Catalog          │
+│      "data": [['402000', '31017679072.0', '0.350']]            │
+│    }                                                            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                      UNITY CATALOG                              │
+│         (Databricks Lakehouse - Delta Lake Tables)             │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. SQL Warehouse executes query with Photon acceleration       │
+│ 2. Reads from Delta tables:                                    │
+│    - cfo_banking_demo.silver_finance.loan_portfolio            │
+│    - cfo_banking_demo.silver_finance.deposit_portfolio         │
+│    - cfo_banking_demo.gold_finance.profitability_metrics       │
+│ 3. Returns query results as list of lists                      │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    RESPONSE PROCESSING                          │
+│                   (backend/main.py endpoints)                   │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Backend processes raw data from Unity Catalog               │
+│ 2. Maps array indices to field names (since columns[] empty)   │
+│    row = result["data"][0]                                     │
+│    data = {                                                     │
+│      "total_accounts": int(row[0]),                            │
+│      "total_balance": float(row[1]),                           │
+│      "avg_beta": float(row[2])                                 │
+│    }                                                            │
+│ 3. Performs type conversions (str → int/float)                 │
+│ 4. Returns JSON response to frontend                           │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    FRONTEND RENDERING                           │
+│              (React component re-renders with data)             │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. fetch() promise resolves with JSON data                     │
+│ 2. React state updated via setState() or setData()             │
+│ 3. Component re-renders with new data                          │
+│ 4. Charts/tables display formatted results                     │
+│ 5. Loading spinners removed, data visible to user              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Example: Fetching Deposit Beta Metrics**
+
+```typescript
+// frontend_app/components/treasury/DepositBetaDashboard.tsx
+useEffect(() => {
+  fetch('/api/data/deposit-beta-metrics')
+    .then(res => res.json())
+    .then(data => setMetrics(data.data))
+}, [])
+```
+
+```python
+# backend/main.py
+@app.get("/api/data/deposit-beta-metrics")
+async def get_deposit_beta_metrics():
+    query = """
+    SELECT COUNT(*), SUM(balance), AVG(deposit_beta)
+    FROM cfo_banking_demo.silver_finance.deposit_portfolio
+    """
+    result = agent_tools.query_unity_catalog(query)
+    row = result["data"][0]
+    return {
+        "success": True,
+        "data": {
+            "total_accounts": int(row[0]),
+            "total_balance": float(row[1]),
+            "avg_beta": float(row[2])
+        }
+    }
+```
+
+### 2. Treasury Dashboard Flow
+
+The treasury modeling tabs (Deposit Beta, Vintage Analysis, CCAR/DFAST Stress Testing) fetch data from ML model-generated tables:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     USER CLICKS TREASURY TAB                    │
+│         (Deposit Beta / Vintage Analysis / CCAR/DFAST)          │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                  TREASURY REACT COMPONENT                       │
+│       (frontend_app/components/treasury/*.tsx)                  │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. DepositBetaDashboard.tsx loads on mount                     │
+│ 2. Fetches 9 different datasets in parallel:                   │
+│    - /api/data/deposit-beta-metrics                            │
+│    - /api/data/deposit-beta-distribution                       │
+│    - /api/data/at-risk-deposits                                │
+│    - /api/data/component-decay-metrics                         │
+│    - /api/data/cohort-survival                                 │
+│    - /api/data/runoff-forecasts                                │
+│    - /api/data/dynamic-beta-parameters                         │
+│    - /api/data/stress-test-results                             │
+│    - /api/data/stress-test-summary                             │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                   9 TREASURY API ENDPOINTS                      │
+│                     (backend/main.py)                           │
+├─────────────────────────────────────────────────────────────────┤
+│ Each endpoint queries ML-generated tables:                      │
+│                                                                 │
+│ 1. deposit-beta-metrics:                                       │
+│    FROM deposit_beta_predictions                               │
+│    Aggregates: total accounts, balance, avg beta, at-risk %    │
+│                                                                 │
+│ 2. at-risk-deposits:                                           │
+│    FROM deposit_beta_predictions WHERE deposit_beta > 0.6      │
+│    Groups by product type with risk classification             │
+│                                                                 │
+│ 3. cohort-survival:                                            │
+│    FROM vintage_cohort_survival                                │
+│    Returns cohort survival curves by vintage quarter           │
+│                                                                 │
+│ 4. stress-test-results:                                        │
+│    FROM stress_test_results                                    │
+│    Returns 9-quarter capital ratio projections for CCAR        │
+│                                                                 │
+│ All endpoints:                                                  │
+│ - Query Unity Catalog via agent_tools                          │
+│ - Handle empty columns[] array with direct index access        │
+│ - Perform type conversions (str → int/float)                   │
+│ - Return structured JSON                                       │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│               ML MODEL-GENERATED TABLES                         │
+│                    (Unity Catalog)                              │
+├─────────────────────────────────────────────────────────────────┤
+│ These tables are created by Phase 3 notebooks:                 │
+│                                                                 │
+│ • deposit_beta_predictions:                                    │
+│   - Generated by: Train_Deposit_Beta_XGBoost_Model.py         │
+│   - XGBoost model predicts deposit beta for each account       │
+│   - Fields: account_id, product_type, balance, deposit_beta   │
+│                                                                 │
+│ • vintage_cohort_survival:                                     │
+│   - Generated by: Generate_Vintage_Analysis_Tables.py         │
+│   - Tracks deposit cohort retention over time                  │
+│   - Fields: vintage_quarter, months_aged, survival_rate       │
+│                                                                 │
+│ • stress_test_results:                                         │
+│   - Generated by: Generate_Stress_Test_Results.py             │
+│   - CCAR/DFAST 9-quarter projections                          │
+│   - Fields: scenario, quarter, cet1_ratio, nii_delta          │
+│                                                                 │
+│ • dynamic_beta_parameters:                                     │
+│   - Generated by: Generate_Dynamic_Beta_Parameters.py         │
+│   - Time-varying beta coefficients by rate environment        │
+│   - Fields: product_type, rate_regime, beta_coefficient       │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│              TREASURY DASHBOARD VISUALIZATION                   │
+│           (Recharts components in React)                        │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Deposit Beta Dashboard:                                     │
+│    - Horizontal bar chart: Balance by product (colored by beta)│
+│    - At-risk table: Accounts with beta > 0.6                  │
+│                                                                 │
+│ 2. Vintage Analysis Dashboard:                                 │
+│    - Line chart: Cohort survival curves over 24 months        │
+│    - Grouped by vintage quarter (2023-Q1 through 2024-Q4)     │
+│                                                                 │
+│ 3. Stress Test Dashboard (CCAR/DFAST):                         │
+│    - Line chart: CET1 ratio projections over 9 quarters       │
+│    - Multiple scenarios: Baseline, Adverse, Severely Adverse   │
+│    - Delta NII and EVE impact tables                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 3. Build & Deployment Flow
+
+The application build and deployment process:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   DEVELOPMENT: npm run dev                      │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. cd frontend_app && npm run dev                              │
+│ 2. Next.js dev server starts on http://localhost:3000          │
+│ 3. Hot Module Replacement (HMR) enabled                        │
+│ 4. Component changes auto-reload in browser                    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   PRODUCTION BUILD                              │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. npm run build (in frontend_app/)                            │
+│    ↓                                                            │
+│    Next.js static export process begins                        │
+│    ↓                                                            │
+│ 2. Compiles TypeScript → JavaScript                            │
+│    - app/page.tsx → JavaScript bundle                          │
+│    - components/**/*.tsx → optimized modules                   │
+│    ↓                                                            │
+│ 3. Bundles with Webpack                                        │
+│    - Code splitting by route                                   │
+│    - Tree shaking (removes unused code)                        │
+│    - Minification (reduces file size)                          │
+│    ↓                                                            │
+│ 4. Generates static HTML pages                                 │
+│    - index.html (main dashboard)                               │
+│    - assistant.html (AI chat page)                             │
+│    ↓                                                            │
+│ 5. Outputs to frontend_app/out/ directory                      │
+│    - out/index.html                                            │
+│    - out/assistant.html                                        │
+│    - out/favicon.ico                                           │
+│    - out/_next/static/chunks/*.js (JavaScript bundles)         │
+│    - out/_next/static/css/*.css (stylesheets)                  │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                   LOCAL FASTAPI SERVER                          │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. python3 -m uvicorn backend.main:app --reload               │
+│ 2. Starts on http://localhost:8000                             │
+│ 3. Serves static files from frontend_app/out/                  │
+│    - GET / → out/index.html                                    │
+│    - GET /assistant → out/assistant.html                       │
+│    - GET /favicon.ico → out/favicon.ico                        │
+│    - GET /_next/static/* → out/_next/static/*                  │
+│ 4. API endpoints:                                               │
+│    - /api/data/* → Unity Catalog queries                       │
+│    - /api/chat → Claude Sonnet 4.5 AI assistant                │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│              DATABRICKS APPS DEPLOYMENT                         │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Push code to GitHub:                                        │
+│    git add . && git commit && git push                         │
+│    ↓                                                            │
+│ 2. Sync Databricks Workspace with GitHub:                      │
+│    Repos → Pull changes from main branch                       │
+│    ↓                                                            │
+│ 3. Databricks Apps takes SNAPSHOT of Workspace path:           │
+│    /Workspace/Users/<email>/databricks-cfo-banking-demo/       │
+│    ↓                                                            │
+│ 4. Reads databricks.yml configuration:                         │
+│    command: ["python3", "-m", "uvicorn", "backend.main:app"]  │
+│    ↓                                                            │
+│ 5. Starts FastAPI server in Databricks Apps container          │
+│    ↓                                                            │
+│ 6. App accessible at:                                           │
+│    https://cfo-banking-demo-<id>.aws.databricksapps.com       │
+│    ↓                                                            │
+│ 7. Authentication:                                              │
+│    - Uses Databricks Workspace credentials                     │
+│    - Unity Catalog access inherited from user permissions      │
+│    - No separate API keys needed                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Important Notes**:
+- `frontend_app/out/` directory MUST be committed to git (removed from `.gitignore`)
+- Databricks Apps serves the SNAPSHOT at deployment time (not live GitHub)
+- To update deployed app: Push code → Sync Workspace → Redeploy app
+- Static export means no Next.js server-side features (no SSR, no ISR, no Edge Runtime)
+
+### 4. AI Assistant Flow
+
+The AI-powered chat assistant uses Claude Sonnet 4.5 with agent tools:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  USER TYPES QUESTION                            │
+│     (frontend_app/app/assistant/page.tsx chat interface)       │
+├─────────────────────────────────────────────────────────────────┤
+│ User: "What is our LCR ratio with a 20% deposit runoff?"       │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    FRONTEND CHAT COMPONENT                      │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. User message added to messages[] state                      │
+│ 2. POST request to /api/chat with:                             │
+│    {                                                            │
+│      "message": "What is our LCR ratio...",                    │
+│      "history": [...previous messages]                         │
+│    }                                                            │
+│ 3. Shows "Claude is thinking..." loading state                 │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                  /api/chat ENDPOINT                             │
+│                  (backend/main.py)                              │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Receives user message and history                           │
+│ 2. Constructs Claude API request with:                         │
+│    - Model: claude-sonnet-4-5-20250929                         │
+│    - System prompt: "You are a CFO assistant..."               │
+│    - Tools: [calculate_lcr, call_deposit_beta_model,           │
+│               query_unity_catalog, get_portfolio_summary]      │
+│    - MLflow tracing enabled (auto-logs conversation)           │
+│ 3. Sends request to Claude API                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│              CLAUDE SONNET 4.5 REASONING                        │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Analyzes user question                                      │
+│ 2. Identifies needed tools:                                    │
+│    - "LCR ratio" → needs calculate_lcr()                       │
+│    - "20% deposit runoff" → needs parameter 0.20               │
+│ 3. Returns tool use request:                                   │
+│    {                                                            │
+│      "type": "tool_use",                                       │
+│      "name": "calculate_lcr",                                  │
+│      "input": {"deposit_runoff_multiplier": 0.20}              │
+│    }                                                            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│              TOOL EXECUTION (Backend)                           │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Backend recognizes tool_use request                         │
+│ 2. Calls agent_tools.calculate_lcr(0.20)                       │
+│ 3. CFOAgentTools.calculate_lcr() method:                       │
+│    a. Queries securities for HQLA calculation                  │
+│    b. Queries deposits for outflow calculation                 │
+│    c. Applies 20% stress multiplier                            │
+│    d. Calculates LCR = HQLA / Net Outflows                     │
+│ 4. Returns result:                                              │
+│    {                                                            │
+│      "lcr_ratio": 0.95,                                        │
+│      "hqla": 8200000000,                                       │
+│      "net_outflows": 8631578947,                               │
+│      "compliant": False,                                       │
+│      "shortfall": 431578947                                    │
+│    }                                                            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│            CLAUDE GENERATES RESPONSE                            │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Receives tool execution result                              │
+│ 2. Formats professional response:                              │
+│    "Based on the LCR calculation with a 20% deposit runoff    │
+│     stress scenario, your bank's LCR would be 95%,            │
+│     falling below the regulatory minimum of 100%.             │
+│                                                                 │
+│     - HQLA: $8.2B                                              │
+│     - Net Cash Outflows (30-day): $8.6B                        │
+│     - Shortfall: $431M                                         │
+│                                                                 │
+│     To achieve compliance, you would need to either:          │
+│     1. Increase HQLA by $431M (issue/buy UST or Agency MBS)  │
+│     2. Reduce net outflows by securing stable funding         │
+│     3. Combination of both approaches"                         │
+│ 3. Returns response to backend                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│               MLFLOW TRACING (Automatic)                        │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. MLflow captures entire interaction:                         │
+│    - User input                                                 │
+│    - Tool calls with parameters                                │
+│    - Tool execution results                                    │
+│    - Model response                                            │
+│    - Latency metrics                                           │
+│ 2. Logged to mlflow.db (local) or Databricks tracking server  │
+│ 3. Accessible via MLflow UI for debugging and monitoring      │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│              FRONTEND DISPLAYS RESPONSE                         │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. POST /api/chat returns JSON:                                │
+│    {"response": "Based on the LCR calculation..."}            │
+│ 2. React adds assistant message to messages[] state           │
+│ 3. Chat component re-renders with new message                 │
+│ 4. Message appears in chat history with formatting            │
+│ 5. "Tools used: calculate_lcr" badge shown for transparency   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Available Agent Tools**:
+
+1. **calculate_lcr(deposit_runoff_multiplier)**
+   - Calculates Liquidity Coverage Ratio under stress
+   - Queries: securities (HQLA) + deposits (outflows)
+   - Returns: LCR ratio, HQLA, net outflows, compliance status
+
+2. **call_deposit_beta_model(rate_change_bps, product_type)**
+   - Predicts deposit runoff for rate shock scenarios
+   - Uses deployed XGBoost model in Unity Catalog
+   - Returns: Expected runoff %, funding gap
+
+3. **query_unity_catalog(sql_query)**
+   - Executes arbitrary SQL against Unity Catalog
+   - Full access to all cfo_banking_demo tables
+   - Returns: Query results as structured data
+
+4. **get_portfolio_summary(asset_class)**
+   - Aggregates portfolio metrics by asset class
+   - Asset classes: loans, deposits, securities
+   - Returns: Balance, count, avg rate, credit quality distribution
+
+### 5. Real-Time Loan Origination Flow (Streaming)
+
+For demonstrating streaming capabilities (not in production use in this demo):
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              EVENT GENERATION                                   │
+│     (notebooks/WS2_RealTime_Streaming_Demo.py)                  │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Python script generates loan origination events             │
+│ 2. Event structure (JSON):                                     │
+│    {                                                            │
+│      "event_id": "uuid",                                       │
+│      "timestamp": "2025-01-25T14:30:00",                       │
+│      "borrower": {...},                                        │
+│      "loan": {...},                                            │
+│      "gl_entries": [                                           │
+│        {"account": "1100", "debit": 500000},                  │
+│        {"account": "2100", "credit": 500000}                  │
+│      ],                                                         │
+│      "liquidity_impact": -500000,                              │
+│      "regulatory_impact": {"rwa": 375000}                     │
+│    }                                                            │
+│ 3. Writes to bronze Delta table (ACID transaction)            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│           DELTA LIVE TABLES PIPELINE                            │
+│          (notebooks/Phase_2_DLT_Pipelines.py)                   │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Bronze → Silver transformation:                             │
+│    @dlt.table                                                   │
+│    def silver_loan_originations():                             │
+│      return (                                                   │
+│        dlt.read_stream("bronze_core_banking.loan_events")     │
+│          .selectExpr("event_id", "timestamp", "loan.*")       │
+│      )                                                          │
+│                                                                 │
+│ 2. GL Posting:                                                  │
+│    @dlt.table                                                   │
+│    def silver_gl_entries():                                    │
+│      return (                                                   │
+│        dlt.read_stream("silver_loan_originations")            │
+│          .selectExpr("explode(gl_entries) as entry")          │
+│          .select("entry.account", "entry.debit", ...)         │
+│      )                                                          │
+│                                                                 │
+│ 3. Validation:                                                  │
+│    @dlt.expect_or_fail("balanced_entries",                     │
+│                        "SUM(debit) = SUM(credit)")            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│           GOLD LAYER AGGREGATION                                │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Intraday Liquidity Position:                                │
+│    Running sum of cash outflows by hour                        │
+│    Compares to available HQLA                                  │
+│    Calculates real-time LCR                                    │
+│                                                                 │
+│ 2. Portfolio Aggregations:                                      │
+│    Updates total loan balance                                  │
+│    Updates RWA calculation                                     │
+│    Updates credit quality distribution                         │
+│                                                                 │
+│ 3. Dashboard Refresh:                                           │
+│    Lakeview dashboards auto-refresh (WebSocket)               │
+│    React frontend polls /api/data/portfolio-summary           │
+│    Shows "Last updated: 2 seconds ago"                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Performance Comparison**:
+- Traditional Batch (T+1): 24+ hours to reflect in GL and reports
+- Databricks Streaming: <1 second end-to-end processing
+- Dashboard updates: Real-time (as soon as transaction commits)
+
+### 6. Data Lineage Visibility
+
+Unity Catalog provides complete data lineage that flows through to the UI:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   USER HOVERS OVER METRIC                       │
+│            (frontend_app/components/MetricCard.tsx)             │
+├─────────────────────────────────────────────────────────────────┤
+│ Tooltip displays:                                               │
+│ "Source: cfo_banking_demo.silver_finance.loan_portfolio"       │
+│ "Last Updated: 2025-01-25 14:30:00"                            │
+│ "Records: 97,200"                                               │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│              UNITY CATALOG LINEAGE GRAPH                        │
+│           (Databricks UI: Catalog Explorer)                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Upstream tables:                                                │
+│ bronze_core_banking.loan_origination_events                    │
+│   ↓ (DLT pipeline transformation)                              │
+│ silver_finance.loan_portfolio                                  │
+│   ↓ (aggregation query)                                        │
+│ gold_finance.profitability_metrics                             │
+│   ↓ (consumed by)                                              │
+│ React Dashboard Metric Card                                    │
+│                                                                 │
+│ Audit trail:                                                    │
+│ - Who created the table                                        │
+│ - When it was last modified                                    │
+│ - Which notebooks/jobs wrote to it                             │
+│ - Who has access permissions                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+This complete data flow documentation covers all major application paths and demonstrates how Databricks Lakehouse, Unity Catalog, ML models, and modern web technologies integrate seamlessly.
 
 ---
 
