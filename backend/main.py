@@ -875,10 +875,18 @@ async def get_deposit_beta_metrics():
             WHERE effective_date = (SELECT MAX(effective_date) FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced)
         """
         result = agent_tools.query_unity_catalog(query)
-        if result["success"] and result["data"]:
-            columns = result.get("columns", [])
+        if result["success"] and result["data"] and len(result["data"]) > 0:
             row = result["data"][0]
-            data = {columns[i]: row[i] for i in range(len(columns))}
+            data = {
+                "total_accounts": int(row[0]) if row[0] else 0,
+                "total_balance": float(row[1]) if row[1] else 0.0,
+                "avg_beta": float(row[2]) if row[2] else 0.0,
+                "at_risk_accounts": int(row[3]) if row[3] else 0,
+                "at_risk_balance": float(row[4]) if row[4] else 0.0,
+                "strategic_pct": float(row[5]) if row[5] else 0.0,
+                "tactical_pct": float(row[6]) if row[6] else 0.0,
+                "expendable_pct": float(row[7]) if row[7] else 0.0
+            }
             return {"success": True, "data": data}
         return JSONResponse({"error": "No data found"}, status_code=404)
     except Exception as e:
@@ -901,10 +909,15 @@ async def get_deposit_beta_distribution():
             ORDER BY total_balance DESC
         """
         result = agent_tools.query_unity_catalog(query)
-        if result["success"]:
-            columns = result.get("columns", [])
+        if result["success"] and result["data"]:
             data = [
-                {columns[i]: row[i] for i in range(len(columns))}
+                {
+                    "product_type": row[0],
+                    "account_count": int(row[1]) if row[1] else 0,
+                    "total_balance": float(row[2]) if row[2] else 0.0,
+                    "avg_beta": float(row[3]) if row[3] else 0.0,
+                    "relationship_category": row[4]
+                }
                 for row in result["data"]
             ]
             return {"success": True, "data": data}
@@ -933,10 +946,18 @@ async def get_at_risk_deposits():
             LIMIT 50
         """
         result = agent_tools.query_unity_catalog(query)
-        if result["success"]:
-            columns = result.get("columns", [])
+        if result["success"] and result["data"]:
             data = [
-                {columns[i]: row[i] for i in range(len(columns))}
+                {
+                    "account_id": row[0],
+                    "product_type": row[1],
+                    "current_balance": float(row[2]) if row[2] else 0.0,
+                    "stated_rate": float(row[3]) if row[3] else 0.0,
+                    "market_rate": float(row[4]) if row[4] else 0.0,
+                    "rate_gap": float(row[5]) if row[5] else 0.0,
+                    "predicted_beta": float(row[6]) if row[6] else 0.0,
+                    "relationship_category": row[7]
+                }
                 for row in result["data"]
             ]
             return {"success": True, "data": data}
@@ -962,10 +983,17 @@ async def get_component_decay_metrics():
             ORDER BY relationship_category
         """
         result = agent_tools.query_unity_catalog(query)
-        if result["success"]:
-            columns = result.get("columns", [])
+        if result["success"] and result["data"]:
             data = [
-                {columns[i]: row[i] for i in range(len(columns))}
+                {
+                    "relationship_category": row[0],
+                    "closure_rate": float(row[1]) if row[1] else 0.0,
+                    "abgr": float(row[2]) if row[2] else 0.0,
+                    "compound_factor": float(row[3]) if row[3] else 0.0,
+                    "year_1_retention": float(row[4]) if row[4] else 0.0,
+                    "year_2_retention": float(row[5]) if row[5] else 0.0,
+                    "year_3_retention": float(row[6]) if row[6] else 0.0
+                }
                 for row in result["data"]
             ]
             return {"success": True, "data": data}
@@ -989,10 +1017,14 @@ async def get_cohort_survival():
             ORDER BY relationship_category, months_since_open
         """
         result = agent_tools.query_unity_catalog(query)
-        if result["success"]:
-            columns = result.get("columns", [])
+        if result["success"] and result["data"]:
             data = [
-                {columns[i]: row[i] for i in range(len(columns))}
+                {
+                    "relationship_category": row[0],
+                    "months_since_opening": float(row[1]) if row[1] else 0.0,
+                    "survival_rate": float(row[2]) if row[2] else 0.0,
+                    "cohort_quarter": row[3] if len(row) > 3 else ""
+                }
                 for row in result["data"]
             ]
             return {"success": True, "data": data}
@@ -1017,10 +1049,16 @@ async def get_runoff_forecasts():
             ORDER BY relationship_category, months_ahead
         """
         result = agent_tools.query_unity_catalog(query)
-        if result["success"]:
-            columns = result.get("columns", [])
+        if result["success"] and result["data"]:
             data = [
-                {columns[i]: row[i] for i in range(len(columns))}
+                {
+                    "relationship_category": row[0],
+                    "year": int(row[1]) if row[1] else 0,
+                    "beginning_balance": float(row[2]) if row[2] else 0.0,
+                    "projected_balance": float(row[3]) if row[3] else 0.0,
+                    "runoff_amount": float(row[4]) if row[4] else 0.0,
+                    "cumulative_runoff_pct": float(row[5]) if row[5] else 0.0
+                }
                 for row in result["data"]
             ]
             return {"success": True, "data": data}
@@ -1043,10 +1081,15 @@ async def get_dynamic_beta_parameters():
             ORDER BY relationship_category
         """
         result = agent_tools.query_unity_catalog(query)
-        if result["success"]:
-            columns = result.get("columns", [])
+        if result["success"] and result["data"]:
             data = [
-                {columns[i]: row[i] for i in range(len(columns))}
+                {
+                    "relationship_category": row[0],
+                    "beta_min": float(row[1]) if row[1] else 0.0,
+                    "beta_max": float(row[2]) if row[2] else 0.0,
+                    "k": float(row[3]) if row[3] else 0.0,
+                    "R0": float(row[4]) if row[4] else 0.0
+                }
                 for row in result["data"]
             ]
             return {"success": True, "data": data}
@@ -1078,10 +1121,10 @@ async def get_stress_test_results():
         data = []
         if result["success"] and len(result["data"]) > 0:
             for row in result["data"]:
-                scenario_name = row[0].replace(" (No Shock)", "").replace(" (+200 bps)", "").replace(" (+300 bps)", "")
-                rate_shock = row[1]
-                delta_nii = row[3]
-                eve_cet1_impact = row[5]
+                scenario_name = str(row[0]).replace(" (No Shock)", "").replace(" (+200 bps)", "").replace(" (+300 bps)", "")
+                rate_shock = int(row[1]) if row[1] else 0
+                delta_nii = float(row[3]) if row[3] else 0.0
+                eve_cet1_impact = float(row[5]) if row[5] else 0.0
 
                 # Starting capital ratio
                 base_cet1 = 11.5 if rate_shock == 0 else (10.2 if rate_shock == 200 else 8.5)
@@ -1128,10 +1171,10 @@ async def get_stress_test_summary():
         data = []
         if result["success"] and len(result["data"]) > 0:
             for row in result["data"]:
-                scenario_name = row[0].replace(" (No Shock)", "").replace(" (+200 bps)", "").replace(" (+300 bps)", "")
-                rate_shock = row[1]
-                delta_nii = row[2]
-                eve_cet1_impact = row[4]
+                scenario_name = str(row[0]).replace(" (No Shock)", "").replace(" (+200 bps)", "").replace(" (+300 bps)", "")
+                rate_shock = int(row[1]) if row[1] else 0
+                delta_nii = float(row[2]) if row[2] else 0.0
+                eve_cet1_impact = float(row[4]) if row[4] else 0.0
 
                 # Calculate minimum CET1 over 9 quarters
                 base_cet1 = 11.5 if rate_shock == 0 else (10.2 if rate_shock == 200 else 8.5)
