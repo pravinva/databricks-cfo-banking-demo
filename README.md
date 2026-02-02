@@ -820,34 +820,74 @@ Start: 0%
 
 ## Repository Structure
 
+<details>
+<summary><strong>📁 Complete Directory Tree</strong> (click to expand)</summary>
+
 ```
 databricks-cfo-banking-demo/
 │
-├── notebooks/                          # Databricks demo notebooks
-│   ├── Batch_Inference_Deposit_Beta_Model.py      # Phase 3: Batch scoring ML model
-│   ├── Complete_Deposit_Beta_Model_Workflow.py    # Phase 3: End-to-end ML workflow
-│   ├── DFAST_CCAR_Stress_Testing.py               # Phase 3: Regulatory stress tests
-│   ├── Deploy_Deposit_Beta_Model.py               # Phase 3: Model deployment
-│   ├── Generate_Deposit_Runoff_Forecasts.py       # Phase 3: Runoff projections
-│   ├── Generate_Dynamic_Beta_Parameters.py        # Phase 3: Dynamic beta curves
-│   ├── Generate_Stress_Test_Results.py            # Phase 3: CCAR scenario results
-│   ├── Generate_Stress_Test_Summary.py            # Phase 3: Stress test dashboard
-│   ├── Generate_Vintage_Analysis_Tables.py        # Phase 3: Cohort survival analysis
+├── notebooks/                          # Databricks demo notebooks (Phase 1-3)
 │   ├── Phase_1_Bronze_Tables.py                   # Phase 1: Raw data ingestion
 │   ├── Phase_2_DLT_Pipelines.py                   # Phase 2: Delta Live Tables ETL
-│   └── Train_Deposit_Beta_XGBoost_Model.py        # Phase 3: XGBoost model training
+│   ├── Train_Deposit_Beta_XGBoost_Model.py        # Phase 3: XGBoost model training
+│   ├── Deploy_Deposit_Beta_Model.py               # Phase 3: Model deployment
+│   ├── Batch_Inference_Deposit_Beta_Model.py      # Phase 3: Batch scoring ML model
+│   ├── Complete_Deposit_Beta_Model_Workflow.py    # Phase 3: End-to-end ML workflow
+│   ├── Generate_Deposit_Runoff_Forecasts.py       # Phase 3: Runoff projections
+│   ├── Generate_Dynamic_Beta_Parameters.py        # Phase 3: Dynamic beta curves
+│   ├── Generate_Vintage_Analysis_Tables.py        # Phase 3: Cohort survival analysis
+│   ├── Generate_Stress_Test_Results.py            # Phase 3: CCAR scenario results
+│   ├── Generate_Stress_Test_Summary.py            # Phase 3: Stress test dashboard
+│   └── DFAST_CCAR_Stress_Testing.py               # Phase 3: Regulatory stress tests
+│
+├── frontend_app/                       # Next.js React frontend (Bloomberg Terminal style)
+│   ├── app/
+│   │   ├── layout.tsx                  # Root layout with metadata
+│   │   ├── page.tsx                    # Main dashboard (6 tabs)
+│   │   ├── globals.css                 # Global styles and Tailwind
+│   │   └── assistant/                  # AI assistant chat page
+│   │       └── page.tsx
+│   ├── components/
+│   │   ├── ui/                         # Reusable UI (buttons, cards, tabs, badges)
+│   │   ├── charts/                     # Chart components (YieldCurve, LiquidityWaterfall)
+│   │   ├── tables/                     # Data tables (LoanTable, PortfolioDetailTable)
+│   │   ├── treasury/                   # Treasury modeling dashboards (3 tabs)
+│   │   │   ├── DepositBetaDashboard.tsx
+│   │   │   ├── VintageAnalysisDashboard.tsx
+│   │   │   └── StressTestDashboard.tsx
+│   │   ├── panels/                     # Detail panel modals
+│   │   ├── Breadcrumbs.tsx
+│   │   └── MetricCard.tsx
+│   ├── lib/
+│   │   ├── drill-down-context.tsx      # Drill-down state management
+│   │   └── utils.ts
+│   ├── public/
+│   │   └── favicon.ico                 # $ symbol favicon
+│   ├── out/                            # Static export (npm run build output)
+│   │   ├── index.html
+│   │   ├── assistant.html
+│   │   └── _next/static/
+│   ├── package.json
+│   ├── next.config.js                  # Static export config
+│   ├── tailwind.config.ts
+│   └── tsconfig.json
+│
+├── backend/                            # FastAPI Python backend
+│   ├── main.py                         # REST API + static file serving
+│   │                                   # /api/data/* + /api/chat
+│   └── requirements.txt
 │
 ├── outputs/                            # Generated scripts and libraries
 │   ├── agent_tools_library.py          # CFO agent tools (LCR, deposit beta, Unity Catalog)
 │   ├── scripts/                        # Executable Python scripts
 │   │   ├── agents/                     # AI agent implementations
-│   │   ├── dashboards/                 # Dashboard generation scripts
-│   │   ├── data_generation/            # Data population scripts
-│   │   ├── frontend/                   # Frontend setup scripts
+│   │   ├── dashboards/                 # Dashboard generation
+│   │   ├── data_generation/            # Data population
+│   │   ├── frontend/                   # Frontend setup
 │   │   ├── models/                     # ML model scripts
-│   │   ├── pipelines/                  # Data pipeline scripts (includes 07_alpha_vantage_integration.py)
-│   │   └── utilities/                  # Utility and setup scripts
-│   └── docs/                           # Documentation and guides
+│   │   ├── pipelines/                  # Data pipelines (Alpha Vantage integration)
+│   │   └── utilities/                  # Setup and utility scripts
+│   └── docs/                           # Technical documentation
 │       ├── 17_LAKEVIEW_DASHBOARD_GUIDE.md
 │       ├── 22_EXACT_DASHBOARD_SPECS.md
 │       ├── 23_GAP_ANALYSIS.md
@@ -855,95 +895,68 @@ databricks-cfo-banking-demo/
 │       ├── 27_FINAL_COMPLETION_SUMMARY.md
 │       └── WS6_REACT_FRONTEND_SUMMARY.md
 │
-├── prompts/                            # Ralph-Wiggum agent prompts
-│   ├── ralph_ws1_01_prompt.txt         # WS1: Unity Catalog setup
-│   ├── ralph_ws2_01_prompt.txt         # WS2: Loan origination streaming
-│   ├── ralph_ws3_01_prompt.txt         # WS3: Deposit beta ML model
-│   ├── ralph_ws4_01_agent.txt          # WS4: CFO AI agent
-│   ├── ralph_ws5_dashboards.txt        # WS5: Lakeview dashboards
-│   ├── ralph_ws6_react_app.txt         # WS6: React frontend
-│   └── start_ralph.sh                  # Ralph-Wiggum launcher script
-│
-├── frontend_app/                       # Next.js React frontend
-│   ├── app/                            # Next.js 14 app directory
-│   │   ├── assistant/                  # AI assistant chat page
-│   │   │   └── page.tsx
-│   │   ├── layout.tsx                  # Root layout with metadata
-│   │   ├── page.tsx                    # Main dashboard (Bloomberg Terminal style)
-│   │   └── globals.css                 # Global styles and Tailwind
-│   ├── components/                     # React components
-│   │   ├── ui/                         # Reusable UI components (buttons, cards, tabs)
-│   │   ├── charts/                     # Chart components (YieldCurve, LiquidityWaterfall)
-│   │   ├── tables/                     # Data table components (LoanTable, PortfolioDetailTable)
-│   │   ├── treasury/                   # Treasury modeling dashboards
-│   │   │   ├── DepositBetaDashboard.tsx         # Deposit beta analysis
-│   │   │   ├── VintageAnalysisDashboard.tsx     # Cohort survival curves
-│   │   │   └── StressTestDashboard.tsx          # CCAR/DFAST 9-quarter projections
-│   │   ├── panels/                     # Detail panel modals
-│   │   ├── Breadcrumbs.tsx             # Drill-down navigation breadcrumbs
-│   │   └── MetricCard.tsx              # KPI display cards
-│   ├── lib/                            # Utility libraries
-│   │   ├── drill-down-context.tsx      # Context for drill-down state management
-│   │   └── utils.ts                    # Utility functions
-│   ├── public/                         # Static assets
-│   │   └── favicon.ico                 # $ symbol favicon (Databricks colors)
-│   ├── out/                            # Static export output (generated by npm run build)
-│   │   ├── index.html                  # Main page
-│   │   ├── assistant.html              # AI assistant page
-│   │   ├── favicon.ico                 # Favicon
-│   │   └── _next/                      # Next.js static assets
-│   ├── package.json                    # Node.js dependencies
-│   ├── next.config.js                  # Next.js configuration (output: 'export')
-│   ├── tailwind.config.ts              # Tailwind CSS configuration
-│   └── tsconfig.json                   # TypeScript configuration
-│
-├── backend/                            # FastAPI Python backend
-│   ├── main.py                         # REST API server + static file serving
-│   │                                   # Endpoints: /api/data/*, /api/chat, catchall for frontend
-│   └── requirements.txt                # Python dependencies (fastapi, uvicorn, databricks-sdk)
-│
-├── dashboards/                         # Lakeview dashboard exports
-│   └── (dashboard JSON files)
+├── dev-scripts/                        # Development & diagnostic utilities
+│   ├── README.md                       # Script documentation
+│   ├── 📊 Demo Data Setup:
+│   │   ├── generate_deposit_history.py
+│   │   ├── backfill_historical_yields.py
+│   │   ├── add_fed_funds_rate.py
+│   │   ├── run_gl_backfill.py
+│   │   ├── explore_catalog.py
+│   │   └── grant_*.py (permissions management)
+│   ├── ✅ Data Validation:
+│   │   ├── check_*.py (data requirements, schemas, GL data)
+│   │   └── verify_*.py (Fed Funds, historical data quality)
+│   ├── 🔍 Diagnostics:
+│   │   ├── diagnose_abgr.py
+│   │   ├── diagnose_cohort_survival.py
+│   │   ├── diagnose_component_decay.py
+│   │   └── analyze_schema_gaps.py
+│   └── 🤖 ML Model Serving:
+│       ├── create_endpoint_simple.py
+│       └── create_serving_endpoint.py
 │
 ├── sql/                                # SQL scripts
-│   └── grant_permissions.sql           # Unity Catalog permission grants
+│   ├── grant_all_users_permissions.sql
+│   └── grant_app_permissions.sql
 │
+├── docs/                               # User-facing documentation
+│   ├── demo/                           # Demo walkthroughs & reference
+│   │   ├── DEMO_TALK_TRACK.md          # 15-20 min complete walkthrough
+│   │   ├── TREASURY_DEMO_SCRIPT.md     # Treasury modeling deep dive
+│   │   ├── CFO_Banking_Demo_Dataset_Documentation.md
+│   │   └── GLOSSARY_AND_METHODOLOGY.md
+│   ├── requirements/                   # Data requirements analysis
+│   │   ├── DATA_REQUIREMENTS_SUMMARY.md
+│   │   └── Data_Requirements_Analysis.md
+│   ├── research/                       # Treasury modeling research
+│   │   ├── Deposit_Beta_Modeling_Research_Synthesis.md
+│   │   └── Deposit_Modeling_Implementation_Summary.md
+│   ├── AUTOML_TRAINING_INSTRUCTIONS.md
+│   ├── ML_Model_Validation_States_Guide.md
+│   ├── UPDATE_NOTEBOOKS.md
+│   ├── PROGRESS_SUMMARY.md
+│   └── NEXT_STEPS.md
+│
+├── prompts/                            # Ralph-Wiggum agent prompts
+│   ├── ralph_ws*.txt                   # Workstream-specific prompts
+│   └── start_ralph.sh                  # Launcher script
+│
+├── dashboards/                         # Lakeview dashboard exports (JSON)
 ├── logs/                               # Execution logs
-│   └── ws6_fastapi_server.log          # Backend server logs
 │
-├── docs/                               # Top-level documentation
-│   ├── DEMO_TALK_TRACK.md              # 15-20 minute walkthrough script
-│   ├── CFO_Banking_Demo_Dataset_Documentation.md  # Data dictionary
-│   ├── GLOSSARY_AND_METHODOLOGY.md     # Financial terms glossary
-│   ├── TREASURY_DEMO_SCRIPT.md         # Treasury modeling demo script
-│   ├── UPDATE_NOTEBOOKS.md             # Notebook update instructions
-│   ├── PROGRESS_SUMMARY.md             # Development progress tracker
-│   └── NEXT_STEPS.md                   # Future enhancements roadmap
-│
-├── databricks.yml                      # Databricks Apps deployment config
-├── app.yml                             # Alternative app config
-├── .gitignore                          # Git ignore rules
-├── .databricksignore                   # Databricks Repos ignore rules
+├── databricks.yml                      # Databricks Apps deployment
+├── app.yml
+├── .gitignore
+├── .databricksignore
 ├── README.md                           # This file
-├── requirements.txt                    # Python dependencies
-├── mlflow.db                           # Local MLflow tracking database
-│
-├── Data generation & validation scripts (root level):
-│   ├── analyze_schema_gaps.py          # Validate table schemas
-│   ├── backfill_historical_yields.py   # Populate treasury yields from Alpha Vantage
-│   ├── check_*.py                      # Various data validation scripts
-│   ├── create_*.py                     # Endpoint and resource creation scripts
-│   ├── diagnose_*.py                   # Data quality diagnostic scripts
-│   ├── explore_catalog.py              # Unity Catalog exploration utility
-│   ├── generate_deposit_history.py     # Historical deposit data generator
-│   ├── grant_*.py/sql                  # Permission grant scripts
-│   ├── run_gl_backfill.py              # GL entries backfill script
-│   └── verify_*.py                     # Data verification scripts
-│
-└── AUTOML_TRAINING_INSTRUCTIONS.md     # AutoML setup guide
+├── requirements.txt
+└── AUTOML_TRAINING_INSTRUCTIONS.md
 ```
 
-### Key Directories Explained
+</details>
+
+### Key Directories
 
 **notebooks/** - Databricks notebooks organized in 3 phases:
 - Phase 1: Bronze layer data ingestion
@@ -967,13 +980,18 @@ databricks-cfo-banking-demo/
 - `scripts/`: Organized by subdirectory (agents, dashboards, data_generation, models, pipelines, utilities)
 - `docs/`: Generated documentation and specifications
 
-**docs/** - Documentation:
-- `DEMO_TALK_TRACK.md`: Complete 15-20 minute walkthrough with detailed explanations of all 6 tabs
-- Financial glossary and methodology guides
+**docs/** - Documentation organized by category:
+- `demo/`: Complete walkthrough scripts and reference materials
+- `requirements/`: Data requirements and analysis
+- `research/`: Treasury modeling research and implementation notes
+- Root-level guides for AutoML, model validation, and notebook updates
 
 ---
 
 ## Code Flow
+
+<details>
+<summary><strong>⚡ Complete Application Flows</strong> (click to expand)</summary>
 
 This section explains how data and user requests flow through the application across different scenarios.
 
@@ -1540,6 +1558,8 @@ Unity Catalog provides complete data lineage that flows through to the UI:
 ```
 
 This complete data flow documentation covers all major application paths and demonstrates how Databricks Lakehouse, Unity Catalog, ML models, and modern web technologies integrate seamlessly.
+
+</details>
 
 ---
 

@@ -35,3 +35,9 @@ Thumbs.db
 *.log
 *.tmp
 .cache/
+
+# Development scripts (keep in repo for reference)
+# dev-scripts/ intentionally NOT ignored
+
+# MLflow tracking
+mlflow.db
