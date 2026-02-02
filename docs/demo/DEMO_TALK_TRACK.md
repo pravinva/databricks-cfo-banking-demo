@@ -541,11 +541,29 @@ Questions?"
 - CCAR stress testing: Benchmarked against Fed CCAR 2024 published results (within 10 bps for all ratios)
 
 ### Q: Can we integrate with our existing tech stack?
-**A**: Yes, Databricks has connectors for:
-- Core banking: Temenos, FIS, Jack Henry, Oracle FLEXCUBE
-- Treasury systems: Bloomberg Terminal, FactSet, Murex
-- Risk platforms: Moody's, Fitch, S&P Capital IQ
-- BI tools: Tableau, Power BI, Looker (via Unity Catalog SQL endpoints)
+**A**: Yes, Databricks integrates with enterprise banking systems through multiple approaches:
+
+**Direct Partner Connectors** (via Databricks Partner Connect):
+- **BI Tools**: Tableau, Power BI, Looker - Native Unity Catalog SQL endpoints
+- **Data Integration**: Fivetran (300+ sources), Airbyte (140+ sources), dbt
+- **Cloud Storage**: AWS S3, Azure Data Lake, Google Cloud Storage
+
+**Banking-Specific Integration Patterns**:
+- **Core Banking** (Temenos, FIS, Jack Henry, Oracle FLEXCUBE):
+  - Via Fivetran database connectors (Oracle, SQL Server, PostgreSQL)
+  - CDC (Change Data Capture) using Debezium
+  - Batch file extraction (CSV/JSON to S3/ADLS)
+
+- **Treasury Systems** (Bloomberg Terminal, FactSet, Murex):
+  - Bloomberg Data License → Databricks ingestion
+  - FactSet DataFeed APIs → Delta Lake
+  - Murex MxML export → structured tables
+
+- **Risk Platforms** (Moody's, Fitch, S&P Capital IQ):
+  - API integration (REST APIs with scheduled pulls)
+  - Data file subscriptions → automated ingestion
+
+**Key Point**: Databricks doesn't need "native" connectors - Unity Catalog can ingest from ANY source via JDBC, REST APIs, or file-based pipelines. Most banks use Fivetran or custom Python/Spark jobs for core banking systems.
 
 ### Q: What's the ROI?
 **A**: Typical bank savings:
