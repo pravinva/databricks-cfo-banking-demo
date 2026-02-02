@@ -820,151 +820,74 @@ Start: 0%
 
 ## Repository Structure
 
-<details>
-<summary><strong>📁 Complete Directory Tree</strong> (click to expand)</summary>
-
 ```
 databricks-cfo-banking-demo/
 │
-├── notebooks/                          # Databricks demo notebooks (Phase 1-3)
-│   ├── README.md                                   # Comprehensive notebook catalog
-│   ├── Phase_1_Bronze_Tables.py                   # Phase 1: Raw data ingestion
-│   ├── Phase_2_DLT_Pipelines.py                   # Phase 2: Delta Live Tables ETL
-│   ├── Phase1_Enhanced_Deposit_Beta_Model.py      # Phase 3: Static deposit beta (XGBoost)
-│   ├── Phase2_Vintage_Analysis_and_Decay_Modeling.py  # Phase 3: Cohort survival & runoff
-│   ├── Phase3_Dynamic_Beta_and_Stress_Testing.py  # Phase 3: Chen sigmoid, CCAR/DFAST
-│   ├── Train_PPNR_Models.py                       # PPNR: Non-Interest Income & Expense
-│   ├── Batch_Inference_Deposit_Beta_Model.py      # Batch scoring (weekly portfolio)
-│   ├── Generate_Deposit_Analytics_Report.py       # HTML analytics report generator
-│   ├── Generate_Vintage_Analysis_Tables.py        # Vintage cohort table creation
-│   ├── Generate_Stress_Test_Results.py            # CCAR 9-quarter projections
-│   ├── WS3_Mosaic_AI_Model_Training_Demo.py       # Mosaic AI/MLOps demo
-│   ├── Train_Deposit_Beta_Model_with_Data_Science_Agent.py  # Databricks Assistant demo
-│   └── archive/                                   # Archived/superseded notebooks
-│       ├── README.md                              # Archive documentation
-│       ├── Complete_Deposit_Beta_Model_Workflow.py  # Superseded by Phase1
-│       ├── Train_Deposit_Beta_Model_with_Agent.py   # Old Agent version
-│       ├── Train_PPNR_Models_Simplified.py          # Superseded by full version
-│       └── Deposit_Beta_AutoML_Training.py          # Optional AutoML reference
+├── notebooks/                          # 📊 Databricks Production Notebooks
+│   ├── README.md                       # Complete notebook catalog with execution order
+│   ├── Phase_1_Bronze_Tables.py        # Data foundation: Raw ingestion
+│   ├── Phase_2_DLT_Pipelines.py        # Delta Live Tables ETL
+│   ├── Phase1_Enhanced_Deposit_Beta_Model.py          # Treasury: Static beta (XGBoost)
+│   ├── Phase2_Vintage_Analysis_and_Decay_Modeling.py  # Treasury: Cohort survival
+│   ├── Phase3_Dynamic_Beta_and_Stress_Testing.py      # Treasury: CCAR/DFAST
+│   ├── Train_PPNR_Models.py            # PPNR forecasting models
+│   ├── Batch_Inference_*.py            # Weekly portfolio scoring
+│   ├── Generate_*.py                   # Analytics report generators
+│   ├── WS3_*.py                        # Workshop demo notebooks
+│   └── archive/                        # Superseded notebooks
 │
-├── frontend_app/                       # Next.js React frontend (Bloomberg Terminal style)
+├── frontend_app/                       # 💻 Next.js React Frontend
 │   ├── app/
-│   │   ├── layout.tsx                  # Root layout with metadata
 │   │   ├── page.tsx                    # Main dashboard (6 tabs)
-│   │   ├── globals.css                 # Global styles and Tailwind
-│   │   └── assistant/                  # AI assistant chat page
-│   │       └── page.tsx
+│   │   └── assistant/page.tsx          # AI chat interface
 │   ├── components/
-│   │   ├── ui/                         # Reusable UI (buttons, cards, tabs, badges)
-│   │   ├── charts/                     # Chart components (YieldCurve, LiquidityWaterfall)
-│   │   ├── tables/                     # Data tables (LoanTable, PortfolioDetailTable)
-│   │   ├── treasury/                   # Treasury modeling dashboards (3 tabs)
-│   │   │   ├── DepositBetaDashboard.tsx
-│   │   │   ├── VintageAnalysisDashboard.tsx
-│   │   │   └── StressTestDashboard.tsx
-│   │   ├── panels/                     # Detail panel modals
-│   │   ├── Breadcrumbs.tsx
-│   │   └── MetricCard.tsx
-│   ├── lib/
-│   │   ├── drill-down-context.tsx      # Drill-down state management
-│   │   └── utils.ts
-│   ├── public/
-│   │   └── favicon.ico                 # $ symbol favicon
-│   ├── out/                            # Static export (npm run build output)
-│   │   ├── index.html
-│   │   ├── assistant.html
-│   │   └── _next/static/
-│   ├── package.json
-│   ├── next.config.js                  # Static export config
-│   ├── tailwind.config.ts
-│   └── tsconfig.json
+│   │   ├── treasury/                   # Treasury modeling dashboards
+│   │   ├── charts/                     # Recharts visualizations
+│   │   └── tables/                     # Data grid components
+│   ├── out/                            # Static build output
+│   └── package.json
 │
-├── backend/                            # FastAPI Python backend
-│   ├── main.py                         # REST API + static file serving
-│   │                                   # /api/data/* + /api/chat
+├── backend/                            # 🔌 FastAPI Backend
+│   ├── main.py                         # REST API + static serving
 │   └── requirements.txt
 │
-├── outputs/                            # Generated scripts and libraries
-│   ├── agent_tools_library.py          # CFO agent tools (LCR, deposit beta, Unity Catalog)
-│   ├── scripts/                        # Executable Python scripts
-│   │   ├── agents/                     # AI agent implementations
-│   │   ├── dashboards/                 # Dashboard generation
-│   │   ├── data_generation/            # Data population
-│   │   ├── frontend/                   # Frontend setup
-│   │   ├── models/                     # ML model scripts
-│   │   ├── pipelines/                  # Data pipelines (Alpha Vantage integration)
-│   │   └── utilities/                  # Setup and utility scripts
-│   └── docs/                           # Technical documentation
-│       ├── 17_LAKEVIEW_DASHBOARD_GUIDE.md
-│       ├── 22_EXACT_DASHBOARD_SPECS.md
-│       ├── 23_GAP_ANALYSIS.md
-│       ├── 25_DEMO_NOTEBOOKS_SUMMARY.md
-│       ├── 27_FINAL_COMPLETION_SUMMARY.md
-│       └── WS6_REACT_FRONTEND_SUMMARY.md
+├── dashboards/                         # 📈 Lakeview Dashboard SQL
+│   ├── 01_Executive_Overview_Dashboard.sql
+│   ├── 05_CCAR_DFAST_Regulatory_Dashboard.sql
+│   ├── 08_Flight_Deck.sql              # Exported: Bank CFO Flight Deck
+│   ├── 09_Portfolio_Suite.sql          # Exported: CFO Deposit Portfolio Suite
+│   ├── 10_Regulatory_Reconciliation_Dashboard.sql  # NEW: Data quality & lineage
+│   └── *.json                          # Raw dashboard exports
 │
-├── dev-scripts/                        # Development & diagnostic utilities
-│   ├── README.md                       # Script documentation
-│   ├── 📊 Demo Data Setup:
-│   │   ├── generate_deposit_history.py
-│   │   ├── backfill_historical_yields.py
-│   │   ├── add_fed_funds_rate.py
-│   │   ├── run_gl_backfill.py
-│   │   ├── explore_catalog.py
-│   │   └── grant_*.py (permissions management)
-│   ├── ✅ Data Validation:
-│   │   ├── check_*.py (data requirements, schemas, GL data)
-│   │   └── verify_*.py (Fed Funds, historical data quality)
-│   ├── 🔍 Diagnostics:
-│   │   ├── diagnose_abgr.py
-│   │   ├── diagnose_cohort_survival.py
-│   │   ├── diagnose_component_decay.py
-│   │   └── analyze_schema_gaps.py
-│   └── 🤖 ML Model Serving:
-│       ├── create_endpoint_simple.py
-│       └── create_serving_endpoint.py
+├── outputs/                            # 🛠️ Generated Scripts & Libraries
+│   ├── agent_tools_library.py          # CFO agent tools (LCR, deposit beta)
+│   ├── scripts/
+│   │   ├── models/                     # 10_lcr_calculator.py, 11_rwa_calculator.py
+│   │   ├── pipelines/                  # Alpha Vantage market data integration
+│   │   └── data_generation/            # Demo data generators
+│   └── docs/                           # Technical specs & completion summaries
 │
-├── sql/                                # SQL scripts
-│   ├── grant_all_users_permissions.sql
-│   └── grant_app_permissions.sql
+├── dev-scripts/                        # 🔧 Development Utilities
+│   ├── export_lakeview_dashboards.py   # Export dashboards via SDK
+│   ├── parse_dashboard_json.py         # Extract SQL from dashboard JSON
+│   ├── generate_deposit_history.py     # Create historical deposit data
+│   ├── backfill_historical_yields.py   # Treasury curve backfill
+│   └── check_*.py                      # Data validation scripts
 │
-├── docs/                               # User-facing documentation
-│   ├── demo/                           # Demo walkthroughs & reference
-│   │   ├── DEMO_TALK_TRACK.md          # 15-20 min complete walkthrough
-│   │   ├── TREASURY_DEMO_SCRIPT.md     # Treasury modeling deep dive
-│   │   ├── CFO_Banking_Demo_Dataset_Documentation.md
-│   │   └── GLOSSARY_AND_METHODOLOGY.md
+├── docs/                               # 📚 Documentation
+│   ├── demo/
+│   │   ├── DEMO_TALK_TRACK.md          # 15-20 min walkthrough
+│   │   └── TREASURY_DEMO_SCRIPT.md     # Treasury modeling deep dive
 │   ├── requirements/                   # Data requirements analysis
-│   │   ├── DATA_REQUIREMENTS_SUMMARY.md
-│   │   └── Data_Requirements_Analysis.md
 │   ├── research/                       # Treasury modeling research
-│   │   ├── Deposit_Beta_Modeling_Research_Synthesis.md
-│   │   └── Deposit_Modeling_Implementation_Summary.md
-│   ├── archive/                        # Archived/outdated documentation
-│   │   ├── README.md                   # Archive documentation
-│   │   ├── PROGRESS_SUMMARY.md         # Historical progress notes
-│   │   └── NEXT_STEPS.md               # Outdated task list
-│   ├── CFO_FUNCTIONS_COVERAGE.md       # FP&A/Comptroller/Treasury coverage matrix
-│   ├── AUTOML_TRAINING_INSTRUCTIONS.md
-│   ├── ML_Model_Validation_States_Guide.md
-│   └── UPDATE_NOTEBOOKS.md
+│   ├── CFO_FUNCTIONS_COVERAGE.md       # FP&A/Comptroller/Treasury matrix
+│   └── archive/                        # Outdated documentation
 │
+├── sql/                                # SQL permission scripts
 ├── prompts/                            # Ralph-Wiggum agent prompts
-│   ├── ralph_ws*.txt                   # Workstream-specific prompts
-│   └── start_ralph.sh                  # Launcher script
-│
-├── dashboards/                         # Lakeview dashboard exports (JSON)
-├── logs/                               # Execution logs
-│
-├── databricks.yml                      # Databricks Apps deployment
-├── app.yml
-├── .gitignore
-├── .databricksignore
-├── README.md                           # This file
-├── requirements.txt
-└── AUTOML_TRAINING_INSTRUCTIONS.md
+├── databricks.yml                      # Databricks Apps deployment config
+└── README.md                           # This file
 ```
-
-</details>
 
 ### Key Directories
 
