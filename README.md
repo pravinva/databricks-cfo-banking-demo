@@ -870,7 +870,7 @@ databricks-cfo-banking-demo/
 │   ├── DEMO_TALK_TRACK.md              # 15-20 min walkthrough
 │   └── TREASURY_DEMO_SCRIPT.md         # Treasury modeling deep dive
 │
-└── databricks.yml                      # Databricks Apps deployment config
+└── app.yml                             # Databricks Apps deployment config
 ```
 
 ### Key Directories
