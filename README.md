@@ -861,32 +861,16 @@ databricks-cfo-banking-demo/
 │
 ├── outputs/                            # 🛠️ Generated Scripts & Libraries
 │   ├── agent_tools_library.py          # CFO agent tools (LCR, deposit beta)
-│   ├── scripts/
-│   │   ├── models/                     # 10_lcr_calculator.py, 11_rwa_calculator.py
-│   │   ├── pipelines/                  # Alpha Vantage market data integration
-│   │   └── data_generation/            # Demo data generators
-│   └── docs/                           # Technical specs & completion summaries
+│   └── scripts/models/                 # LCR/RWA calculators, regulatory reports
 │
 ├── dev-scripts/                        # 🔧 Development Utilities
-│   ├── export_lakeview_dashboards.py   # Export dashboards via SDK
-│   ├── parse_dashboard_json.py         # Extract SQL from dashboard JSON
-│   ├── generate_deposit_history.py     # Create historical deposit data
-│   ├── backfill_historical_yields.py   # Treasury curve backfill
-│   └── check_*.py                      # Data validation scripts
+│   └── (dashboard export, data generation, validation)
 │
-├── docs/                               # 📚 Documentation
-│   ├── demo/
-│   │   ├── DEMO_TALK_TRACK.md          # 15-20 min walkthrough
-│   │   └── TREASURY_DEMO_SCRIPT.md     # Treasury modeling deep dive
-│   ├── requirements/                   # Data requirements analysis
-│   ├── research/                       # Treasury modeling research
-│   ├── CFO_FUNCTIONS_COVERAGE.md       # FP&A/Comptroller/Treasury matrix
-│   └── archive/                        # Outdated documentation
+├── docs/demo/                          # 📚 Demo Scripts & Coverage Matrix
+│   ├── DEMO_TALK_TRACK.md              # 15-20 min walkthrough
+│   └── TREASURY_DEMO_SCRIPT.md         # Treasury modeling deep dive
 │
-├── sql/                                # SQL permission scripts
-├── prompts/                            # Ralph-Wiggum agent prompts
-├── databricks.yml                      # Databricks Apps deployment config
-└── README.md                           # This file
+└── databricks.yml                      # Databricks Apps deployment config
 ```
 
 ### Key Directories
