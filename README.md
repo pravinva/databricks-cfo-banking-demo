@@ -827,18 +827,25 @@ Start: 0%
 databricks-cfo-banking-demo/
 │
 ├── notebooks/                          # Databricks demo notebooks (Phase 1-3)
+│   ├── README.md                                   # Comprehensive notebook catalog
 │   ├── Phase_1_Bronze_Tables.py                   # Phase 1: Raw data ingestion
 │   ├── Phase_2_DLT_Pipelines.py                   # Phase 2: Delta Live Tables ETL
-│   ├── Train_Deposit_Beta_XGBoost_Model.py        # Phase 3: XGBoost model training
-│   ├── Deploy_Deposit_Beta_Model.py               # Phase 3: Model deployment
-│   ├── Batch_Inference_Deposit_Beta_Model.py      # Phase 3: Batch scoring ML model
-│   ├── Complete_Deposit_Beta_Model_Workflow.py    # Phase 3: End-to-end ML workflow
-│   ├── Generate_Deposit_Runoff_Forecasts.py       # Phase 3: Runoff projections
-│   ├── Generate_Dynamic_Beta_Parameters.py        # Phase 3: Dynamic beta curves
-│   ├── Generate_Vintage_Analysis_Tables.py        # Phase 3: Cohort survival analysis
-│   ├── Generate_Stress_Test_Results.py            # Phase 3: CCAR scenario results
-│   ├── Generate_Stress_Test_Summary.py            # Phase 3: Stress test dashboard
-│   └── DFAST_CCAR_Stress_Testing.py               # Phase 3: Regulatory stress tests
+│   ├── Phase1_Enhanced_Deposit_Beta_Model.py      # Phase 3: Static deposit beta (XGBoost)
+│   ├── Phase2_Vintage_Analysis_and_Decay_Modeling.py  # Phase 3: Cohort survival & runoff
+│   ├── Phase3_Dynamic_Beta_and_Stress_Testing.py  # Phase 3: Chen sigmoid, CCAR/DFAST
+│   ├── Train_PPNR_Models.py                       # PPNR: Non-Interest Income & Expense
+│   ├── Batch_Inference_Deposit_Beta_Model.py      # Batch scoring (weekly portfolio)
+│   ├── Generate_Deposit_Analytics_Report.py       # HTML analytics report generator
+│   ├── Generate_Vintage_Analysis_Tables.py        # Vintage cohort table creation
+│   ├── Generate_Stress_Test_Results.py            # CCAR 9-quarter projections
+│   ├── WS3_Mosaic_AI_Model_Training_Demo.py       # Mosaic AI/MLOps demo
+│   ├── Train_Deposit_Beta_Model_with_Data_Science_Agent.py  # Databricks Assistant demo
+│   └── archive/                                   # Archived/superseded notebooks
+│       ├── README.md                              # Archive documentation
+│       ├── Complete_Deposit_Beta_Model_Workflow.py  # Superseded by Phase1
+│       ├── Train_Deposit_Beta_Model_with_Agent.py   # Old Agent version
+│       ├── Train_PPNR_Models_Simplified.py          # Superseded by full version
+│       └── Deposit_Beta_AutoML_Training.py          # Optional AutoML reference
 │
 ├── frontend_app/                       # Next.js React frontend (Bloomberg Terminal style)
 │   ├── app/
@@ -932,11 +939,14 @@ databricks-cfo-banking-demo/
 │   ├── research/                       # Treasury modeling research
 │   │   ├── Deposit_Beta_Modeling_Research_Synthesis.md
 │   │   └── Deposit_Modeling_Implementation_Summary.md
+│   ├── archive/                        # Archived/outdated documentation
+│   │   ├── README.md                   # Archive documentation
+│   │   ├── PROGRESS_SUMMARY.md         # Historical progress notes
+│   │   └── NEXT_STEPS.md               # Outdated task list
+│   ├── CFO_FUNCTIONS_COVERAGE.md       # FP&A/Comptroller/Treasury coverage matrix
 │   ├── AUTOML_TRAINING_INSTRUCTIONS.md
 │   ├── ML_Model_Validation_States_Guide.md
-│   ├── UPDATE_NOTEBOOKS.md
-│   ├── PROGRESS_SUMMARY.md
-│   └── NEXT_STEPS.md
+│   └── UPDATE_NOTEBOOKS.md
 │
 ├── prompts/                            # Ralph-Wiggum agent prompts
 │   ├── ralph_ws*.txt                   # Workstream-specific prompts
@@ -958,10 +968,13 @@ databricks-cfo-banking-demo/
 
 ### Key Directories
 
-**notebooks/** - Databricks notebooks organized in 3 phases:
-- Phase 1: Bronze layer data ingestion
-- Phase 2: Delta Live Tables silver/gold pipelines
-- Phase 3: ML models (deposit beta, stress testing, vintage analysis)
+**notebooks/** - Databricks notebooks organized by function (see notebooks/README.md for full catalog):
+- **Phase 1-3 Treasury Modeling**: Static deposit beta → Vintage analysis → Dynamic beta/stress testing (Chen sigmoid, CCAR/DFAST)
+- **PPNR Models**: Non-Interest Income & Expense forecasting
+- **Data Foundation**: Bronze ingestion (Phase_1) and DLT pipelines (Phase_2)
+- **Batch Inference & Reporting**: Weekly portfolio scoring and analytics report generation
+- **Demo/Workshop**: Mosaic AI training demo, Data Science Agent demo
+- **archive/**: Superseded notebooks (Complete_Deposit_Beta_Model_Workflow, simplified versions)
 
 **frontend_app/** - Next.js 14 React application:
 - Bloomberg Terminal-inspired UI with navy/cyan color scheme
@@ -1172,26 +1185,27 @@ The treasury modeling tabs (Deposit Beta, Vintage Analysis, CCAR/DFAST Stress Te
 │               ML MODEL-GENERATED TABLES                         │
 │                    (Unity Catalog)                              │
 ├─────────────────────────────────────────────────────────────────┤
-│ These tables are created by Phase 3 notebooks:                 │
+│ These tables are created by Phase 1-3 notebooks:               │
 │                                                                 │
 │ • deposit_beta_predictions:                                    │
-│   - Generated by: Train_Deposit_Beta_XGBoost_Model.py         │
+│   - Generated by: Batch_Inference_Deposit_Beta_Model.py       │
+│   - Uses @champion model from Unity Catalog                    │
 │   - XGBoost model predicts deposit beta for each account       │
 │   - Fields: account_id, product_type, balance, deposit_beta   │
 │                                                                 │
 │ • vintage_cohort_survival:                                     │
-│   - Generated by: Generate_Vintage_Analysis_Tables.py         │
+│   - Generated by: Phase2_Vintage_Analysis_and_Decay_Modeling.py│
 │   - Tracks deposit cohort retention over time                  │
 │   - Fields: vintage_quarter, months_aged, survival_rate       │
 │                                                                 │
 │ • stress_test_results:                                         │
-│   - Generated by: Generate_Stress_Test_Results.py             │
+│   - Generated by: Phase3_Dynamic_Beta_and_Stress_Testing.py   │
 │   - CCAR/DFAST 9-quarter projections                          │
 │   - Fields: scenario, quarter, cet1_ratio, nii_delta          │
 │                                                                 │
 │ • dynamic_beta_parameters:                                     │
-│   - Generated by: Generate_Dynamic_Beta_Parameters.py         │
-│   - Time-varying beta coefficients by rate environment        │
+│   - Generated by: Phase3_Dynamic_Beta_and_Stress_Testing.py   │
+│   - Chen (2025) sigmoid function for time-varying beta        │
 │   - Fields: product_type, rate_regime, beta_coefficient       │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
@@ -1521,7 +1535,191 @@ For demonstrating streaming capabilities (not in production use in this demo):
 - Databricks Streaming: <1 second end-to-end processing
 - Dashboard updates: Real-time (as soon as transaction commits)
 
-### 6. Data Lineage Visibility
+### 6. ML Model Training & Analytics Reporting Flow (Phase 1-3)
+
+The deposit beta modeling and analytics reporting workflow follows a Train → Deploy → Analyze pattern:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│         PHASE 1: TRAIN STATIC DEPOSIT BETA MODEL                │
+│     (notebooks/Phase1_Enhanced_Deposit_Beta_Model.py)           │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Feature Engineering:                                         │
+│    - Historical deposit data: balance, rates, account age       │
+│    - Customer segments: retail, commercial, wealth              │
+│    - Product types: DDA, MMDA, CD, Savings, NOW                │
+│    - Rate environment: Fed Funds Rate, Treasury yields          │
+│    ↓                                                             │
+│ 2. XGBoost Training with MLflow:                                │
+│    - Model: XGBoost Regressor (100 estimators)                 │
+│    - Target: deposit_beta (rate sensitivity coefficient)       │
+│    - MLflow autolog: tracks params, metrics, artifacts         │
+│    - Training metrics: RMSE, R², MAE                           │
+│    ↓                                                             │
+│ 3. Model Registration to Unity Catalog:                        │
+│    - Model: cfo_banking_demo.models.deposit_beta               │
+│    - Alias: @champion (production model)                       │
+│    - Versioning: Automatic (v1, v2, v3...)                     │
+│    ↓                                                             │
+│ 4. Outputs:                                                      │
+│    - Table: cfo_banking_demo.ml_models.deposit_beta_training_data│
+│    - Model: Unity Catalog registered model                     │
+│    - Artifacts: Feature importance, SHAP values                │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│    PHASE 2: VINTAGE ANALYSIS & DECAY MODELING                   │
+│  (notebooks/Phase2_Vintage_Analysis_and_Decay_Modeling.py)      │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Cohort Creation:                                             │
+│    - Group deposits by origination quarter                      │
+│    - Track balance retention over 24 months                     │
+│    - Calculate survival rates by product type                   │
+│    ↓                                                             │
+│ 2. Decay Modeling:                                              │
+│    - Core vs non-core deposit classification                    │
+│    - Exponential decay curve fitting                            │
+│    - Runoff rate calculation by cohort vintage                  │
+│    ↓                                                             │
+│ 3. Outputs:                                                      │
+│    - Table: vintage_cohort_survival                             │
+│    - Table: component_decay_metrics                             │
+│    - Table: deposit_runoff_forecasts                            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│    PHASE 3: DYNAMIC BETA & STRESS TESTING                       │
+│   (notebooks/Phase3_Dynamic_Beta_and_Stress_Testing.py)         │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Chen (2025) Sigmoid Function for Dynamic Beta:              │
+│    β(Rm) = βmin + (βmax - βmin) / [1 + exp(-k*(Rm-R0))]       │
+│    - Time-varying beta based on rate environment               │
+│    - Non-linear response to rate changes                       │
+│    ↓                                                             │
+│ 2. CCAR/DFAST Stress Scenarios:                                 │
+│    - Baseline: Current trajectory (0 bps)                      │
+│    - Adverse: Gradual increase (+100 bps)                      │
+│    - Severely Adverse: Rapid shock (+200 bps)                  │
+│    - Custom: Extreme stress (+300 bps)                         │
+│    ↓                                                             │
+│ 3. Economic Value of Equity (EVE) Analysis:                     │
+│    - Interest rate sensitivity                                  │
+│    - Capital impact projections (9 quarters)                   │
+│    - CET1 ratio tracking under stress                          │
+│    ↓                                                             │
+│ 4. Outputs:                                                      │
+│    - Table: dynamic_beta_parameters                             │
+│    - Table: stress_test_results (9-quarter projections)        │
+│    - Table: stress_test_summary (scenario summaries)           │
+│    - Table: eve_sensitivity_analysis                            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│           BATCH INFERENCE (WEEKLY PORTFOLIO SCORING)            │
+│     (notebooks/Batch_Inference_Deposit_Beta_Model.py)           │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Load Model from Unity Catalog:                              │
+│    model = mlflow.pyfunc.load_model(                           │
+│        "models:/cfo_banking_demo.models.deposit_beta@champion" │
+│    )                                                            │
+│    ↓                                                             │
+│ 2. Score Entire Portfolio (402,000 accounts):                  │
+│    - Distributed inference using Spark UDFs                    │
+│    - 12 minutes vs 16+ hours sequential                        │
+│    ↓                                                             │
+│ 3. Calculate Rate Shock Scenarios:                             │
+│    - +100 bps: Expected runoff percentage                      │
+│    - +200 bps: Moderate stress impact                          │
+│    - +300 bps: Extreme stress impact                           │
+│    ↓                                                             │
+│ 4. Outputs:                                                      │
+│    - Table: deposit_beta_predictions (account-level scores)    │
+│    - Table: rate_shock_analysis (scenario impacts)             │
+│    ↓                                                             │
+│ Schedule: Sunday 11:00pm (weekly batch job)                     │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│       ANALYTICS REPORT GENERATION (HTML + DELTA TABLES)         │
+│     (notebooks/Generate_Deposit_Analytics_Report.py)            │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Load Batch Inference Results:                               │
+│    - Read deposit_beta_predictions table                       │
+│    - Read vintage_cohort_survival (if available)               │
+│    - Read stress_test_results (if available)                   │
+│    ↓                                                             │
+│ 2. Calculate Report Metrics:                                   │
+│    - Portfolio composition (product mix, balances)             │
+│    - Rate shock scenarios (runoff projections)                 │
+│    - At-risk deposits (beta > 0.6 threshold)                   │
+│    - Vintage analysis (cohort retention curves)                │
+│    - Strategic recommendations                                  │
+│    ↓                                                             │
+│ 3. Generate Visualizations (Plotly):                           │
+│    - Pie chart: Portfolio composition by product               │
+│    - Bar chart: Runoff by rate shock scenario                  │
+│    - Waterfall chart: Funding gap analysis                     │
+│    - Line chart: Cohort survival curves                        │
+│    - Grouped bar: Product-level runoff projections             │
+│    ↓                                                             │
+│ 4. Create HTML Report (Jinja2 Template):                       │
+│    - Executive Summary with KPIs                               │
+│    - Portfolio Composition section                             │
+│    - Rate Shock Scenario Analysis                              │
+│    - Product-Level Drill-Down                                  │
+│    - Vintage Analysis (if data available)                      │
+│    - Strategic Recommendations                                  │
+│    ↓                                                             │
+│ 5. Multiple Output Formats:                                     │
+│    - HTML: /dbfs/FileStore/reports/deposit_analytics_report_   │
+│              [timestamp].html                                   │
+│    - Delta: cfo_banking_demo.gold_analytics.                   │
+│              deposit_analytics_reports                          │
+│    - Delta: cfo_banking_demo.gold_analytics.                   │
+│              rate_shock_scenarios                               │
+│    ↓                                                             │
+│ Schedule: Sunday 11:30pm (after batch inference completes)      │
+│ Use Case: ALCO presentations, regulatory reporting, executive  │
+│           briefings                                             │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│          FRONTEND DASHBOARD CONSUMPTION                         │
+│     (frontend_app/components/treasury/*.tsx)                    │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Deposit Beta Dashboard:                                     │
+│    - Queries: deposit_beta_predictions table                   │
+│    - Displays: Balance by product, at-risk accounts            │
+│    ↓                                                             │
+│ 2. Vintage Analysis Dashboard:                                 │
+│    - Queries: vintage_cohort_survival table                    │
+│    - Displays: Cohort survival curves over 24 months          │
+│    ↓                                                             │
+│ 3. CCAR/DFAST Stress Test Dashboard:                           │
+│    - Queries: stress_test_results, stress_test_summary        │
+│    - Displays: CET1 projections, NII sensitivity              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Architectural Decisions**:
+
+1. **No Real-Time Model Serving**: Batch inference approach eliminates 24/7 endpoint costs. Weekly scoring is sufficient for deposit portfolio (vs real-time fraud detection).
+
+2. **Unity Catalog Model Registry**: Centralized model governance with `@champion` and `@challenger` aliases. Zero-code deployment: update alias, batch job auto-picks up new model.
+
+3. **Phase 1-3 Progressive Complexity**:
+   - Phase 1: Static beta (operational ALM, normal market conditions)
+   - Phase 2: Cohort analysis (liquidity risk, runoff forecasting)
+   - Phase 3: Dynamic beta + stress testing (regulatory compliance, CCAR/DFAST)
+
+4. **Report Generation**: HTML reports for human consumption (ALCO presentations), Delta tables for dashboard/API consumption.
+
+**Production Schedule**:
+- **Sunday 11:00pm**: Batch inference scoring (12 minutes)
+- **Sunday 11:30pm**: Report generation (3-5 minutes)
+- **Monday 9:00am**: Dashboards updated, reports available to ALCO members
+
+### 7. Data Lineage Visibility
 
 Unity Catalog provides complete data lineage that flows through to the UI:
 
