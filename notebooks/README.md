@@ -154,6 +154,46 @@ This document provides a comprehensive guide to all production notebooks in the 
 
 ---
 
+## 📊 **Analytics & Reporting**
+
+### **Deposit Analytics Report Generator**
+**File**: `Generate_Deposit_Analytics_Report.py`
+
+**Purpose**: Generate comprehensive HTML report showing impact of rate changes on deposit portfolio behavior
+
+**What It Does**:
+- **Executive Summary**: Portfolio metrics, beta, weighted avg rate
+- **Portfolio Composition**: Product mix breakdown with rate sensitivity
+- **Rate Shock Scenarios**: Expected runoff under +100bps, +200bps, +300bps shocks
+- **Product-Level Analysis**: Runoff projections by product type
+- **Vintage Analysis**: Cohort retention curves (if available)
+- **Strategic Recommendations**: Liquidity contingency, product mix optimization
+- **Visualizations**: Interactive charts (Plotly) - pie charts, bar charts, waterfall charts
+- **Multiple Outputs**: HTML report, Delta tables, embedded charts
+
+**When to Use**:
+- ALCO (Asset Liability Committee) presentations
+- Monthly/quarterly treasury reporting
+- Regulatory stress testing documentation (CCAR/DFAST)
+- Executive briefings on deposit stability
+- Board presentations on liquidity risk
+
+**Output Files**:
+- `/dbfs/FileStore/reports/deposit_analytics_report_[timestamp].html` - Formatted HTML report
+- `cfo_banking_demo.gold_analytics.deposit_analytics_reports` - Report summaries (Delta)
+- `cfo_banking_demo.gold_analytics.rate_shock_scenarios` - Scenario details (Delta)
+
+**Runtime**: ~3-5 minutes
+
+**Dependencies**: Run after `Batch_Inference_Deposit_Beta_Model.py` for latest predictions
+
+**Scheduling Recommendation**:
+- **Frequency**: Weekly (Sunday 11pm, after batch inference)
+- **Alerting**: Email report link to ALCO members
+- **Integration**: Query Delta tables for dashboard widgets
+
+---
+
 ## 🎓 **Demo & Workshop Notebooks**
 
 ### **Mosaic AI Model Training Demo**
@@ -340,6 +380,7 @@ Recommended schedule for production deployment:
 |----------|-----------|----------|---------|
 | `Phase_2_DLT_Pipelines.py` | Continuous | Streaming | Real-time data processing |
 | `Batch_Inference_Deposit_Beta_Model.py` | Weekly | Sunday 11pm | Portfolio scoring |
+| `Generate_Deposit_Analytics_Report.py` | Weekly | Sunday 11:30pm | Analytics report (after inference) |
 | `Generate_Vintage_Analysis_Tables.py` | Monthly | 1st of month | Cohort updates |
 | `Generate_Stress_Test_Results.py` | Quarterly | End of quarter | CCAR projections |
 | `Phase1_Enhanced_Deposit_Beta_Model.py` | Quarterly | Mid-quarter | Model retraining |
@@ -362,6 +403,7 @@ For legacy/superseded notebooks, see `/notebooks/archive/README.md`
 | **Run CCAR stress test** | `Phase3_Dynamic_Beta_and_Stress_Testing.py` |
 | **Forecast PPNR** | `Train_PPNR_Models.py` |
 | **Score deposit portfolio** | `Batch_Inference_Deposit_Beta_Model.py` |
+| **Generate analytics report** | `Generate_Deposit_Analytics_Report.py` |
 | **Demo Mosaic AI** | `WS3_Mosaic_AI_Model_Training_Demo.py` |
 | **Demo Databricks Assistant** | `Train_Deposit_Beta_Model_with_Data_Science_Agent.py` |
 | **Generate demo data** | `Phase_1_Bronze_Tables.py` |
