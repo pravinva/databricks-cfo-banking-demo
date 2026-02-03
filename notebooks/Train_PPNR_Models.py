@@ -216,7 +216,7 @@ nii_feature_cols = [
     'new_loans_30d', 'mortgage_balance_billions', 'digital_transactions_millions',
     'branch_transactions_millions', 'avg_10y_rate', 'avg_2y_rate', 'rate_volatility',
     'yield_curve_slope', 'checking_account_pct', 'digital_transaction_pct',
-    'new_loan_rate', 'month_of_year', 'quarter', 'prior_month_fee_income',
+    'new_loan_rate', 'month_sin', 'month_cos', 'quarter', 'prior_month_fee_income',
     'prior_month_transactions'
 ]
 
@@ -510,7 +510,7 @@ nie_feature_cols = [
     'active_branches', 'digital_users', 'loan_count', 'total_loan_balance_billions',
     'delinquent_loans', 'new_accounts_30d', 'new_loans_30d', 'digital_adoption_rate',
     'transactions_per_account', 'delinquency_rate', 'avg_10y_rate',
-    'month_of_year', 'quarter', 'prior_month_expense', 'prior_month_accounts'
+    'month_sin', 'month_cos', 'quarter', 'prior_month_expense', 'prior_month_accounts'
 ]
 
 X_nie = nie_training_pdf[nie_feature_cols].fillna(0)
