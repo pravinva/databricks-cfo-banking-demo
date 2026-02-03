@@ -97,7 +97,7 @@ export default function LoanTable({ filters = {}, onLoanClick, type = 'loans' }:
         <div className="flex gap-2">
           {(type === 'loans'
             ? ['C&I', 'Commercial_RE', 'Residential_Mortgage', 'Consumer_Auto']
-            : ['Checking', 'Savings', 'Money_Market', 'CD']
+            : ['DDA', 'MMDA', 'Savings', 'CD', 'NOW']
           ).map(productType => (
             <button
               key={productType}
