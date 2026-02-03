@@ -514,33 +514,49 @@ print(f"  Version: {model_version_nii.version}")
 
 sql_query_nie = """
 CREATE OR REPLACE TABLE cfo_banking_demo.ml_models.non_interest_expense_training_data AS
-WITH monthly_metrics AS (
+WITH deposit_summary AS (
+    -- Aggregate deposits first to avoid Cartesian product
     SELECT
-        DATE_TRUNC('month', d.effective_date) as month,
-
-        -- Business volume drivers (scale indicators)
-        COUNT(DISTINCT d.account_id) as active_accounts,
-        SUM(d.current_balance) as total_assets_proxy,
-        SUM(d.transaction_count_30d) as total_transactions,
-
-        -- Branch/channel costs
-        COUNT(DISTINCT d.branch_id) as active_branches,
-        SUM(CASE WHEN d.has_online_banking OR d.has_mobile_banking THEN 1 ELSE 0 END) as digital_users,
-
-        -- Loan servicing costs
-        COUNT(DISTINCT l.loan_id) as loan_count,
-        SUM(l.current_balance) as total_loan_balance,
-        COUNT(CASE WHEN l.days_past_due > 0 THEN 1 END) as delinquent_loans,
-
-        -- Growth indicators (hiring, expansion)
-        COUNT(CASE WHEN d.account_open_date >= DATE_SUB(CURRENT_DATE(), 30) THEN 1 END) as new_accounts_30d,
-        COUNT(CASE WHEN l.origination_date >= DATE_SUB(CURRENT_DATE(), 30) THEN 1 END) as new_loans_30d
-
-    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
-    LEFT JOIN cfo_banking_demo.bronze_core_banking.loan_portfolio l
-        ON DATE_TRUNC('month', d.effective_date) = DATE_TRUNC('month', l.effective_date)
-    WHERE d.effective_date >= DATE_SUB(CURRENT_DATE(), 730)
-    GROUP BY DATE_TRUNC('month', d.effective_date)
+        DATE_TRUNC('month', effective_date) as month,
+        COUNT(DISTINCT account_id) as active_accounts,
+        SUM(current_balance) as total_assets_proxy,
+        -- Estimated transaction count (historical table doesn't have transaction_count_30d)
+        COUNT(DISTINCT account_id) * 25 as total_transactions,
+        -- Estimated digital users (80% of active accounts)
+        CAST(COUNT(DISTINCT account_id) * 0.8 AS INT) as digital_users,
+        COUNT(CASE WHEN account_open_date >= DATE_SUB(CURRENT_DATE(), 30) THEN 1 END) as new_accounts_30d
+    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
+    WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+    GROUP BY DATE_TRUNC('month', effective_date)
+),
+loan_summary AS (
+    -- Aggregate loans separately
+    SELECT
+        DATE_TRUNC('month', effective_date) as month,
+        COUNT(DISTINCT loan_id) as loan_count,
+        SUM(current_balance) as total_loan_balance,
+        COUNT(CASE WHEN days_past_due > 0 THEN 1 END) as delinquent_loans,
+        COUNT(CASE WHEN origination_date >= DATE_SUB(CURRENT_DATE(), 30) THEN 1 END) as new_loans_30d
+    FROM cfo_banking_demo.bronze_core_banking.loan_portfolio_historical
+    WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+    GROUP BY DATE_TRUNC('month', effective_date)
+),
+monthly_metrics AS (
+    -- Join pre-aggregated summaries
+    SELECT
+        d.month,
+        d.active_accounts,
+        d.total_assets_proxy,
+        d.total_transactions,
+        25 as active_branches,  -- Static estimate
+        d.digital_users,
+        COALESCE(l.loan_count, 0) as loan_count,
+        COALESCE(l.total_loan_balance, 0) as total_loan_balance,
+        COALESCE(l.delinquent_loans, 0) as delinquent_loans,
+        d.new_accounts_30d,
+        COALESCE(l.new_loans_30d, 0) as new_loans_30d
+    FROM deposit_summary d
+    LEFT JOIN loan_summary l ON d.month = l.month
 ),
 market_conditions AS (
     SELECT
