@@ -90,24 +90,25 @@ market_conditions AS (
 fee_income_actual AS (
     -- Actual fee income from GL (target variable)
     SELECT
-        DATE_TRUNC('month', transaction_date) as month,
+        DATE_TRUNC('month', e.entry_date) as month,
         SUM(CASE
-            WHEN account_number LIKE '4100%' THEN credit_amount  -- Service charges
-            WHEN account_number LIKE '4110%' THEN credit_amount  -- Card fees
-            WHEN account_number LIKE '4120%' THEN credit_amount  -- Loan fees
-            WHEN account_number LIKE '4130%' THEN credit_amount  -- Wealth mgmt fees
+            WHEN l.account_number LIKE '4100%' THEN l.credit_amount  -- Service charges
+            WHEN l.account_number LIKE '4110%' THEN l.credit_amount  -- Card fees
+            WHEN l.account_number LIKE '4120%' THEN l.credit_amount  -- Loan fees
+            WHEN l.account_number LIKE '4130%' THEN l.credit_amount  -- Wealth mgmt fees
             ELSE 0
         END) as total_fee_income,
 
-        SUM(CASE WHEN account_number LIKE '4100%' THEN credit_amount ELSE 0 END) as service_charge_income,
-        SUM(CASE WHEN account_number LIKE '4110%' THEN credit_amount ELSE 0 END) as card_fee_income,
-        SUM(CASE WHEN account_number LIKE '4120%' THEN credit_amount ELSE 0 END) as loan_fee_income,
-        SUM(CASE WHEN account_number LIKE '4130%' THEN credit_amount ELSE 0 END) as wealth_fee_income
+        SUM(CASE WHEN l.account_number LIKE '4100%' THEN l.credit_amount ELSE 0 END) as service_charge_income,
+        SUM(CASE WHEN l.account_number LIKE '4110%' THEN l.credit_amount ELSE 0 END) as card_fee_income,
+        SUM(CASE WHEN l.account_number LIKE '4120%' THEN l.credit_amount ELSE 0 END) as loan_fee_income,
+        SUM(CASE WHEN l.account_number LIKE '4130%' THEN l.credit_amount ELSE 0 END) as wealth_fee_income
 
-    FROM cfo_banking_demo.silver_finance.general_ledger
-    WHERE transaction_date >= DATE_SUB(CURRENT_DATE(), 730)
-    AND account_number LIKE '41%'  -- Revenue accounts
-    GROUP BY DATE_TRUNC('month', transaction_date)
+    FROM cfo_banking_demo.silver_finance.gl_entry_lines l
+    JOIN cfo_banking_demo.silver_finance.gl_entries e ON l.entry_id = e.entry_id
+    WHERE e.entry_date >= DATE_SUB(CURRENT_DATE(), 730)
+    AND l.account_number LIKE '41%'  -- Revenue accounts
+    GROUP BY DATE_TRUNC('month', e.entry_date)
 )
 SELECT
     m.month,
@@ -383,25 +384,26 @@ market_conditions AS (
 expense_actual AS (
     -- Actual operating expenses from GL (target variable)
     SELECT
-        DATE_TRUNC('month', transaction_date) as month,
+        DATE_TRUNC('month', e.entry_date) as month,
         SUM(CASE
-            WHEN account_number LIKE '61%' THEN debit_amount  -- Personnel costs
-            WHEN account_number LIKE '62%' THEN debit_amount  -- Occupancy
-            WHEN account_number LIKE '63%' THEN debit_amount  -- Technology
-            WHEN account_number LIKE '64%' THEN debit_amount  -- Marketing
-            WHEN account_number LIKE '65%' THEN debit_amount  -- Professional fees
-            WHEN account_number LIKE '66%' THEN debit_amount  -- Other operating
+            WHEN l.account_number LIKE '61%' THEN l.debit_amount  -- Personnel costs
+            WHEN l.account_number LIKE '62%' THEN l.debit_amount  -- Occupancy
+            WHEN l.account_number LIKE '63%' THEN l.debit_amount  -- Technology
+            WHEN l.account_number LIKE '64%' THEN l.debit_amount  -- Marketing
+            WHEN l.account_number LIKE '65%' THEN l.debit_amount  -- Professional fees
+            WHEN l.account_number LIKE '66%' THEN l.debit_amount  -- Other operating
             ELSE 0
         END) as total_operating_expense,
 
-        SUM(CASE WHEN account_number LIKE '61%' THEN debit_amount ELSE 0 END) as personnel_expense,
-        SUM(CASE WHEN account_number LIKE '62%' THEN debit_amount ELSE 0 END) as occupancy_expense,
-        SUM(CASE WHEN account_number LIKE '63%' THEN debit_amount ELSE 0 END) as technology_expense
+        SUM(CASE WHEN l.account_number LIKE '61%' THEN l.debit_amount ELSE 0 END) as personnel_expense,
+        SUM(CASE WHEN l.account_number LIKE '62%' THEN l.debit_amount ELSE 0 END) as occupancy_expense,
+        SUM(CASE WHEN l.account_number LIKE '63%' THEN l.debit_amount ELSE 0 END) as technology_expense
 
-    FROM cfo_banking_demo.silver_finance.general_ledger
-    WHERE transaction_date >= DATE_SUB(CURRENT_DATE(), 730)
-    AND account_number LIKE '6%'  -- Expense accounts
-    GROUP BY DATE_TRUNC('month', transaction_date)
+    FROM cfo_banking_demo.silver_finance.gl_entry_lines l
+    JOIN cfo_banking_demo.silver_finance.gl_entries e ON l.entry_id = e.entry_id
+    WHERE e.entry_date >= DATE_SUB(CURRENT_DATE(), 730)
+    AND l.account_number LIKE '6%'  -- Expense accounts
+    GROUP BY DATE_TRUNC('month', e.entry_date)
 )
 SELECT
     m.month,
