@@ -33,6 +33,70 @@
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC #### Diagnostic: Check Data Availability
+
+# COMMAND ----------
+
+# Check if source data exists
+print("Checking data availability in source tables...\n")
+
+# Check deposit accounts
+deposit_check = spark.sql("""
+    SELECT
+        COUNT(*) as total_rows,
+        MIN(effective_date) as earliest_date,
+        MAX(effective_date) as latest_date,
+        COUNT(DISTINCT DATE_TRUNC('month', effective_date)) as unique_months
+    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+    WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+""")
+print("Deposit Accounts (last 730 days):")
+deposit_check.show()
+
+# Check loan portfolio
+loan_check = spark.sql("""
+    SELECT
+        COUNT(*) as total_rows,
+        MIN(effective_date) as earliest_date,
+        MAX(effective_date) as latest_date,
+        COUNT(DISTINCT DATE_TRUNC('month', effective_date)) as unique_months
+    FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
+    WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+""")
+print("Loan Portfolio (last 730 days):")
+loan_check.show()
+
+# Check yield curves
+yield_check = spark.sql("""
+    SELECT
+        COUNT(*) as total_rows,
+        MIN(date) as earliest_date,
+        MAX(date) as latest_date,
+        COUNT(DISTINCT DATE_TRUNC('month', date)) as unique_months
+    FROM cfo_banking_demo.silver_treasury.yield_curves
+    WHERE date >= DATE_SUB(CURRENT_DATE(), 730)
+""")
+print("Yield Curves (last 730 days):")
+yield_check.show()
+
+# Check GL data
+gl_check = spark.sql("""
+    SELECT
+        COUNT(*) as total_rows,
+        MIN(e.entry_date) as earliest_date,
+        MAX(e.entry_date) as latest_date,
+        COUNT(DISTINCT DATE_TRUNC('month', e.entry_date)) as unique_months
+    FROM cfo_banking_demo.silver_finance.gl_entry_lines l
+    JOIN cfo_banking_demo.silver_finance.gl_entries e ON l.entry_id = e.entry_id
+    WHERE e.entry_date >= DATE_SUB(CURRENT_DATE(), 730)
+    AND l.account_number LIKE '41%'
+""")
+print("GL Fee Income (last 730 days):")
+gl_check.show()
+
+# COMMAND ----------
+
 # Non-Interest Income includes:
 # - Service charges on deposits
 # - Card interchange fees
@@ -179,6 +243,90 @@ ORDER BY m.month
 
 spark.sql(sql_query_nii)
 print("✓ Created Non-Interest Income training dataset")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC #### Diagnostic: Check CTE Results
+
+# COMMAND ----------
+
+# Check how many rows each CTE produces
+print("Checking intermediate CTE results...\n")
+
+# Check deposit_metrics CTE
+deposit_metrics_check = spark.sql("""
+    WITH deposit_metrics AS (
+        SELECT
+            DATE_TRUNC('month', effective_date) as month,
+            COUNT(DISTINCT account_id) as active_deposit_accounts
+        FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+        WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+        GROUP BY DATE_TRUNC('month', effective_date)
+    )
+    SELECT COUNT(*) as row_count, MIN(month) as earliest_month, MAX(month) as latest_month
+    FROM deposit_metrics
+""")
+print("deposit_metrics CTE:")
+deposit_metrics_check.show()
+
+# Check loan_metrics CTE
+loan_metrics_check = spark.sql("""
+    WITH loan_metrics AS (
+        SELECT
+            DATE_TRUNC('month', effective_date) as month,
+            COUNT(DISTINCT loan_id) as active_loans
+        FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
+        WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+        GROUP BY DATE_TRUNC('month', effective_date)
+    )
+    SELECT COUNT(*) as row_count, MIN(month) as earliest_month, MAX(month) as latest_month
+    FROM loan_metrics
+""")
+print("loan_metrics CTE:")
+loan_metrics_check.show()
+
+# Check market_conditions CTE
+market_check = spark.sql("""
+    WITH market_conditions AS (
+        SELECT
+            DATE_TRUNC('month', date) as month,
+            AVG(rate_10y) as avg_10y_rate
+        FROM cfo_banking_demo.silver_treasury.yield_curves
+        WHERE date >= DATE_SUB(CURRENT_DATE(), 730)
+        GROUP BY DATE_TRUNC('month', date)
+    )
+    SELECT COUNT(*) as row_count, MIN(month) as earliest_month, MAX(month) as latest_month
+    FROM market_conditions
+""")
+print("market_conditions CTE:")
+market_check.show()
+
+# Check fee_income_actual CTE
+fee_check = spark.sql("""
+    WITH fee_income_actual AS (
+        SELECT
+            DATE_TRUNC('month', e.entry_date) as month,
+            SUM(l.credit_amount) as total_fee_income
+        FROM cfo_banking_demo.silver_finance.gl_entry_lines l
+        JOIN cfo_banking_demo.silver_finance.gl_entries e ON l.entry_id = e.entry_id
+        WHERE e.entry_date >= DATE_SUB(CURRENT_DATE(), 730)
+        AND l.account_number LIKE '41%'
+        GROUP BY DATE_TRUNC('month', e.entry_date)
+    )
+    SELECT COUNT(*) as row_count, MIN(month) as earliest_month, MAX(month) as latest_month
+    FROM fee_income_actual
+""")
+print("fee_income_actual CTE:")
+fee_check.show()
+
+# Check final result set row count
+final_check = spark.sql("""
+    SELECT COUNT(*) as final_row_count
+    FROM cfo_banking_demo.ml_models.non_interest_income_training_data
+""")
+print("\nFinal training table:")
+final_check.show()
 
 # COMMAND ----------
 
