@@ -125,19 +125,16 @@ WITH deposit_metrics AS (
     GROUP BY DATE_TRUNC('month', effective_date)
 ),
 loan_metrics AS (
-    -- Use deposit months as base and add static loan metrics
-    -- (loan_portfolio only has 1 month of data, so we use current values for all months)
+    -- Aggregate loans by month separately
     SELECT
-        d.month,
-        97200 as active_loans,  -- Static from current snapshot
-        75.3e9 as total_loan_balance,  -- Static $75.3B from current
-        800 as new_loans_30d,  -- Static average
-        35.2e9 as mortgage_balance  -- Static from current
-    FROM (
-        SELECT DISTINCT DATE_TRUNC('month', effective_date) as month
-        FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
-        WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
-    ) d
+        DATE_TRUNC('month', effective_date) as month,
+        COUNT(DISTINCT loan_id) as active_loans,
+        SUM(current_balance) as total_loan_balance,
+        COUNT(CASE WHEN origination_date >= DATE_SUB(CURRENT_DATE(), 30) THEN 1 END) as new_loans_30d,
+        SUM(CASE WHEN product_type IN ('Mortgage', 'Home_Equity', 'Residential_Mortgage', 'Commercial_Mortgage') THEN current_balance ELSE 0 END) as mortgage_balance
+    FROM cfo_banking_demo.bronze_core_banking.loan_portfolio_historical
+    WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+    GROUP BY DATE_TRUNC('month', effective_date)
 ),
 monthly_metrics AS (
     -- Join aggregated metrics (much smaller datasets)
