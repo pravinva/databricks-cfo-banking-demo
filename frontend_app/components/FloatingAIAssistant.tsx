@@ -166,7 +166,7 @@ export default function FloatingAIAssistant() {
                           <button
                             key={query}
                             onClick={() => setInput(query)}
-                            className="text-xs px-2 py-1 rounded bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                            className="text-xs px-2 py-1 rounded bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50 transition-colors text-slate-700 hover:text-blue-700"
                           >
                             {query}
                           </button>
@@ -237,7 +237,7 @@ export default function FloatingAIAssistant() {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && !loading && handleSend()}
                         placeholder="Ask me anything..."
-                        className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 placeholder:text-slate-400"
                         disabled={loading}
                       />
                       <Button
