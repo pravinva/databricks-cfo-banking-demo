@@ -31,7 +31,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install plotly kaleido matplotlib seaborn jinja2
+# MAGIC %pip install plotly kaleido matplotlib seaborn jinja2 weasyprint
 
 # COMMAND ----------
 
@@ -675,24 +675,46 @@ print("✓ HTML report generated successfully")
 # COMMAND ----------
 
 # Save HTML report to Unity Catalog Volume
-report_filename = f"deposit_analytics_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-volume_path = f"/Volumes/cfo_banking_demo/gold_finance/reports/{report_filename}"
+timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+html_filename = f"deposit_analytics_report_{timestamp}.html"
+html_volume_path = f"/Volumes/cfo_banking_demo/gold_finance/reports/{html_filename}"
 
 # Write HTML file to UC Volume
-with open(volume_path, 'w') as f:
+with open(html_volume_path, 'w') as f:
     f.write(html_report)
 
 # Get workspace URL dynamically
 try:
     from databricks.sdk.runtime import spark
     workspace_url = spark.conf.get("spark.databricks.workspaceUrl")
-    report_url = f"https://{workspace_url}/explore/data/volumes/cfo_banking_demo/gold_finance/reports/{report_filename}"
+    html_report_url = f"https://{workspace_url}/explore/data/volumes/cfo_banking_demo/gold_finance/reports/{html_filename}"
 except:
     # Fallback if spark context not available
-    report_url = f"https://<your-workspace>.cloud.databricks.com/explore/data/volumes/cfo_banking_demo/gold_finance/reports/{report_filename}"
+    workspace_url = "<your-workspace>.cloud.databricks.com"
+    html_report_url = f"https://{workspace_url}/explore/data/volumes/cfo_banking_demo/gold_finance/reports/{html_filename}"
 
-print(f"✓ HTML report saved to: {volume_path}")
-print(f"  Access URL: {report_url}")
+print(f"✓ HTML report saved to: {html_volume_path}")
+print(f"  Access URL: {html_report_url}")
+
+# Generate PDF version
+try:
+    from weasyprint import HTML
+
+    pdf_filename = f"deposit_analytics_report_{timestamp}.pdf"
+    pdf_volume_path = f"/Volumes/cfo_banking_demo/gold_finance/reports/{pdf_filename}"
+
+    # Convert HTML to PDF
+    HTML(string=html_report).write_pdf(pdf_volume_path)
+
+    pdf_report_url = f"https://{workspace_url}/explore/data/volumes/cfo_banking_demo/gold_finance/reports/{pdf_filename}"
+
+    print(f"✓ PDF report saved to: {pdf_volume_path}")
+    print(f"  Access URL: {pdf_report_url}")
+
+except Exception as e:
+    print(f"⚠️ Warning: Could not generate PDF - {str(e)}")
+    print("  HTML report is still available")
+    pdf_volume_path = None
 
 # COMMAND ----------
 
@@ -709,7 +731,8 @@ report_summary_data = {
     'severe_runoff_pct': [scenario_results[2]['runoff_pct']],
     'extreme_runoff_300bps': [scenario_results[3]['total_runoff']],
     'extreme_runoff_pct': [scenario_results[3]['runoff_pct']],
-    'report_path': [volume_path]
+    'html_report_path': [html_volume_path],
+    'pdf_report_path': [pdf_volume_path]
 }
 
 report_summary_df = spark.createDataFrame(pd.DataFrame(report_summary_data))
