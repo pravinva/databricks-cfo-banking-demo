@@ -109,17 +109,21 @@ sql_query_nii = """
 CREATE OR REPLACE TABLE cfo_banking_demo.ml_models.non_interest_income_training_data AS
 WITH deposit_metrics AS (
     -- Aggregate deposits by month first (avoids Cartesian product)
+    -- deposit_accounts_historical has simplified schema: account_id, customer_id, product_type,
+    -- customer_segment, account_open_date, effective_date, current_balance, stated_rate, is_current, is_closed
     SELECT
         DATE_TRUNC('month', effective_date) as month,
         COUNT(DISTINCT account_id) as active_deposit_accounts,
-        SUM(CASE WHEN product_type = 'DDA' THEN 1 ELSE 0 END) as checking_accounts,
+        SUM(CASE WHEN product_type IN ('Checking', 'DDA') THEN 1 ELSE 0 END) as checking_accounts,
         SUM(current_balance) as total_deposits,
-        SUM(transaction_count_30d) as total_transactions,
-        AVG(monthly_fee) as avg_monthly_fee,
+        -- Estimated transaction metrics (not in historical table)
+        COUNT(DISTINCT account_id) * 25 as total_transactions,  -- Est 25 txns/account/month
+        12.50 as avg_monthly_fee,  -- Static average
         SUM(CASE WHEN customer_segment = 'Retail' THEN current_balance ELSE 0 END) / NULLIF(SUM(current_balance), 0) as retail_deposit_pct,
         SUM(CASE WHEN customer_segment = 'Commercial' THEN current_balance ELSE 0 END) / NULLIF(SUM(current_balance), 0) as commercial_deposit_pct,
-        SUM(CASE WHEN has_mobile_banking THEN transaction_count_30d ELSE 0 END) as digital_transactions,
-        SUM(CASE WHEN NOT has_mobile_banking THEN transaction_count_30d ELSE 0 END) as branch_transactions
+        -- Estimated digital vs branch (not in historical table)
+        COUNT(DISTINCT account_id) * 20 as digital_transactions,  -- Est 80% digital
+        COUNT(DISTINCT account_id) * 5 as branch_transactions  -- Est 20% branch
     FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
     WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
     GROUP BY DATE_TRUNC('month', effective_date)
