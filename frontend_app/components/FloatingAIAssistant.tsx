@@ -156,10 +156,10 @@ export default function FloatingAIAssistant() {
 
               {/* Content - Hidden when minimized */}
               {!isMinimized && (
-                <>
+                <div className="flex flex-col h-[536px]">
                   {/* Example Queries */}
                   {messages.length === 0 && (
-                    <div className="bg-slate-50 p-3 border-b border-slate-200">
+                    <div className="bg-slate-50 p-3 border-b border-slate-200 flex-shrink-0">
                       <p className="text-xs font-medium text-slate-700 mb-2">Quick queries:</p>
                       <div className="flex gap-1.5 flex-wrap">
                         {exampleQueries.map(query => (
@@ -176,7 +176,7 @@ export default function FloatingAIAssistant() {
                   )}
 
                   {/* Messages */}
-                  <div className="h-[400px] overflow-y-auto p-4 space-y-3 bg-white">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
                     {messages.length === 0 && (
                       <div className="flex items-center justify-center h-full text-slate-400">
                         <div className="text-center">
@@ -229,7 +229,7 @@ export default function FloatingAIAssistant() {
                   </div>
 
                   {/* Input */}
-                  <div className="border-t border-slate-200 bg-white p-3">
+                  <div className="border-t border-slate-200 bg-white p-3 flex-shrink-0">
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -249,7 +249,7 @@ export default function FloatingAIAssistant() {
                       </Button>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </Card>
           </motion.div>
