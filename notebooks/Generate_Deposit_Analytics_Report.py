@@ -310,18 +310,23 @@ if has_vintage:
 
     fig_vintage.update_layout(
         title="Deposit Cohort Survival Curves (24-Month Retention)",
-        xaxis_title="Months Since Origination",
-        yaxis_title="Retention Rate (%)",
+        xaxis_title="Months Since Opening",
+        yaxis_title="Account Survival Rate (%)",
         yaxis=dict(range=[0, 100], tickformat=".0f"),
         xaxis=dict(range=[0, 24])
     )
 
     # Calculate average retention rates
-    avg_retention = vintage_pdf.groupby('months_since_origination')['retention_rate'].mean()
-    print("\nAverage Deposit Retention Rates:")
-    print(f"  6 months: {avg_retention.iloc[6]*100:.1f}%")
-    print(f"  12 months: {avg_retention.iloc[12]*100:.1f}%")
-    print(f"  24 months: {avg_retention.iloc[23]*100:.1f}%")
+    avg_retention = vintage_pdf.groupby('months_since_open')['account_survival_rate'].mean()
+    print("\nAverage Deposit Account Survival Rates:")
+
+    # Get available month indices (may not have exactly 6, 12, 24)
+    available_months = sorted(avg_retention.index)
+    for target_month in [6, 12, 24]:
+        # Find closest available month
+        closest = min(available_months, key=lambda x: abs(x - target_month))
+        if abs(closest - target_month) <= 3:  # Within 3 months tolerance
+            print(f"  ~{target_month} months: {avg_retention.loc[closest]*100:.1f}%")
 else:
     fig_vintage = None
     print("⚠️ Skipping vintage analysis (data not available)")
