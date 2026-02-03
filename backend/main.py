@@ -353,7 +353,7 @@ async def get_portfolio_breakdown():
             SUM(current_balance)/1e9 as balance_billions,
             AVG(interest_rate) as avg_rate,
             SUM(cecl_reserve)/SUM(current_balance)*100 as reserve_pct
-        FROM cfo_banking_demo.silver_finance.loan_portfolio
+        FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
         WHERE is_current = true
         GROUP BY product_type
         ORDER BY balance_billions DESC
@@ -403,7 +403,7 @@ async def get_risk_metrics():
             AVG(CASE WHEN days_past_due > 90 THEN 1.0 ELSE 0.0 END) * 100 as npl_rate,
             SUM(cecl_reserve)/1e9 as reserve_billions,
             SUM(cecl_reserve)/SUM(current_balance)*100 as reserve_ratio
-        FROM cfo_banking_demo.silver_finance.loan_portfolio
+        FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
         WHERE is_current = true
         GROUP BY product_type
         ORDER BY balance_billions DESC
@@ -467,7 +467,7 @@ async def get_recent_activity():
             product_type,
             current_balance as amount,
             origination_date as activity_date
-        FROM cfo_banking_demo.silver_finance.loan_portfolio
+        FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
         WHERE is_current = true
         ORDER BY origination_date DESC
         LIMIT 10
@@ -520,7 +520,7 @@ async def get_loans(
                 interest_rate,
                 payment_status,
                 origination_date
-            FROM cfo_banking_demo.silver_finance.loan_portfolio
+            FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
             WHERE {where_sql}
             ORDER BY origination_date DESC
             LIMIT {limit}
@@ -601,7 +601,7 @@ async def get_loan_detail(loan_id: str):
                 ltv_ratio,
                 officer_id,
                 branch_id
-            FROM cfo_banking_demo.silver_finance.loan_portfolio
+            FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
             WHERE loan_id = '{loan_id}'
             AND is_current = true
         """

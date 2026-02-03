@@ -281,7 +281,7 @@ class CFOAgentTools:
             # Get loans
             loans_query = """
                 SELECT SUM(current_balance) as total
-                FROM cfo_banking_demo.silver_finance.loan_portfolio
+                FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
                 WHERE is_current = true
             """
             loans_result = self.query_unity_catalog(loans_query, max_rows=1)
