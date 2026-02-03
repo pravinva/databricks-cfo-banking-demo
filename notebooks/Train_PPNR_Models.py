@@ -43,37 +43,54 @@
 
 sql_query_nii = """
 CREATE OR REPLACE TABLE cfo_banking_demo.ml_models.non_interest_income_training_data AS
-WITH monthly_metrics AS (
-    -- Generate monthly time series
+WITH deposit_metrics AS (
+    -- Aggregate deposits by month first (avoids Cartesian product)
     SELECT
-        DATE_TRUNC('month', d.effective_date) as month,
-
-        -- Deposit-related fee drivers
-        COUNT(DISTINCT d.account_id) as active_deposit_accounts,
-        SUM(CASE WHEN d.product_type = 'DDA' THEN 1 ELSE 0 END) as checking_accounts,
-        SUM(d.current_balance) as total_deposits,
-        SUM(d.transaction_count_30d) as total_transactions,
-        AVG(d.monthly_fee) as avg_monthly_fee,
-
-        -- Customer segment mix (affects fee types)
-        SUM(CASE WHEN d.customer_segment = 'Retail' THEN d.current_balance ELSE 0 END) / NULLIF(SUM(d.current_balance), 0) as retail_deposit_pct,
-        SUM(CASE WHEN d.customer_segment = 'Commercial' THEN d.current_balance ELSE 0 END) / NULLIF(SUM(d.current_balance), 0) as commercial_deposit_pct,
-
-        -- Loan-related fee drivers
-        COUNT(DISTINCT l.loan_id) as active_loans,
-        SUM(l.current_balance) as total_loan_balance,
-        COUNT(CASE WHEN l.origination_date >= DATE_SUB(CURRENT_DATE(), 30) THEN 1 END) as new_loans_30d,
-        SUM(CASE WHEN l.product_type IN ('Mortgage', 'Home_Equity') THEN l.current_balance ELSE 0 END) as mortgage_balance,
-
-        -- Transaction volume (drives interchange fees)
-        SUM(CASE WHEN d.has_mobile_banking THEN d.transaction_count_30d ELSE 0 END) as digital_transactions,
-        SUM(CASE WHEN NOT d.has_mobile_banking THEN d.transaction_count_30d ELSE 0 END) as branch_transactions
-
-    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
-    LEFT JOIN cfo_banking_demo.bronze_core_banking.loan_portfolio l
-        ON DATE_TRUNC('month', d.effective_date) = DATE_TRUNC('month', l.effective_date)
-    WHERE d.effective_date >= DATE_SUB(CURRENT_DATE(), 730)  -- 2 years history
-    GROUP BY DATE_TRUNC('month', d.effective_date)
+        DATE_TRUNC('month', effective_date) as month,
+        COUNT(DISTINCT account_id) as active_deposit_accounts,
+        SUM(CASE WHEN product_type = 'DDA' THEN 1 ELSE 0 END) as checking_accounts,
+        SUM(current_balance) as total_deposits,
+        SUM(transaction_count_30d) as total_transactions,
+        AVG(monthly_fee) as avg_monthly_fee,
+        SUM(CASE WHEN customer_segment = 'Retail' THEN current_balance ELSE 0 END) / NULLIF(SUM(current_balance), 0) as retail_deposit_pct,
+        SUM(CASE WHEN customer_segment = 'Commercial' THEN current_balance ELSE 0 END) / NULLIF(SUM(current_balance), 0) as commercial_deposit_pct,
+        SUM(CASE WHEN has_mobile_banking THEN transaction_count_30d ELSE 0 END) as digital_transactions,
+        SUM(CASE WHEN NOT has_mobile_banking THEN transaction_count_30d ELSE 0 END) as branch_transactions
+    FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+    WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+    GROUP BY DATE_TRUNC('month', effective_date)
+),
+loan_metrics AS (
+    -- Aggregate loans by month separately
+    SELECT
+        DATE_TRUNC('month', effective_date) as month,
+        COUNT(DISTINCT loan_id) as active_loans,
+        SUM(current_balance) as total_loan_balance,
+        COUNT(CASE WHEN origination_date >= DATE_SUB(CURRENT_DATE(), 30) THEN 1 END) as new_loans_30d,
+        SUM(CASE WHEN product_type IN ('Mortgage', 'Home_Equity') THEN current_balance ELSE 0 END) as mortgage_balance
+    FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
+    WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
+    GROUP BY DATE_TRUNC('month', effective_date)
+),
+monthly_metrics AS (
+    -- Join aggregated metrics (much smaller datasets)
+    SELECT
+        d.month,
+        d.active_deposit_accounts,
+        d.checking_accounts,
+        d.total_deposits,
+        d.total_transactions,
+        d.avg_monthly_fee,
+        d.retail_deposit_pct,
+        d.commercial_deposit_pct,
+        d.digital_transactions,
+        d.branch_transactions,
+        COALESCE(l.active_loans, 0) as active_loans,
+        COALESCE(l.total_loan_balance, 0) as total_loan_balance,
+        COALESCE(l.new_loans_30d, 0) as new_loans_30d,
+        COALESCE(l.mortgage_balance, 0) as mortgage_balance
+    FROM deposit_metrics d
+    LEFT JOIN loan_metrics l ON d.month = l.month
 ),
 market_conditions AS (
     -- Economic indicators that affect fee income
