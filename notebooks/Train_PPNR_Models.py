@@ -290,11 +290,13 @@ with mlflow.start_run(run_name="non_interest_income_xgboost") as run:
 
     # Validation State 3: Feature Importance
     print("\nVALIDATION STATE 3: Feature Importance (Top 10)")
-    feature_importance_nii = model_nii.get_booster().get_score(importance_type='gain')
-    importance_sorted_nii = sorted(feature_importance_nii.items(), key=lambda x: x[1], reverse=True)[:10]
-    for i, (feature, importance) in enumerate(importance_sorted_nii, 1):
-        feature_name = nii_feature_cols[int(feature[1:])] if feature.startswith('f') else feature
-        print(f"{i:2d}. {feature_name:35s} {importance:10.0f}")
+    feature_importance_nii = pd.DataFrame({
+        'feature': nii_feature_cols,
+        'importance': model_nii.feature_importances_
+    }).sort_values('importance', ascending=False).head(10)
+
+    for i, row in enumerate(feature_importance_nii.itertuples(), 1):
+        print(f"{i:2d}. {row.feature:35s} {row.importance:10.4f}")
 
     # Log to MLflow
     mlflow.log_params(params_nii)
@@ -581,11 +583,13 @@ with mlflow.start_run(run_name="non_interest_expense_xgboost") as run:
 
     # Validation State 3: Feature Importance
     print("\nVALIDATION STATE 3: Feature Importance (Top 10)")
-    feature_importance_nie = model_nie.get_booster().get_score(importance_type='gain')
-    importance_sorted_nie = sorted(feature_importance_nie.items(), key=lambda x: x[1], reverse=True)[:10]
-    for i, (feature, importance) in enumerate(importance_sorted_nie, 1):
-        feature_name = nie_feature_cols[int(feature[1:])] if feature.startswith('f') else feature
-        print(f"{i:2d}. {feature_name:35s} {importance:10.0f}")
+    feature_importance_nie = pd.DataFrame({
+        'feature': nie_feature_cols,
+        'importance': model_nie.feature_importances_
+    }).sort_values('importance', ascending=False).head(10)
+
+    for i, row in enumerate(feature_importance_nie.itertuples(), 1):
+        print(f"{i:2d}. {row.feature:35s} {row.importance:10.4f}")
 
     # Log to MLflow
     mlflow.log_params(params_nie)
