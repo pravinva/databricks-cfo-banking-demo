@@ -151,9 +151,16 @@ function RiskMetrics() {
         <h3 className="font-semibold text-slate-900">Rate Shock Stress (100 bps)</h3>
         <div className="space-y-3">
           {data.rate_shock_stress?.map((item: any, index: number) => (
-            <div key={index} className="p-4 border-2 border-bloomberg-border bg-bloomberg-surface">
+            <div
+              key={index}
+              onClick={() => {
+                // Navigate to deposit table filtered by product type
+                navigateTo('deposit-table', { product_type: item.product }, `${item.product} Deposits - Rate Shock View`)
+              }}
+              className="p-4 border-2 border-bloomberg-border bg-bloomberg-surface hover:border-bloomberg-orange/70 transition-colors cursor-pointer group"
+            >
               <div className="flex justify-between items-start mb-3">
-                <div className="font-bold text-bloomberg-orange font-mono text-sm">{item.product}</div>
+                <div className="font-bold text-bloomberg-orange group-hover:text-bloomberg-amber transition-colors font-mono text-sm">{item.product}</div>
                 <div className="text-sm text-bloomberg-red font-bold font-mono bloomberg-glow-red">
                   -${(item.runoff_100bps / 1e6).toFixed(1)}M
                 </div>
