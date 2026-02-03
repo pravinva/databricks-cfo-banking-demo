@@ -87,7 +87,7 @@ except:
 
 # Load vintage analysis data
 try:
-    vintage_df = spark.table("cfo_banking_demo.ml_models.vintage_cohort_survival")
+    vintage_df = spark.table("cfo_banking_demo.ml_models.cohort_survival_rates")
     vintage_pdf = vintage_df.toPandas()
     has_vintage = True
 except:
@@ -96,7 +96,7 @@ except:
 
 # Load stress test results (if available)
 try:
-    stress_df = spark.table("cfo_banking_demo.ml_models.stress_test_summary")
+    stress_df = spark.table("cfo_banking_demo.ml_models.stress_test_results")
     stress_pdf = stress_df.toPandas()
     has_stress = True
 except:
