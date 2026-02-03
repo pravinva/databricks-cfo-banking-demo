@@ -61,10 +61,10 @@ loan_check = spark.sql("""
         MIN(effective_date) as earliest_date,
         MAX(effective_date) as latest_date,
         COUNT(DISTINCT DATE_TRUNC('month', effective_date)) as unique_months
-    FROM cfo_banking_demo.bronze_core_banking.loan_portfolio
+    FROM cfo_banking_demo.bronze_core_banking.loan_portfolio_historical
     WHERE effective_date >= DATE_SUB(CURRENT_DATE(), 730)
 """)
-print("Loan Portfolio (last 730 days):")
+print("Loan Portfolio Historical (last 730 days):")
 loan_check.show()
 
 # Check yield curves
