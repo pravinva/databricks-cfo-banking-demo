@@ -686,8 +686,17 @@ os.makedirs("/dbfs/FileStore/reports", exist_ok=True)
 with open(dbfs_path, 'w') as f:
     f.write(html_report)
 
+# Get workspace URL dynamically
+try:
+    from databricks.sdk.runtime import spark
+    workspace_url = spark.conf.get("spark.databricks.workspaceUrl")
+    report_url = f"https://{workspace_url}/files/reports/{report_filename}"
+except:
+    # Fallback if spark context not available
+    report_url = f"https://<your-workspace>.cloud.databricks.com/files/reports/{report_filename}"
+
 print(f"✓ HTML report saved to: {dbfs_path}")
-print(f"  Access URL: https://<your-workspace>.cloud.databricks.com/files/reports/{report_filename}")
+print(f"  Access URL: {report_url}")
 
 # COMMAND ----------
 
