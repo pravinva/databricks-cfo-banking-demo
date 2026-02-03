@@ -133,8 +133,8 @@ fee_income_actual AS (
 SELECT
     m.month,
 
-    -- Target variable
-    COALESCE(f.total_fee_income, 45000000) as target_fee_income,  -- Default if missing
+    -- Target variable (REMOVED DEFAULT - let INNER JOIN ensure we only have real data)
+    f.total_fee_income as target_fee_income,
 
     -- Business volume features
     m.active_deposit_accounts,
@@ -164,19 +164,20 @@ SELECT
     m.digital_transactions / NULLIF(m.total_transactions, 0) as digital_transaction_pct,
     m.new_loans_30d / NULLIF(m.active_loans, 0) as new_loan_rate,
 
-    -- Time features (seasonality)
-    MONTH(m.month) as month_of_year,
+    -- Time features (cyclical encoding to reduce overfitting)
+    SIN(2 * PI() * MONTH(m.month) / 12) as month_sin,
+    COS(2 * PI() * MONTH(m.month) / 12) as month_cos,
     QUARTER(m.month) as quarter,
-    YEAR(m.month) as year,
 
-    -- Lagged features (prior month trend)
-    LAG(COALESCE(f.total_fee_income, 45000000), 1) OVER (ORDER BY m.month) as prior_month_fee_income,
+    -- Lagged features (prior month trend) - REMOVED DEFAULT
+    LAG(f.total_fee_income, 1) OVER (ORDER BY m.month) as prior_month_fee_income,
     LAG(m.total_transactions, 1) OVER (ORDER BY m.month) as prior_month_transactions
 
 FROM monthly_metrics m
+INNER JOIN fee_income_actual f ON m.month = f.month  -- INNER JOIN to exclude months without GL data
 LEFT JOIN market_conditions mc ON m.month = mc.month
-LEFT JOIN fee_income_actual f ON m.month = f.month
 WHERE m.month IS NOT NULL
+  AND f.total_fee_income IS NOT NULL  -- Ensure we have real data
 ORDER BY m.month
 """
 
@@ -445,8 +446,8 @@ expense_actual AS (
 SELECT
     m.month,
 
-    -- Target variable
-    COALESCE(e.total_operating_expense, 125000000) as target_operating_expense,
+    -- Target variable (REMOVED DEFAULT - let INNER JOIN ensure we only have real data)
+    e.total_operating_expense as target_operating_expense,
 
     -- Business volume features
     m.active_accounts,
@@ -468,19 +469,20 @@ SELECT
     -- Market conditions
     mc.avg_10y_rate,
 
-    -- Time features
-    MONTH(m.month) as month_of_year,
+    -- Time features (cyclical encoding to reduce overfitting)
+    SIN(2 * PI() * MONTH(m.month) / 12) as month_sin,
+    COS(2 * PI() * MONTH(m.month) / 12) as month_cos,
     QUARTER(m.month) as quarter,
-    YEAR(m.month) as year,
 
-    -- Lagged features
-    LAG(COALESCE(e.total_operating_expense, 125000000), 1) OVER (ORDER BY m.month) as prior_month_expense,
+    -- Lagged features (REMOVED DEFAULT)
+    LAG(e.total_operating_expense, 1) OVER (ORDER BY m.month) as prior_month_expense,
     LAG(m.active_accounts, 1) OVER (ORDER BY m.month) as prior_month_accounts
 
 FROM monthly_metrics m
+INNER JOIN expense_actual e ON m.month = e.month  -- INNER JOIN to exclude months without GL data
 LEFT JOIN market_conditions mc ON m.month = mc.month
-LEFT JOIN expense_actual e ON m.month = e.month
 WHERE m.month IS NOT NULL
+  AND e.total_operating_expense IS NOT NULL  -- Ensure we have real data
 ORDER BY m.month
 """
 
