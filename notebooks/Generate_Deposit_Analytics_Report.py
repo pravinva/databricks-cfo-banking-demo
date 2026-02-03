@@ -296,15 +296,15 @@ if has_vintage:
     fig_vintage = go.Figure()
 
     # Get unique cohorts (limit to recent ones for readability)
-    cohorts = vintage_pdf['cohort'].unique()[:12]  # Last 12 cohorts
+    cohorts = vintage_pdf['cohort_quarter'].unique()[-12:]  # Last 12 cohorts
 
     for cohort in cohorts:
-        cohort_data = vintage_pdf[vintage_pdf['cohort'] == cohort].sort_values('months_since_origination')
+        cohort_data = vintage_pdf[vintage_pdf['cohort_quarter'] == cohort].sort_values('months_since_open')
         fig_vintage.add_trace(go.Scatter(
-            x=cohort_data['months_since_origination'],
-            y=cohort_data['retention_rate'] * 100,
+            x=cohort_data['months_since_open'],
+            y=cohort_data['account_survival_rate'] * 100,
             mode='lines',
-            name=cohort,
+            name=str(cohort)[:10],  # Format timestamp for display
             line=dict(width=2)
         ))
 
