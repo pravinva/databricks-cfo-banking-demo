@@ -39,9 +39,9 @@ while statement.status.state in [StatementState.PENDING, StatementState.RUNNING]
 
 if statement.result and statement.result.data_array:
     metrics = statement.result.data_array[0]
-    print(f"✓ Current accounts: {int(metrics[0]):,}")
+    print(f"✓ Current accounts: {int(float(metrics[0])):,}")
     print(f"✓ Total deposits: ${float(metrics[1]):.2f}B")
-    print(f"✓ Total loans: {int(metrics[2]):,}")
+    print(f"✓ Total loans: {int(float(metrics[2])):,}")
 else:
     print("Using default metrics")
     metrics = [500000, 26.5, 50000, 13.5, 45000000, 125000000, 0.0325]
