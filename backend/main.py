@@ -30,6 +30,19 @@ except Exception as e:
     traceback.print_exc()
     agent_tools = None
 
+# Initialize Claude agent
+try:
+    # Import from backend directory
+    sys.path.insert(0, str(Path(__file__).parent))
+    from claude_agent import ClaudeAgent
+    claude_agent = ClaudeAgent(endpoint_name="databricks-claude-sonnet-4-5")
+    print(f"✓ Successfully initialized Claude agent")
+except Exception as e:
+    print(f"❌ ERROR: Could not initialize Claude agent: {e}")
+    import traceback
+    traceback.print_exc()
+    claude_agent = None
+
 # Initialize FastAPI
 app = FastAPI(
     title="CFO Platform API",
@@ -74,7 +87,7 @@ async def health():
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    Agent chat endpoint with MLflow tracing
+    Claude AI agent chat endpoint with tool calling
     All calls automatically logged for audit
     """
     import time
@@ -86,209 +99,24 @@ async def chat(request: ChatRequest):
             execution_time=time.time() - start
         )
 
+    if not claude_agent:
+        return ChatResponse(
+            response="Claude agent not available. Please check Databricks endpoint configuration.",
+            execution_time=time.time() - start
+        )
+
     try:
-        query_lower = request.query.lower()
-        response_text = ""
-
-        # Rate shock analysis
-        if "rate shock" in query_lower or "bps" in query_lower:
-            # Extract rate change and product type
-            import re
-            bps_match = re.search(r'([+-]?\d+)\s*bps?', query_lower)
-
-            if bps_match:
-                rate_change = int(bps_match.group(1))
-
-                # Determine product type
-                product_type = "MMDA"  # default
-                if "dda" in query_lower:
-                    product_type = "DDA"
-                elif "now" in query_lower:
-                    product_type = "NOW"
-                elif "savings" in query_lower:
-                    product_type = "Savings"
-                elif "mmda" in query_lower:
-                    product_type = "MMDA"
-
-                result = agent_tools.call_deposit_beta_model(
-                    rate_change_bps=rate_change,
-                    product_type=product_type
-                )
-
-                if result["success"]:
-                    response_text = f"""═══════════════════════════════════════════════════════════
- RATE SHOCK ANALYSIS
-═══════════════════════════════════════════════════════════
-
-SCENARIO
-  Product Type: {result['product_type']}
-  Rate Change: {rate_change:+d} basis points
-  Current Balance: ${result['current_balance']/1e9:.2f}B
-
-DEPOSIT BETA COEFFICIENT
-  Beta: {result['beta']:.4f}
-  (Measures deposit sensitivity to rate changes)
-
-PROJECTED IMPACT
-  Predicted Runoff: ${result['predicted_runoff_amount']/1e6:.1f}M
-  Runoff Percentage: {result['runoff_pct']:.2f}%
-
-INTERPRETATION
-  A {abs(rate_change)} basis point {'increase' if rate_change > 0 else 'decrease'} in market rates
-  would result in approximately ${result['predicted_runoff_amount']/1e6:.1f}M of deposit
-  runoff from {product_type} accounts, representing {result['runoff_pct']:.2f}%
-  of the current balance.
-
-MODEL DETAILS
-  Version: {result['model_version']}
-  Execution Time: {result['execution_time']:.2f}s
-
-─────────────────────────────────────────────────────────
-Tools Used: call_deposit_beta_model(rate_change_bps={rate_change}, product_type="{product_type}")"""
-                else:
-                    response_text = f"Error: {result.get('error', 'Failed to calculate rate shock')}"
-            else:
-                response_text = "Please specify the rate change in basis points (e.g., '+50 bps' or '-25 bps')"
-
-        # Treasury yields
-        elif "yield" in query_lower or "treasury" in query_lower:
-            result = agent_tools.get_current_treasury_yields()
-            if result["success"]:
-                yields = result["yields"]
-                curve_shape = "Normal (upward sloping)" if float(yields['30Y']) > float(yields['3M']) else "Inverted"
-                response_text = f"""═══════════════════════════════════════════════════════════
- U.S. TREASURY YIELD CURVE
-═══════════════════════════════════════════════════════════
-
-MARKET DATE
-  {result['date']}
-
-CURRENT YIELDS
-  3-Month T-Bill:    {yields['3M']}%
-  2-Year Note:       {yields['2Y']}%
-  5-Year Note:       {yields['5Y']}%
-  10-Year Note:      {yields['10Y']}%
-  30-Year Bond:      {yields['30Y']}%
-
-CURVE ANALYSIS
-  Shape: {curve_shape}
-  Spread (30Y - 3M): {float(yields['30Y']) - float(yields['3M']):.2f}%
-
-INTERPRETATION
-  {"The yield curve is normal, indicating healthy economic expectations. Longer-term rates exceed short-term rates, suggesting positive growth outlook." if curve_shape == "Normal (upward sloping)" else "The yield curve is inverted, which historically has been a recession indicator. Short-term rates exceed long-term rates, suggesting economic uncertainty."}
-
-MODEL DETAILS
-  Source: U.S. Department of Treasury
-  Execution Time: {result['execution_time']:.2f}s
-
-─────────────────────────────────────────────────────────
-Tools Used: get_current_treasury_yields()"""
-
-        # LCR analysis
-        elif "lcr" in query_lower or "liquidity" in query_lower:
-            multiplier = 1.0
-            if "stress" in query_lower:
-                import re
-                mult_match = re.search(r'(\d+\.?\d*)x', query_lower)
-                if mult_match:
-                    multiplier = float(mult_match.group(1))
-
-            result = agent_tools.calculate_lcr(deposit_runoff_multiplier=multiplier)
-            if result["success"]:
-                status_symbol = '✓' if result['status'] == 'Pass' else '✗'
-                stress_info = f"\n  Stress Multiplier: {multiplier}x" if multiplier != 1.0 else ""
-                response_text = f"""═══════════════════════════════════════════════════════════
- LIQUIDITY COVERAGE RATIO (LCR)
-═══════════════════════════════════════════════════════════
-
-LCR CALCULATION
-  LCR Ratio: {result['lcr_ratio']:.2f}%
-  Regulatory Minimum: 100%
-  Buffer Above Minimum: {result['buffer']:.2f}%
-
-COMPLIANCE STATUS
-  Status: {result['status']} {status_symbol}
-  {'[REGULATORY COMPLIANT]' if result['status'] == 'Pass' else '[BELOW REGULATORY MINIMUM]'}
-
-BALANCE SHEET COMPONENTS
-  High-Quality Liquid Assets (HQLA): ${result['hqla']/1e9:.2f}B
-  Net Cash Outflows (30-day): ${result['net_outflows']/1e9:.2f}B{stress_info}
-
-FORMULA
-  LCR = HQLA / Net Cash Outflows
-  LCR = ${result['hqla']/1e9:.2f}B / ${result['net_outflows']/1e9:.2f}B = {result['lcr_ratio']:.2f}%
-
-INTERPRETATION
-  {"The bank maintains adequate liquidity buffers and exceeds the 100% regulatory minimum. Current position provides " + f"{result['buffer']:.2f}%" + " cushion above requirements." if result['status'] == 'Pass' else "WARNING: The bank is below the 100% regulatory minimum. Immediate action required to increase HQLA or reduce net outflows."}
-
-MODEL DETAILS
-  Regulation: Basel III LCR Standard
-  Execution Time: {result['execution_time']:.2f}s
-
-─────────────────────────────────────────────────────────
-Tools Used: calculate_lcr(deposit_runoff_multiplier={multiplier})"""
-
-        # Portfolio summary
-        elif "portfolio" in query_lower or "summary" in query_lower or "balance sheet" in query_lower:
-            result = agent_tools.get_portfolio_summary()
-            if result["success"]:
-                sec_pct = result['securities']/result['total_assets']*100
-                loan_pct = result['loans']/result['total_assets']*100
-                response_text = f"""═══════════════════════════════════════════════════════════
- PORTFOLIO SUMMARY
-═══════════════════════════════════════════════════════════
-
-TOTAL ASSETS
-  ${result['total_assets']/1e9:.2f}B
-
-ASSET BREAKDOWN
-  Securities
-    Amount: ${result['securities']/1e9:.2f}B
-    Percentage: {sec_pct:.1f}%
-
-  Loans
-    Amount: ${result['loans']/1e9:.2f}B
-    Percentage: {loan_pct:.1f}%
-
-TOTAL LIABILITIES
-  Deposits
-    Amount: ${result['deposits']/1e9:.2f}B
-
-ASSET COMPOSITION ANALYSIS
-  The portfolio is {'securities-heavy' if sec_pct > loan_pct else 'loan-heavy'} with
-  {max(sec_pct, loan_pct):.1f}% allocated to {'securities' if sec_pct > loan_pct else 'loans'}.
-
-  Securities provide liquidity and lower risk while loans
-  typically generate higher yields. Current allocation
-  balances {'liquidity needs with income generation' if sec_pct > 40 else 'income generation with liquidity management'}.
-
-MODEL DETAILS
-  Source: Unity Catalog - cfo_banking_demo
-  Execution Time: {result['execution_time']:.2f}s
-
-─────────────────────────────────────────────────────────
-Tools Used: get_portfolio_summary()"""
-
-        else:
-            # Default help message
-            response_text = """I can help you with:
-
-1. Rate Shock Analysis
-   Example: "Rate shock: +50 bps on MMDA"
-
-2. Treasury Yields
-   Example: "Current 10Y Treasury yield"
-
-3. Liquidity Coverage Ratio
-   Example: "LCR status" or "LCR with 1.5x stress"
-
-4. Portfolio Summary
-   Example: "Portfolio summary" or "Balance sheet"
-
-What would you like to know?"""
+        # Use Claude agent to process the query with tool calling
+        response_text = claude_agent.chat(
+            user_message=request.query,
+            agent_tools=agent_tools,
+            session_id=request.session_id
+        )
 
     except Exception as e:
-        response_text = f"Error processing query: {str(e)}\n\nPlease try rephrasing your question."
+        response_text = f"Error processing query: {str(e)}\n\nPlease try rephrasing your question or check the Databricks endpoint configuration."
+        import traceback
+        traceback.print_exc()
 
     execution_time = time.time() - start
 
