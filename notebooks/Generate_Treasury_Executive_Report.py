@@ -887,10 +887,82 @@ template_vars = {
     'beta_assessment': 'low sensitivity' if portfolio_beta < 0.4 else 'moderate sensitivity' if portfolio_beta < 0.6 else 'high sensitivity',
     'priority_action': f'Implement immediate rate increases on ${at_risk_balance/1e9:.2f}B at-risk deposits to defend against competitive pressure',
 
-    # Section HTML (simplified for now)
-    'scenarios_html': '<p>See detailed scenario analysis above</p>',
-    'rate_gap_html': '<p>See competitive positioning analysis above</p>',
-    'retention_html': '<p>See retention strategy roadmap above</p>'
+    # Section HTML - Convert Plotly charts to HTML and add scenario table
+    'scenarios_html': (
+        fig_waterfall.to_html(full_html=False, include_plotlyjs='cdn') +
+        '<div style="margin-top: 30px;"><h3>Scenario Details</h3>' +
+        '<table style="width: 100%; border-collapse: collapse; margin-top: 15px;">' +
+        '<tr style="background-color: #1B3139; color: white;">' +
+        '<th style="padding: 12px; text-align: left;">Scenario</th>' +
+        '<th style="padding: 12px; text-align: right;">Rate Shock</th>' +
+        '<th style="padding: 12px; text-align: right;">Projected Runoff</th>' +
+        '<th style="padding: 12px; text-align: right;">Runoff %</th>' +
+        '<th style="padding: 12px; text-align: left;">Treasurer Action</th>' +
+        '</tr>' +
+        ''.join([
+            f'<tr style="border-bottom: 1px solid #ddd;">' +
+            f'<td style="padding: 12px;">{r.get("scenario", "Unknown")}</td>' +
+            f'<td style="padding: 12px; text-align: right;">+{r.get("shock_bps", 0)} bps</td>' +
+            f'<td style="padding: 12px; text-align: right;">${r.get("total_runoff", 0)/1e9:.2f}B</td>' +
+            f'<td style="padding: 12px; text-align: right;">{r.get("runoff_pct", 0):.1f}%</td>' +
+            f'<td style="padding: 12px;">{r.get("treasurer_action", "N/A")}</td>' +
+            '</tr>'
+            for r in scenario_results
+        ]) +
+        '</table></div>'
+    ) if len(scenario_results) > 0 else '<p>No scenario data available</p>',
+
+    'rate_gap_html': (
+        '<h3>Deposit Composition by Relationship Category</h3>' +
+        fig_composition.to_html(full_html=False, include_plotlyjs=False) +
+        '<p style="margin-top: 20px; padding: 15px; background-color: #f0f9ff; border-left: 4px solid #00A8E1;">' +
+        f'<strong>Key Insight:</strong> Strategic deposits ({core_pct:.1f}% of portfolio) provide core funding stability. ' +
+        f'Tactical and Expendable segments ({100-core_pct:.1f}%) require proactive rate management to prevent runoff.' +
+        '</p>'
+    ),
+
+    'retention_html': (
+        '<h3>Rate Sensitivity (Beta) by Product Type</h3>' +
+        fig_beta.to_html(full_html=False, include_plotlyjs=False) +
+        '<div style="margin-top: 30px;"><h3>4-Tier Retention Framework</h3>' +
+        '<table style="width: 100%; border-collapse: collapse; margin-top: 15px;">' +
+        '<tr style="background-color: #1B3139; color: white;">' +
+        '<th style="padding: 12px; text-align: left;">Tier</th>' +
+        '<th style="padding: 12px; text-align: right;">Balance</th>' +
+        '<th style="padding: 12px; text-align: right;">% of Portfolio</th>' +
+        '<th style="padding: 12px; text-align: left;">Action Required</th>' +
+        '<th style="padding: 12px; text-align: left;">Timeline</th>' +
+        '</tr>' +
+        f'<tr style="border-bottom: 1px solid #ddd; background-color: #fee2e2;">' +
+        f'<td style="padding: 12px;"><strong>Tier 1: Critical</strong></td>' +
+        f'<td style="padding: 12px; text-align: right;">${critical_balance/1e9:.2f}B</td>' +
+        f'<td style="padding: 12px; text-align: right;">{critical_pct:.1f}%</td>' +
+        f'<td style="padding: 12px;">Immediate outreach, market rate +10 bps</td>' +
+        f'<td style="padding: 12px;">30 days</td>' +
+        '</tr>' +
+        f'<tr style="border-bottom: 1px solid #ddd; background-color: #fef3c7;">' +
+        f'<td style="padding: 12px;"><strong>Tier 2: High Risk</strong></td>' +
+        f'<td style="padding: 12px; text-align: right;">${(at_risk_balance - critical_balance)/1e9:.2f}B</td>' +
+        f'<td style="padding: 12px; text-align: right;">{(at_risk_pct - critical_pct):.1f}%</td>' +
+        f'<td style="padding: 12px;">Proactive rate adjustment to market -50 bps</td>' +
+        f'<td style="padding: 12px;">60 days</td>' +
+        '</tr>' +
+        f'<tr style="border-bottom: 1px solid #ddd; background-color: #fef9e7;">' +
+        f'<td style="padding: 12px;"><strong>Tier 3: Moderate</strong></td>' +
+        f'<td style="padding: 12px; text-align: right;">${(total_deposits - at_risk_balance)/2/1e9:.2f}B</td>' +
+        f'<td style="padding: 12px; text-align: right;">{((total_deposits - at_risk_balance)/2/total_deposits*100):.1f}%</td>' +
+        f'<td style="padding: 12px;">Monitor, adjust if runoff &gt;10%</td>' +
+        f'<td style="padding: 12px;">90 days</td>' +
+        '</tr>' +
+        f'<tr style="border-bottom: 1px solid #ddd; background-color: #d1fae5;">' +
+        f'<td style="padding: 12px;"><strong>Tier 4: Stable</strong></td>' +
+        f'<td style="padding: 12px; text-align: right;">${(total_deposits - at_risk_balance)/2/1e9:.2f}B</td>' +
+        f'<td style="padding: 12px; text-align: right;">{((total_deposits - at_risk_balance)/2/total_deposits*100):.1f}%</td>' +
+        f'<td style="padding: 12px;">Maintain pricing, deepen relationships</td>' +
+        f'<td style="padding: 12px;">Ongoing</td>' +
+        '</tr>' +
+        '</table></div>'
+    )
 }
 
 # Render HTML
