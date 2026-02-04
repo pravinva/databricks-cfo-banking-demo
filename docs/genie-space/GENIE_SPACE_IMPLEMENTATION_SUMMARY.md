@@ -18,7 +18,7 @@ All configuration, instructions, and metadata have been prepared for the Genie S
 - **1,500+ lines** of comprehensive instructions covering:
   - Deposit Beta Modeling (Phase 1)
   - Vintage Analysis (Phase 2)
-  - CCAR/DFAST Stress Testing (Phase 3)
+  - CCAR Stress Testing (Phase 3)
   - PPNR Forecasting (Phase 4)
 - **SQL scripts** to add table comments for all 12 tables
 - **Step-by-step creation guide** (UI and API methods)
@@ -50,7 +50,7 @@ All configuration, instructions, and metadata have been prepared for the Genie S
 **Key Finding:** Existing dashboards already cover 3 out of 4 requested areas!
 - ✅ Deposit Beta → Dashboard #6 (Model Performance & Recalibration)
 - ✅ Vintage Analysis → Dashboard #2 (ALM & Treasury Operations)
-- ✅ CCAR/DFAST → Dashboard #5 (CCAR/DFAST Regulatory)
+- ✅ CCAR → Dashboard #5 (CCAR Regulatory)
 - ⚠️ PPNR → Partial in Dashboard #5 (just add 4 queries)
 
 **Recommendation:** Use existing dashboards, create 1 unified Genie Space
@@ -100,7 +100,7 @@ All configuration, instructions, and metadata have been prepared for the Genie S
 
 ### Step 2: Configure Basic Settings
 - **Name:** CFO Deposit & Stress Modeling
-- **Description:** Natural language queries for deposit modeling, vintage analysis, CCAR/DFAST stress testing, and PPNR forecasting
+- **Description:** Natural language queries for deposit modeling, vintage analysis, CCAR stress testing, and PPNR forecasting
 
 ### Step 3: Add Tables
 Copy the table list from `/GENIE_SPACE_CONFIGURATION.md` section **"Tables to Include"**
@@ -161,7 +161,7 @@ Try these example queries:
 - "What is the 36-month runoff forecast for Expendable deposits?"
 - "Which opening regime has the highest g (ABGR)?"
 
-### CCAR/DFAST Stress Testing (Phase 3)
+### CCAR Stress Testing (Phase 3)
 - "What is the minimum CET1 ratio under severely adverse scenario?"
 - "Compare NII impact across all three CCAR scenarios"
 - "Show me the 9-quarter capital ratio projections for baseline"
@@ -216,7 +216,7 @@ Once the Genie Space is created, users can:
 - CFO and Finance Team
 - Treasury Team
 - Risk Management
-- Regulators (for CCAR/DFAST compliance)
+- Regulators (for CCAR compliance)
 - Data Science Team
 
 ---
@@ -242,7 +242,7 @@ Once the Genie Space is created, users can:
 │  Unity Catalog Tables (12 tables)                           │
 │  - Phase 1: Deposit Beta                                    │
 │  - Phase 2: Vintage Analysis                                │
-│  - Phase 3: CCAR/DFAST                                      │
+│  - Phase 3: CCAR                                      │
 │  - Phase 4: PPNR                                            │
 └────────────────┬────────────────────────────────────────────┘
                  │

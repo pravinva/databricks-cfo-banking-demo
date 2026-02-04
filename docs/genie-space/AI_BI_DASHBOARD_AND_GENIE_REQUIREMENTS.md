@@ -86,7 +86,7 @@
 ### Option 1: Enhance Existing Dashboards (RECOMMENDED ✅)
 
 **Action Plan:**
-1. ✅ **Keep Dashboard #5** (CCAR/DFAST) - Add PPNR queries
+1. ✅ **Keep Dashboard #5** (CCAR) - Add PPNR queries
 2. ✅ **Keep Dashboard #6** (Model Performance) - Already has deposit beta
 3. ✅ **Keep Dashboard #2** (ALM & Treasury) - Already has vintage analysis
 4. ✅ **Create 1 Unified Genie Space** (see below)
@@ -107,7 +107,7 @@
 **Action Plan:**
 1. Create Dashboard #11: Deposit Beta Modeling (dedicated)
 2. Create Dashboard #12: Vintage Analysis (dedicated)
-3. Create Dashboard #13: CCAR/DFAST Stress Testing (dedicated)
+3. Create Dashboard #13: CCAR Stress Testing (dedicated)
 4. Create Dashboard #14: PPNR Modeling (dedicated)
 
 **Pros:**
@@ -167,7 +167,7 @@
 **Genie Space Configuration:**
 ```yaml
 name: CFO Deposit & Stress Modeling
-description: Natural language queries for deposit modeling, vintage analysis, CCAR/DFAST stress testing, and PPNR forecasting
+description: Natural language queries for deposit modeling, vintage analysis, CCAR stress testing, and PPNR forecasting
 tables:
   # Phase 1: Deposit Beta
   - cfo_banking_demo.ml_models.deposit_beta_training_enhanced
@@ -178,7 +178,7 @@ tables:
   - cfo_banking_demo.ml_models.cohort_survival_rates
   - cfo_banking_demo.ml_models.deposit_runoff_forecasts
 
-  # Phase 3: CCAR/DFAST
+  # Phase 3: CCAR
   - cfo_banking_demo.ml_models.dynamic_beta_parameters
   - cfo_banking_demo.ml_models.stress_test_results
   - cfo_banking_demo.gold_regulatory.lcr_daily
@@ -204,7 +204,7 @@ instructions: |
      - Ask about cohort survival rates and Kaplan-Meier curves
      - Get 3-year runoff forecasts by relationship segment
 
-  3. CCAR/DFAST STRESS TESTING (Phase 3):
+  3. CCAR STRESS TESTING (Phase 3):
      - Query stress_test_results for scenario outcomes
      - Ask about CET1 ratios, NII impact, deposit runoff
      - Get LCR calculations and HQLA breakdowns
@@ -458,7 +458,7 @@ ORDER BY statement_date
 ## Final Recommendation
 
 ✅ **DO THIS:**
-1. Use existing Dashboard #5 (CCAR/DFAST) - enhance with PPNR queries
+1. Use existing Dashboard #5 (CCAR) - enhance with PPNR queries
 2. Use existing Dashboard #6 (Model Performance) - already has deposit beta
 3. Use existing Dashboard #2 (ALM & Treasury) - already has vintage analysis
 4. Create **1 unified Genie Space** covering all 4 modeling domains

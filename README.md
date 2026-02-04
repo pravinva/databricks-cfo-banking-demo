@@ -829,7 +829,7 @@ databricks-cfo-banking-demo/
 │   ├── Phase_2_DLT_Pipelines.py        # Delta Live Tables ETL
 │   ├── Phase1_Enhanced_Deposit_Beta_Model.py          # Treasury: Static beta (XGBoost)
 │   ├── Phase2_Vintage_Analysis_and_Decay_Modeling.py  # Treasury: Cohort survival
-│   ├── Phase3_Dynamic_Beta_and_Stress_Testing.py      # Treasury: CCAR/DFAST
+│   ├── Phase3_Dynamic_Beta_and_Stress_Testing.py      # Treasury: Regulatory stress testing (CCAR)
 │   ├── Train_PPNR_Models.py            # PPNR forecasting models
 │   ├── Batch_Inference_*.py            # Weekly portfolio scoring
 │   ├── Generate_*.py                   # Analytics report generators
@@ -853,7 +853,7 @@ databricks-cfo-banking-demo/
 │
 ├── dashboards/                         # 📈 Lakeview Dashboard SQL
 │   ├── 01_Executive_Overview_Dashboard.sql
-│   ├── 05_CCAR_DFAST_Regulatory_Dashboard.sql
+│   ├── 05_CCAR_Stress_Test_Dashboard.sql
 │   ├── 08_Flight_Deck.sql              # Exported: Bank CFO Flight Deck
 │   ├── 09_Portfolio_Suite.sql          # Exported: CFO Deposit Portfolio Suite
 │   ├── 10_Regulatory_Reconciliation_Dashboard.sql  # NEW: Data quality & lineage
@@ -876,16 +876,17 @@ databricks-cfo-banking-demo/
 ### Key Directories
 
 **notebooks/** - Databricks notebooks organized by function (see notebooks/README.md for full catalog):
-- **Phase 1-3 Treasury Modeling**: Static deposit beta → Vintage analysis → Dynamic beta/stress testing (Chen sigmoid, CCAR/DFAST)
+- **Phase 1-3 Treasury Modeling**: Static deposit beta → Vintage analysis → Dynamic beta/stress testing (Chen sigmoid, regulatory stress testing per CCAR requirements)
 - **PPNR Models**: Non-Interest Income & Expense forecasting
 - **Data Foundation**: Bronze ingestion (Phase_1) and DLT pipelines (Phase_2)
 - **Batch Inference & Reporting**: Weekly portfolio scoring and analytics report generation
+- **Treasury Executive Reporting** (NEW): `Generate_Treasury_Executive_Report.py` - Treasurer-focused deposit analytics with rate shock scenarios, funding gap projections, and 4-tier retention strategies
 - **Demo/Workshop**: Mosaic AI training demo, Data Science Agent demo
 - **archive/**: Superseded notebooks (Complete_Deposit_Beta_Model_Workflow, simplified versions)
 
 **frontend_app/** - Next.js 14 React application:
 - Bloomberg Terminal-inspired UI with navy/cyan color scheme
-- 6 tabs: Portfolio, Risk Analysis, Recent Activity, Deposit Beta, Vintage Analysis, CCAR/DFAST
+- 6 tabs: Portfolio, Risk Analysis, Recent Activity, Deposit Beta, Vintage Analysis, Stress Testing
 - Treasury modeling dashboards with advanced visualizations (survival curves, stress test projections)
 - AI assistant chat interface powered by Claude Sonnet 4.5
 
@@ -904,6 +905,11 @@ databricks-cfo-banking-demo/
 - `demo/`: Complete walkthrough scripts and reference materials
 - `requirements/`: Data requirements and analysis
 - `research/`: Treasury modeling research and implementation notes
+- `genie-space/`: Genie Space configuration guides (SQL expressions, sample questions, table setup)
+- **Treasurer Materials** (NEW):
+  - `TREASURER_MEETING_GUIDE.md`: Complete 30-45 minute demo script with talking points
+  - `TREASURER_EXECUTIVE_SUMMARY.md`: 8-page detailed overview of capabilities and ROI
+  - `TREASURER_ONE_PAGER.md`: Single-page overview for pre-meeting distribution
 - Root-level guides for AutoML, model validation, and notebook updates
 
 ---
@@ -1503,11 +1509,11 @@ The deposit beta modeling and analytics reporting workflow follows a Train → D
 │    - Time-varying beta based on rate environment               │
 │    - Non-linear response to rate changes                       │
 │    ↓                                                             │
-│ 2. CCAR/DFAST Stress Scenarios:                                 │
+│ 2. Regulatory Stress Test Scenarios (CCAR framework):           │
 │    - Baseline: Current trajectory (0 bps)                      │
 │    - Adverse: Gradual increase (+100 bps)                      │
 │    - Severely Adverse: Rapid shock (+200 bps)                  │
-│    - Custom: Extreme stress (+300 bps)                         │
+│    - Note: DFAST regulation sunsetted; CCAR framework applies  │
 │    ↓                                                             │
 │ 3. Economic Value of Equity (EVE) Analysis:                     │
 │    - Interest rate sensitivity                                  │
@@ -1602,9 +1608,9 @@ The deposit beta modeling and analytics reporting workflow follows a Train → D
 │    - Queries: vintage_cohort_survival table                    │
 │    - Displays: Cohort survival curves over 24 months          │
 │    ↓                                                             │
-│ 3. CCAR/DFAST Stress Test Dashboard:                           │
+│ 3. Regulatory Stress Test Dashboard:                            │
 │    - Queries: stress_test_results, stress_test_summary        │
-│    - Displays: CET1 projections, NII sensitivity              │
+│    - Displays: CET1 projections, NII sensitivity per CCAR     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1732,7 +1738,7 @@ This complete data flow documentation covers all major application paths and dem
 - CECL (Current Expected Credit Loss) reserve calculations
 - Interest rate risk models (NII at Risk, EVE at Risk)
 - Credit risk models (PD, LGD, EAD)
-- Stress testing scenarios (CCAR/DFAST)
+- Additional stress testing scenarios per CCAR requirements
 
 ### Phase 3: Advanced Analytics
 - Customer segment profitability analysis

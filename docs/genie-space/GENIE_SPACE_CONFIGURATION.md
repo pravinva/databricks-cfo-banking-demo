@@ -207,7 +207,7 @@ COMMENT ON COLUMN cfo_banking_demo.ml_models.cohort_survival_rates.account_survi
 **Table Comment:**
 ```sql
 COMMENT ON TABLE cfo_banking_demo.ml_models.deposit_runoff_forecasts IS
-'Phase 2 3-year deposit runoff forecasts using Chen Component Decay Model. Strategic deposits show ~10% runoff over 3 years, Tactical ~25%, Expendable ~40%. Use for: long-term funding planning, liquidity projections, and CCAR/DFAST scenarios.';
+'Phase 2 3-year deposit runoff forecasts using Chen Component Decay Model. Strategic deposits show ~10% runoff over 3 years, Tactical ~25%, Expendable ~40%. Use for: long-term funding planning, liquidity projections, and CCAR scenarios.';
 ```
 
 ---
@@ -234,7 +234,7 @@ COMMENT ON TABLE cfo_banking_demo.ml_models.deposit_runoff_forecasts IS
 **Table Comment:**
 ```sql
 COMMENT ON TABLE cfo_banking_demo.ml_models.dynamic_beta_parameters IS
-'Phase 3 Dynamic Beta Model - Sigmoid function parameters showing how deposit beta varies with market rates. Formula: β(Rm) = β_min + (β_max - β_min) / [1 + exp(-k*(Rm-R0))]. Use for: CCAR/DFAST stress testing, rate shock scenarios, and non-linear beta modeling.';
+'Phase 3 Dynamic Beta Model - Sigmoid function parameters showing how deposit beta varies with market rates. Formula: β(Rm) = β_min + (β_max - β_min) / [1 + exp(-k*(Rm-R0))]. Use for: CCAR stress testing, rate shock scenarios, and non-linear beta modeling.';
 
 COMMENT ON COLUMN cfo_banking_demo.ml_models.dynamic_beta_parameters.k_steepness IS
 'k parameter - Controls steepness of sigmoid curve. Higher k = faster beta response to rate changes. Strategic ~1.5, Tactical ~2.5, Expendable ~3.5.';
@@ -246,7 +246,7 @@ COMMENT ON COLUMN cfo_banking_demo.ml_models.dynamic_beta_parameters.R0_inflecti
 ---
 
 #### 7. `cfo_banking_demo.ml_models.stress_test_results`
-**Description:** CCAR/DFAST stress test results showing 9-quarter projections for Baseline, Adverse, and Severely Adverse scenarios.
+**Description:** CCAR stress test results showing 9-quarter projections for Baseline, Adverse, and Severely Adverse scenarios.
 
 **Key Columns:**
 - `scenario_id` - baseline, adverse, severely_adverse
@@ -266,7 +266,7 @@ COMMENT ON COLUMN cfo_banking_demo.ml_models.dynamic_beta_parameters.R0_inflecti
 **Table Comment:**
 ```sql
 COMMENT ON TABLE cfo_banking_demo.ml_models.stress_test_results IS
-'Phase 3 CCAR/DFAST stress test results. 9-quarter projections for Baseline (+0 bps), Adverse (+200 bps), Severely Adverse (+300 bps) scenarios. CET1 must stay ≥7.0% to pass. Use for: regulatory reporting, capital planning, and stress testing compliance.';
+'Phase 3 CCAR stress test results. 9-quarter projections for Baseline (+0 bps), Adverse (+200 bps), Severely Adverse (+300 bps) scenarios. CET1 must stay ≥7.0% to pass. Use for: regulatory reporting, capital planning, and stress testing compliance.';
 
 COMMENT ON COLUMN cfo_banking_demo.ml_models.stress_test_results.eve_cet1_ratio IS
 'CET1 (Common Equity Tier 1) capital ratio after Economic Value of Equity impact. Regulatory minimum is 7.0%. Well-capitalized = 10.5%+. Fed requires ≥7% in severely adverse.';
@@ -354,7 +354,7 @@ COMMENT ON TABLE cfo_banking_demo.gold_regulatory.hqla_inventory IS
 **Table Comment:**
 ```sql
 COMMENT ON TABLE cfo_banking_demo.ml_models.ppnr_forecasts IS
-'Phase 4 PPNR (Pre-Provision Net Revenue) forecasts. PPNR = NII + Non-Interest Income - Non-Interest Expense. 9-quarter projections for CCAR/DFAST compliance. Trained XGBoost models for fee income and operating expense. Use for: stress testing, capital planning, financial forecasting, efficiency analysis.';
+'Phase 4 PPNR (Pre-Provision Net Revenue) forecasts. PPNR = NII + Non-Interest Income - Non-Interest Expense. 9-quarter projections for CCAR compliance. Trained XGBoost models for fee income and operating expense. Use for: stress testing, capital planning, financial forecasting, efficiency analysis.';
 
 COMMENT ON COLUMN cfo_banking_demo.ml_models.ppnr_forecasts.forecasted_ppnr IS
 'PPNR = Net Interest Income + Non-Interest Income - Non-Interest Expense. Key profitability metric before credit losses. Baseline typically $450-500M/quarter, declines under stress scenarios.';
@@ -415,7 +415,7 @@ COMMENT ON TABLE cfo_banking_demo.ml_models.non_interest_expense_training_data I
 ```markdown
 # CFO Deposit & Stress Modeling - Genie Instructions
 
-You are a specialized AI assistant for CFO and Treasury operations at a banking institution. You have access to comprehensive banking data across 4 key modeling domains: Deposit Beta, Vintage Analysis, CCAR/DFAST Stress Testing, and PPNR Forecasting.
+You are a specialized AI assistant for CFO and Treasury operations at a banking institution. You have access to comprehensive banking data across 4 key modeling domains: Deposit Beta, Vintage Analysis, CCAR Stress Testing, and PPNR Forecasting.
 
 ## Your Capabilities
 
@@ -473,7 +473,7 @@ You are a specialized AI assistant for CFO and Treasury operations at a banking 
 
 ---
 
-### 3. CCAR/DFAST STRESS TESTING (Phase 3)
+### 3. CCAR STRESS TESTING (Phase 3)
 **Primary Tables:** `ml_models.dynamic_beta_parameters`, `stress_test_results`, `gold_regulatory.lcr_daily`, `gold_regulatory.hqla_inventory`
 
 **Key Concepts:**
@@ -502,7 +502,7 @@ You are a specialized AI assistant for CFO and Treasury operations at a banking 
 - "How much deposit runoff is expected under adverse scenario?"
 - "What is the HQLA composition by level?"
 
-**Important:** When users ask about "stress testing" or "CCAR/DFAST", these are regulatory scenarios.
+**Important:** When users ask about "stress testing" or "CCAR", these are regulatory scenarios.
 
 ---
 
@@ -615,49 +615,71 @@ If user asks about data not in these tables:
 
 ---
 
-## SQL to Add Table Comments (Run This First)
+## Table and Column Comments Status
+
+### ✅ Comments Applied Successfully
+
+All 12 tables have complete metadata with both table-level and column-level comments applied:
+
+**Status Summary (as of last update):**
+- Total tables: 12/12 (100%)
+- Total SQL statements: 217
+  - Table comments: 12
+  - Column comments: 205
+
+**Verification:**
+```bash
+# Check comment status for all tables
+python3 scripts/check_comment_status.py
+
+# Verify specific table
+databricks tables get cfo_banking_demo.ml_models.deposit_beta_training_enhanced --output json
+```
+
+### Automated Comment Management
+
+All table and column comments are managed via automated scripts in `scripts/`:
+
+1. **`scripts/update_genie_table_comments.py`** - Generates SQL comments from actual Unity Catalog schemas
+2. **`scripts/genie_table_comments.sql`** - Contains all 217 SQL COMMENT statements
+3. **`scripts/execute_all_comments.py`** - Executes comments via Databricks CLI
+4. **`scripts/check_comment_status.py`** - Verifies comment application status
+
+**To regenerate and reapply comments:**
+```bash
+# Step 1: Generate fresh SQL statements from current schemas
+python3 scripts/update_genie_table_comments.py
+
+# Step 2: Execute all comment statements
+python3 scripts/execute_all_comments.py
+
+# Step 3: Verify completion
+python3 scripts/check_comment_status.py
+```
+
+### Sample Table Comments (Reference Only)
+
+The full SQL is available in `scripts/genie_table_comments.sql`. Here are sample table-level comments:
 
 ```sql
 -- Phase 1: Deposit Beta
 COMMENT ON TABLE cfo_banking_demo.ml_models.deposit_beta_training_enhanced IS
-'Phase 1 Deposit Beta Model - Enhanced 40+ feature model with 7.2% MAPE accuracy. Contains rate sensitivity analysis, relationship categorization (Strategic/Tactical/Expendable), and at-risk account identification. Use for: deposit pricing strategy, rate shock analysis, customer retention, and flight risk assessment.';
-
-COMMENT ON TABLE cfo_banking_demo.bronze_core_banking.deposit_accounts IS
-'Current deposit account master file. Contains all deposit accounts with current balances, product types, and account status. Use for: portfolio analysis, balance reporting, and product mix analysis.';
+'Phase 1 Deposit Beta Model - Training dataset with 41 features for XGBoost model achieving 7.2% MAPE accuracy. Contains rate sensitivity analysis, relationship categorization (Strategic/Tactical/Expendable), and at-risk account identification. Use for: deposit pricing strategy, rate shock analysis, customer retention, and flight risk assessment.';
 
 -- Phase 2: Vintage Analysis
 COMMENT ON TABLE cfo_banking_demo.ml_models.component_decay_metrics IS
-'Phase 2 Chen Component Decay Model parameters. Lambda (λ) = account closure rate, g = balance growth rate (ABGR). Formula: D(t+1) = D(t) × (1-λ) × (1+g) separates account closures from balance changes. Use for: 3-year runoff projections and cohort behavior analysis.';
+'Phase 2 Vintage Analysis - Component-level decay metrics tracking deposit runoff patterns by cohort and product. Shows month-over-month decay rates, cumulative survival, and half-life calculations. Use for: liquidity forecasting, deposit stability analysis, and funding cost projections.';
 
-COMMENT ON TABLE cfo_banking_demo.ml_models.cohort_survival_rates IS
-'Phase 2 Kaplan-Meier survival analysis showing account retention over 36 months. Strategic customers show ~85% retention at 36 months, Tactical ~60%, Expendable ~40%. Use for: vintage analysis, cohort behavior, and retention forecasting.';
-
-COMMENT ON TABLE cfo_banking_demo.ml_models.deposit_runoff_forecasts IS
-'Phase 2 3-year deposit runoff forecasts using Chen Component Decay Model. Strategic deposits show ~10% runoff over 3 years, Tactical ~25%, Expendable ~40%. Use for: long-term funding planning, liquidity projections, and CCAR/DFAST scenarios.';
-
--- Phase 3: CCAR/DFAST
-COMMENT ON TABLE cfo_banking_demo.ml_models.dynamic_beta_parameters IS
-'Phase 3 Dynamic Beta Model - Sigmoid function parameters showing how deposit beta varies with market rates. Formula: β(Rm) = β_min + (β_max - β_min) / [1 + exp(-k*(Rm-R0))]. Use for: CCAR/DFAST stress testing, rate shock scenarios, and non-linear beta modeling.';
-
+-- Phase 3: CCAR Stress Testing
 COMMENT ON TABLE cfo_banking_demo.ml_models.stress_test_results IS
-'Phase 3 CCAR/DFAST stress test results. 9-quarter projections for Baseline (+0 bps), Adverse (+200 bps), Severely Adverse (+300 bps) scenarios. CET1 must stay ≥7.0% to pass. Use for: regulatory reporting, capital planning, and stress testing compliance.';
-
-COMMENT ON TABLE cfo_banking_demo.gold_regulatory.lcr_daily IS
-'Basel III Liquidity Coverage Ratio - Daily calculations. LCR = HQLA / Net Cash Outflows. Regulatory minimum is 100% (must survive 30-day liquidity stress). Level 1 HQLA (cash, treasuries) most liquid with 0% haircut. Use for: liquidity monitoring, regulatory compliance, stress testing.';
-
-COMMENT ON TABLE cfo_banking_demo.gold_regulatory.hqla_inventory IS
-'HQLA (High-Quality Liquid Assets) inventory detail. Level 1 (0% haircut): cash, reserves, treasuries. Level 2A (15%): GSE bonds, AAA corporates. Level 2B (50%): high-quality equities, some corporates. Use for: LCR calculation, liquidity management, asset allocation.';
+'Phase 3 CCAR Stress Testing - Comprehensive deposit balance projections under regulatory stress scenarios. 9-quarter forward projections aligned with Federal Reserve CCAR requirements. Use for: CCAR submissions, capital planning, and regulatory reporting.';
 
 -- Phase 4: PPNR
 COMMENT ON TABLE cfo_banking_demo.ml_models.ppnr_forecasts IS
-'Phase 4 PPNR (Pre-Provision Net Revenue) forecasts. PPNR = NII + Non-Interest Income - Non-Interest Expense. 9-quarter projections for CCAR/DFAST compliance. Trained XGBoost models for fee income and operating expense. Use for: stress testing, capital planning, financial forecasting, efficiency analysis.';
-
-COMMENT ON TABLE cfo_banking_demo.ml_models.non_interest_income_training_data IS
-'Non-interest income training data for ML forecasting. Includes service charges, card fees, wealth management fees, mortgage fees. Correlated with transaction volume, account activity, economic conditions. Use for: fee income modeling, PPNR forecasting, revenue diversification analysis.';
-
-COMMENT ON TABLE cfo_banking_demo.ml_models.non_interest_expense_training_data IS
-'Non-interest expense training data for ML forecasting. Includes salaries, occupancy, technology, marketing costs. Scaled by business volume (loans, deposits, transaction counts). Use for: expense modeling, PPNR forecasting, efficiency analysis, cost management.';
+'PPNR (Pre-Provision Net Revenue) forecasts by stress scenario. 9-quarter projections of Net Interest Income, Non-Interest Income, Non-Interest Expense, and PPNR. Includes efficiency ratio calculations. Use for: CCAR submissions, earnings forecasting, and fee income analysis.';
 ```
+
+**Note:** All 217 SQL statements are stored in `scripts/genie_table_comments.sql` and have been successfully applied to Unity Catalog.
 
 ---
 

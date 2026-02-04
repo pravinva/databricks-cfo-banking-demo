@@ -67,7 +67,7 @@ Your Genie Space is now ready for natural language queries across all 4 modeling
 **Vintage Analysis:**
 - "Show me the 3-year runoff forecast for Strategic customers"
 
-**CCAR/DFAST:**
+**CCAR:**
 - "Does the bank pass the severely adverse stress test?"
 
 **PPNR:**
