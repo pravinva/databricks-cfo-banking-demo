@@ -127,6 +127,21 @@ print(f"Scenarios: {len(RATE_SCENARIOS)}")
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Setup Unity Catalog Volume for Reports
+
+# COMMAND ----------
+
+# Create Unity Catalog Volume for storing HTML reports
+try:
+    spark.sql("CREATE VOLUME IF NOT EXISTS cfo_banking_demo.default.reports")
+    print("✓ Unity Catalog Volume: cfo_banking_demo.default.reports")
+except Exception as e:
+    # Volume might already exist
+    print(f"✓ Volume ready (may already exist): {e}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Load Data
 
 # COMMAND ----------
@@ -874,20 +889,30 @@ template_vars = {
 template = Template(html_template)
 html_report = template.render(**template_vars)
 
-# Save to DBFS
+# Save to Unity Catalog Volume
 report_filename = f"treasury_deposit_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-dbfs_path = f"/dbfs/FileStore/reports/treasury/{report_filename}"
+volume_path = f"/Volumes/cfo_banking_demo/default/reports/treasury/{report_filename}"
 
-# Create directory if it doesn't exist
+# Create subdirectory if needed
 import os
-os.makedirs(os.path.dirname(dbfs_path), exist_ok=True)
+volume_dir = os.path.dirname(volume_path)
+os.makedirs(volume_dir, exist_ok=True)
 
-# Write HTML file
-with open(dbfs_path, 'w') as f:
+# Write HTML file to Unity Catalog Volume
+with open(volume_path, 'w') as f:
     f.write(html_report)
 
-print(f"✓ Treasurer report saved to: {dbfs_path}")
-print(f"✓ Download URL: https://<workspace-url>/files/reports/treasury/{report_filename}")
+print("=" * 80)
+print("REPORT GENERATION COMPLETE")
+print("=" * 80)
+print(f"✓ Treasurer report saved to Unity Catalog Volume")
+print(f"✓ Volume path: {volume_path}")
+print(f"✓ File size: {len(html_report):,} bytes")
+print()
+print("To view the report:")
+print(f"1. Navigate to: /Volumes/cfo_banking_demo/default/reports/treasury/")
+print(f"2. Download file: {report_filename}")
+print(f"3. Open in browser")
 
 # COMMAND ----------
 
@@ -908,7 +933,7 @@ summary_record = spark.createDataFrame([{
     'core_funding_pct': core_pct,
     'funding_stability_score': funding_stability_score,
     'current_lcr': current_lcr if has_lcr else None,
-    'report_path': dbfs_path
+    'report_path': volume_path
 }])
 
 # Save to Delta table
@@ -922,7 +947,7 @@ print("✓ Summary saved to gold_analytics.treasury_executive_reports")
 # MAGIC ## COMPLETE - Treasurer Report Generated
 # MAGIC
 # MAGIC **Outputs**:
-# MAGIC - ✅ HTML Report: Saved to `/dbfs/FileStore/reports/treasury/`
+# MAGIC - ✅ HTML Report: Saved to Unity Catalog Volume `/Volumes/cfo_banking_demo/default/reports/treasury/`
 # MAGIC - ✅ Delta Table: `cfo_banking_demo.gold_analytics.treasury_executive_reports`
 # MAGIC - ✅ Interactive Charts: Displayed above
 # MAGIC
