@@ -383,18 +383,26 @@ if len(scenario_results) == 0:
     print(f"RATE_SCENARIOS defined: {len(RATE_SCENARIOS)} scenarios")
 else:
     for result in scenario_results:
-        print(f"SCENARIO: {result['scenario']} (+{result['shock_bps']} bps)")
-        print(f"Probability: {result['probability']}")
-        print(f"Expected Runoff: ${result['total_runoff']/1e9:.2f}B ({result['runoff_pct']:.1f}% of portfolio)")
-        print(f"Post-Shock Deposits: ${result['post_shock_deposits']/1e9:.2f}B")
-        if result['estimated_lcr'] is not None:
-            compliance_status = "✓ Compliant" if result['lcr_compliant'] else "✗ Below Minimum"
-            print(f"Estimated LCR Impact: {result['estimated_lcr']:.1f}% {compliance_status}")
+        print(f"SCENARIO: {result.get('scenario', 'Unknown')} (+{result.get('shock_bps', 0)} bps)")
+        print(f"Probability: {result.get('probability', 'N/A')}")
+        print(f"Expected Runoff: ${result.get('total_runoff', 0)/1e9:.2f}B ({result.get('runoff_pct', 0):.1f}% of portfolio)")
+        print(f"Post-Shock Deposits: ${result.get('post_shock_deposits', 0)/1e9:.2f}B")
+
+        estimated_lcr = result.get('estimated_lcr')
+        if estimated_lcr is not None:
+            compliance_status = "✓ Compliant" if result.get('lcr_compliant', False) else "✗ Below Minimum"
+            print(f"Estimated LCR Impact: {estimated_lcr:.1f}% {compliance_status}")
+
         print()
         print("Runoff by Segment:")
-        print(result['by_segment'][['segment', 'expected_runoff', 'runoff_pct']].to_string(index=False))
+        by_segment = result.get('by_segment')
+        if by_segment is not None and not by_segment.empty:
+            print(by_segment[['segment', 'expected_runoff', 'runoff_pct']].to_string(index=False))
+        else:
+            print("  No segment data available")
+
         print()
-        print(f"TREASURER ACTION: {result['treasurer_action']}")
+        print(f"TREASURER ACTION: {result.get('treasurer_action', 'No action specified')}")
         print()
         print("-" * 120)
         print()
