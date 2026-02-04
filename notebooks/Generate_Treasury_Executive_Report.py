@@ -32,6 +32,37 @@
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Setup: Install Libraries
+
+# COMMAND ----------
+
+%pip install plotly kaleido jinja2 --quiet
+dbutils.library.restartPython()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Import Libraries
+
+# COMMAND ----------
+
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+from pyspark.sql import functions as F
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+from jinja2 import Template
+import warnings
+warnings.filterwarnings('ignore')
+
+print(f"✓ Libraries loaded")
+print(f"Report generation: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Configuration
 
 # COMMAND ----------
@@ -84,37 +115,6 @@ MODERATE_GAP = -50   # Moderate: 50-100 bps below market
 print(f"Report Configuration: {REPORT_TITLE}")
 print(f"Bank: {BANK_NAME}")
 print(f"Scenarios: {len(RATE_SCENARIOS)}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Setup: Install Libraries
-
-# COMMAND ----------
-
-%pip install plotly kaleido jinja2 --quiet
-dbutils.library.restartPython()
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Import Libraries
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from pyspark.sql import functions as F
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
-from jinja2 import Template
-import warnings
-warnings.filterwarnings('ignore')
-
-print(f"✓ Libraries loaded")
-print(f"Report generation: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}")
 
 # COMMAND ----------
 
