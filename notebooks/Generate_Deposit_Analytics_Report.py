@@ -334,7 +334,133 @@ else:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Section 6: Generate HTML Report
+# MAGIC ## Section 6: PPNR & Fee Income Analysis
+
+# COMMAND ----------
+
+# Load PPNR forecasts data
+try:
+    ppnr_df = spark.table("cfo_banking_demo.ml_models.ppnr_forecasts")
+    ppnr_pdf = ppnr_df.toPandas()
+    has_ppnr = True
+
+    # Get current quarter PPNR metrics (3-month horizon, Baseline scenario)
+    current_ppnr = ppnr_pdf[
+        (ppnr_pdf['scenario'] == 'Baseline') &
+        (ppnr_pdf['forecast_horizon_months'] == 3)
+    ]
+
+    if len(current_ppnr) > 0:
+        current_ppnr = current_ppnr.iloc[0]
+
+        print("\n" + "="*80)
+        print("PPNR & FEE INCOME ANALYSIS")
+        print("="*80)
+        print(f"\nCurrent Quarter Forecast (Baseline Scenario):")
+        print(f"  PPNR:                    ${current_ppnr['forecasted_ppnr']/1e6:.1f}M")
+        print(f"  - Net Interest Income:   ${current_ppnr['forecasted_nii']/1e6:.1f}M")
+        print(f"  - Non-Interest Income:   ${current_ppnr['forecasted_noninterest_income']/1e6:.1f}M")
+        print(f"  - Non-Interest Expense:  ${current_ppnr['forecasted_noninterest_expense']/1e6:.1f}M")
+
+        # Calculate efficiency ratio
+        efficiency_ratio = (
+            current_ppnr['forecasted_noninterest_expense'] /
+            (current_ppnr['forecasted_nii'] + current_ppnr['forecasted_noninterest_income'])
+        ) * 100
+        print(f"\n  Efficiency Ratio:        {efficiency_ratio:.1f}%")
+
+        # Visualization 6: PPNR Components Waterfall
+        fig_ppnr_waterfall = go.Figure(go.Waterfall(
+            name="PPNR",
+            orientation="v",
+            measure=["relative", "relative", "relative", "total"],
+            x=["Net Interest<br>Income", "Non-Interest<br>Income", "Non-Interest<br>Expense", "PPNR"],
+            y=[
+                current_ppnr['forecasted_nii']/1e6,
+                current_ppnr['forecasted_noninterest_income']/1e6,
+                -current_ppnr['forecasted_noninterest_expense']/1e6,
+                current_ppnr['forecasted_ppnr']/1e6
+            ],
+            connector={"line": {"color": "rgb(63, 63, 63)"}},
+            decreasing={"marker": {"color": "#FF3621"}},
+            increasing={"marker": {"color": "#00A8E1"}},
+            totals={"marker": {"color": "#1B3139"}}
+        ))
+
+        fig_ppnr_waterfall.update_layout(
+            title="PPNR Components Breakdown (Current Quarter)",
+            yaxis_title="Amount ($M)",
+            showlegend=False,
+            height=400
+        )
+
+        # Visualization 7: 9-Quarter PPNR Projections by Scenario
+        fig_ppnr_forecast = go.Figure()
+
+        for scenario in ['Baseline', 'Adverse', 'Severely_Adverse']:
+            scenario_data = ppnr_pdf[ppnr_pdf['scenario'] == scenario].sort_values('forecast_horizon_months')
+            fig_ppnr_forecast.add_trace(go.Scatter(
+                x=scenario_data['forecast_horizon_months'],
+                y=scenario_data['forecasted_ppnr'] / 1e6,
+                mode='lines+markers',
+                name=scenario.replace('_', ' '),
+                line=dict(width=3)
+            ))
+
+        fig_ppnr_forecast.update_layout(
+            title="PPNR 9-Quarter Forecast by Scenario",
+            xaxis_title="Forecast Horizon (Months)",
+            yaxis_title="PPNR ($M)",
+            hovermode='x unified',
+            height=400
+        )
+
+        # Visualization 8: Efficiency Ratio Projection
+        fig_efficiency = go.Figure()
+
+        for scenario in ['Baseline', 'Adverse', 'Severely_Adverse']:
+            scenario_data = ppnr_pdf[ppnr_pdf['scenario'] == scenario].sort_values('forecast_horizon_months')
+            # Calculate efficiency ratio for each period
+            efficiency = (
+                scenario_data['forecasted_noninterest_expense'] /
+                (scenario_data['forecasted_nii'] + scenario_data['forecasted_noninterest_income'])
+            ) * 100
+
+            fig_efficiency.add_trace(go.Scatter(
+                x=scenario_data['forecast_horizon_months'],
+                y=efficiency,
+                mode='lines+markers',
+                name=scenario.replace('_', ' '),
+                line=dict(width=3)
+            ))
+
+        fig_efficiency.update_layout(
+            title="Efficiency Ratio Projection (9 Quarters)",
+            xaxis_title="Forecast Horizon (Months)",
+            yaxis_title="Efficiency Ratio (%)",
+            hovermode='x unified',
+            height=400
+        )
+
+        print("\n✓ PPNR visualizations created successfully")
+    else:
+        has_ppnr = False
+        fig_ppnr_waterfall = None
+        fig_ppnr_forecast = None
+        fig_efficiency = None
+        print("⚠️ Warning: No current quarter PPNR data found")
+
+except Exception as e:
+    print(f"⚠️ Warning: Could not load PPNR data: {e}")
+    has_ppnr = False
+    fig_ppnr_waterfall = None
+    fig_ppnr_forecast = None
+    fig_efficiency = None
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Section 7: Generate HTML Report
 
 # COMMAND ----------
 
@@ -580,9 +706,70 @@ html_template = """
         </table>
     </div>
 
+    <!-- PPNR & Fee Income Analysis -->
+    {% if has_ppnr %}
+    <div class="section">
+        <h2>4. PPNR & Fee Income Analysis</h2>
+        <p>Pre-Provision Net Revenue (PPNR) projections provide insight into the bank's operating profitability before credit losses.</p>
+
+        <div class="metric-grid">
+            <div class="metric-card">
+                <h3>Current Quarter PPNR</h3>
+                <div class="value">${{ "%.1f"|format(ppnr_current/1e6) }}M</div>
+            </div>
+            <div class="metric-card">
+                <h3>Net Interest Income</h3>
+                <div class="value">${{ "%.1f"|format(ppnr_nii/1e6) }}M</div>
+            </div>
+            <div class="metric-card">
+                <h3>Non-Interest Income</h3>
+                <div class="value">${{ "%.1f"|format(ppnr_nonii_income/1e6) }}M</div>
+            </div>
+            <div class="metric-card">
+                <h3>Efficiency Ratio</h3>
+                <div class="value">{{ "%.1f"|format(ppnr_efficiency) }}%</div>
+            </div>
+        </div>
+
+        <div class="warning">
+            <strong>Note:</strong> Fee income is driven by deposit relationships (transaction fees, overdraft fees, account maintenance fees).
+            Preserving sticky deposit relationships is critical for maintaining non-interest income streams.
+        </div>
+
+        <h3>9-Quarter PPNR Forecast by Scenario</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Q1 PPNR</th>
+                    <th>Q4 PPNR</th>
+                    <th>Q9 PPNR</th>
+                    <th>Cumulative (9Q)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scenario in ppnr_scenarios %}
+                <tr>
+                    <td>{{ scenario.name }}</td>
+                    <td>${{ "%.1f"|format(scenario.q1/1e6) }}M</td>
+                    <td>${{ "%.1f"|format(scenario.q4/1e6) }}M</td>
+                    <td>${{ "%.1f"|format(scenario.q9/1e6) }}M</td>
+                    <td class="{% if scenario.cumulative > 0 %}positive{% else %}negative{% endif %}">${{ "%.1f"|format(scenario.cumulative/1e6) }}M</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="recommendation">
+            <strong>Treasury Impact:</strong> Deposit runoff under adverse scenarios will reduce fee income from transaction-based products.
+            Focus retention efforts on high-balance, transaction-heavy accounts to preserve both NII and non-interest income.
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Recommendations -->
     <div class="section">
-        <h2>5. Strategic Recommendations</h2>
+        <h2>{% if has_ppnr %}5{% else %}4{% endif %}. Strategic Recommendations</h2>
         <ol>
             <li><strong>Liquidity Contingency:</strong> Maintain ${{ "%.2f"|format(scenarios[2].total_runoff/1e9) }}B in contingent liquidity sources to cover severe scenario runoff.</li>
             <li><strong>Product Mix Optimization:</strong> {{ product_recommendation }}</li>
@@ -643,6 +830,34 @@ product_runoff = severe_scenario['by_product'].merge(
 product_runoff['expected_runoff'] = product_runoff['expected_runoff_amount']
 product_runoff = product_runoff.sort_values('runoff_pct', ascending=False)
 
+# Prepare PPNR data for template
+ppnr_template_data = {}
+if has_ppnr:
+    ppnr_template_data['has_ppnr'] = True
+    ppnr_template_data['ppnr_current'] = current_ppnr['forecasted_ppnr']
+    ppnr_template_data['ppnr_nii'] = current_ppnr['forecasted_nii']
+    ppnr_template_data['ppnr_nonii_income'] = current_ppnr['forecasted_noninterest_income']
+    ppnr_template_data['ppnr_efficiency'] = (
+        current_ppnr['forecasted_noninterest_expense'] /
+        (current_ppnr['forecasted_nii'] + current_ppnr['forecasted_noninterest_income'])
+    ) * 100
+
+    # Get PPNR by scenario for 9-quarter forecast
+    ppnr_scenarios = []
+    for scenario in ['Baseline', 'Adverse', 'Severely_Adverse']:
+        scenario_data = ppnr_pdf[ppnr_pdf['scenario'] == scenario].sort_values('forecast_horizon_months')
+        if len(scenario_data) > 0:
+            ppnr_scenarios.append({
+                'name': scenario.replace('_', ' '),
+                'q1': scenario_data[scenario_data['forecast_horizon_months'] == 3]['forecasted_ppnr'].values[0] if 3 in scenario_data['forecast_horizon_months'].values else 0,
+                'q4': scenario_data[scenario_data['forecast_horizon_months'] == 12]['forecasted_ppnr'].values[0] if 12 in scenario_data['forecast_horizon_months'].values else 0,
+                'q9': scenario_data[scenario_data['forecast_horizon_months'] == 27]['forecasted_ppnr'].values[0] if 27 in scenario_data['forecast_horizon_months'].values else 0,
+                'cumulative': scenario_data['forecasted_ppnr'].sum()
+            })
+    ppnr_template_data['ppnr_scenarios'] = ppnr_scenarios
+else:
+    ppnr_template_data['has_ppnr'] = False
+
 # Render HTML
 template = Template(html_template)
 html_report = template.render(
@@ -667,7 +882,8 @@ html_report = template.render(
     ],
     product_runoff=product_runoff.to_dict('records'),
     product_recommendation=product_recommendation,
-    rate_recommendation=rate_recommendation
+    rate_recommendation=rate_recommendation,
+    **ppnr_template_data
 )
 
 print("✓ HTML report generated successfully")
