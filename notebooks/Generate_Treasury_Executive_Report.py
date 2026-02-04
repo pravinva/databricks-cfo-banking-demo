@@ -57,6 +57,14 @@ from jinja2 import Template
 import warnings
 warnings.filterwarnings('ignore')
 
+# Helper function to ensure numeric columns are float (not Decimal)
+def ensure_float(df, columns):
+    """Convert specified columns to float type to avoid Decimal issues"""
+    for col in columns:
+        if col in df.columns:
+            df[col] = df[col].astype(float)
+    return df
+
 print(f"✓ Libraries loaded")
 print(f"Report generation: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}")
 
@@ -127,10 +135,20 @@ print(f"Scenarios: {len(RATE_SCENARIOS)}")
 deposits_df = spark.table("cfo_banking_demo.ml_models.deposit_beta_training_enhanced")
 deposits_pdf = deposits_df.toPandas()
 
+# Convert Decimal columns to float (Unity Catalog can return Decimal types)
+numeric_cols = ['balance_millions', 'target_beta', 'stated_rate', 'rate_gap', 'market_fed_funds_rate']
+for col in numeric_cols:
+    if col in deposits_pdf.columns:
+        deposits_pdf[col] = deposits_pdf[col].astype(float)
+
 # Load runoff forecasts (vintage analysis)
 try:
     runoff_df = spark.table("cfo_banking_demo.ml_models.deposit_runoff_forecasts")
     runoff_pdf = runoff_df.toPandas()
+    # Convert numeric columns
+    for col in ['current_balance_billions', 'projected_balance_billions', 'runoff_pct']:
+        if col in runoff_pdf.columns:
+            runoff_pdf[col] = runoff_pdf[col].astype(float)
     has_runoff_forecast = True
 except:
     print("⚠️ Runoff forecasts not available (run Phase 2 notebook)")
@@ -140,7 +158,7 @@ except:
 try:
     lcr_df = spark.table("cfo_banking_demo.gold_regulatory.lcr_daily")
     lcr_pdf = lcr_df.toPandas()
-    current_lcr = lcr_pdf.sort_values('calculation_date', ascending=False).iloc[0]['lcr_ratio']
+    current_lcr = float(lcr_pdf.sort_values('calculation_date', ascending=False).iloc[0]['lcr_ratio'])
     has_lcr = True
 except:
     print("⚠️ LCR data not available")
@@ -236,6 +254,10 @@ composition = deposits_pdf.groupby(['relationship_category', 'product_type']).ag
 }).reset_index()
 
 composition.columns = ['relationship_category', 'product_type', 'balance_millions', 'account_count', 'avg_beta', 'avg_rate', 'avg_rate_gap']
+
+# Ensure float types for calculations
+composition = ensure_float(composition, ['balance_millions', 'avg_beta', 'avg_rate', 'avg_rate_gap'])
+
 composition['balance_billions'] = composition['balance_millions'] / 1000
 composition['pct_of_total'] = composition['balance_millions'] / deposits_pdf['balance_millions'].sum() * 100
 
@@ -379,6 +401,10 @@ rate_gap_analysis = deposits_pdf.groupby('product_type').agg({
 }).reset_index()
 
 rate_gap_analysis.columns = ['product_type', 'balance_millions', 'account_count', 'avg_rate_gap', 'avg_stated_rate', 'market_rate']
+
+# Ensure float types
+rate_gap_analysis = ensure_float(rate_gap_analysis, ['balance_millions', 'avg_rate_gap', 'avg_stated_rate', 'market_rate'])
+
 rate_gap_analysis['balance_billions'] = rate_gap_analysis['balance_millions'] / 1000
 rate_gap_analysis['rate_gap_bps'] = rate_gap_analysis['avg_rate_gap'] * 10000  # Convert to bps
 rate_gap_analysis['market_rate_pct'] = rate_gap_analysis['market_rate']
@@ -447,6 +473,10 @@ risk_tier_analysis = deposits_pdf.groupby('risk_tier').agg({
 }).reset_index()
 
 risk_tier_analysis.columns = ['risk_tier', 'balance_millions', 'account_count', 'avg_beta', 'avg_rate_gap']
+
+# Ensure float types
+risk_tier_analysis = ensure_float(risk_tier_analysis, ['balance_millions', 'avg_beta', 'avg_rate_gap'])
+
 risk_tier_analysis['balance_billions'] = risk_tier_analysis['balance_millions'] / 1000
 risk_tier_analysis['rate_gap_bps'] = risk_tier_analysis['avg_rate_gap'] * 10000
 risk_tier_analysis['pct_of_portfolio'] = risk_tier_analysis['balance_millions'] / deposits_pdf['balance_millions'].sum() * 100
@@ -532,6 +562,10 @@ fig_composition = go.Figure()
 composition_summary = deposits_pdf.groupby('relationship_category').agg({
     'balance_millions': 'sum'
 }).reset_index()
+
+# Ensure float type
+composition_summary = ensure_float(composition_summary, ['balance_millions'])
+
 composition_summary['balance_billions'] = composition_summary['balance_millions'] / 1000
 
 colors = {'Strategic': '#10B981', 'Tactical': '#F59E0B', 'Expendable': '#EF4444'}
@@ -587,7 +621,12 @@ fig_beta = go.Figure()
 beta_by_product = deposits_pdf.groupby('product_type').agg({
     'target_beta': 'mean',
     'balance_millions': 'sum'
-}).reset_index().sort_values('target_beta', ascending=False)
+}).reset_index()
+
+# Ensure float type
+beta_by_product = ensure_float(beta_by_product, ['target_beta', 'balance_millions'])
+
+beta_by_product = beta_by_product.sort_values('target_beta', ascending=False)
 
 fig_beta.add_trace(go.Bar(
     y=beta_by_product['product_type'],
