@@ -283,6 +283,8 @@ print(f"  - Treasurer Action: Assume runoff; plan wholesale funding replacement"
 # Calculate runoff for each treasurer scenario
 scenario_results = []
 
+print(f"Processing {len(RATE_SCENARIOS)} rate scenarios...")
+
 for scenario in RATE_SCENARIOS:
     shock_bps = scenario['shock_bps']
 
@@ -316,7 +318,7 @@ for scenario in RATE_SCENARIOS:
         estimated_lcr_impact = None
         lcr_compliant = None
 
-    scenario_results.append({
+    result_dict = {
         'scenario': scenario['name'],
         'shock_bps': shock_bps,
         'probability': scenario['probability'],
@@ -327,7 +329,11 @@ for scenario in RATE_SCENARIOS:
         'estimated_lcr': estimated_lcr_impact,
         'lcr_compliant': lcr_compliant,
         'by_segment': by_segment
-    })
+    }
+    scenario_results.append(result_dict)
+    print(f"  ✓ Processed: {scenario['name']}")
+
+print(f"\n✓ Generated {len(scenario_results)} scenario results")
 
 # Display results
 print("=" * 120)
@@ -335,22 +341,26 @@ print("RATE SHOCK SCENARIOS - FUNDING GAP PROJECTIONS")
 print("=" * 120)
 print()
 
-for result in scenario_results:
-    print(f"SCENARIO: {result['scenario']} (+{result['shock_bps']} bps)")
-    print(f"Probability: {result['probability']}")
-    print(f"Expected Runoff: ${result['total_runoff']/1e9:.2f}B ({result['runoff_pct']:.1f}% of portfolio)")
-    print(f"Post-Shock Deposits: ${result['post_shock_deposits']/1e9:.2f}B")
-    if result['estimated_lcr'] is not None:
-        compliance_status = "✓ Compliant" if result['lcr_compliant'] else "✗ Below Minimum"
-        print(f"Estimated LCR Impact: {result['estimated_lcr']:.1f}% {compliance_status}")
-    print()
-    print("Runoff by Segment:")
-    print(result['by_segment'][['segment', 'expected_runoff', 'runoff_pct']].to_string(index=False))
-    print()
-    print(f"TREASURER ACTION: {result['treasurer_action']}")
-    print()
-    print("-" * 120)
-    print()
+if len(scenario_results) == 0:
+    print("⚠️ ERROR: No scenario results generated. Check RATE_SCENARIOS configuration.")
+    print(f"RATE_SCENARIOS defined: {len(RATE_SCENARIOS)} scenarios")
+else:
+    for result in scenario_results:
+        print(f"SCENARIO: {result['scenario']} (+{result['shock_bps']} bps)")
+        print(f"Probability: {result['probability']}")
+        print(f"Expected Runoff: ${result['total_runoff']/1e9:.2f}B ({result['runoff_pct']:.1f}% of portfolio)")
+        print(f"Post-Shock Deposits: ${result['post_shock_deposits']/1e9:.2f}B")
+        if result['estimated_lcr'] is not None:
+            compliance_status = "✓ Compliant" if result['lcr_compliant'] else "✗ Below Minimum"
+            print(f"Estimated LCR Impact: {result['estimated_lcr']:.1f}% {compliance_status}")
+        print()
+        print("Runoff by Segment:")
+        print(result['by_segment'][['segment', 'expected_runoff', 'runoff_pct']].to_string(index=False))
+        print()
+        print(f"TREASURER ACTION: {result['treasurer_action']}")
+        print()
+        print("-" * 120)
+        print()
 
 # COMMAND ----------
 
@@ -545,10 +555,15 @@ fig_composition.update_layout(
 # Chart 2: Rate Shock Waterfall
 fig_waterfall = go.Figure()
 
-scenario_summary = pd.DataFrame([
-    {'Scenario': r['scenario'], 'Runoff ($B)': r['total_runoff']/1e9}
-    for r in scenario_results
-])
+# Validate scenario_results exists and has data
+if len(scenario_results) == 0:
+    print("⚠️ No scenario results available. Run Section 3 first.")
+    scenario_summary = pd.DataFrame(columns=['Scenario', 'Runoff ($B)'])
+else:
+    scenario_summary = pd.DataFrame([
+        {'Scenario': r.get('scenario', 'Unknown'), 'Runoff ($B)': r.get('total_runoff', 0)/1e9}
+        for r in scenario_results
+    ])
 
 fig_waterfall.add_trace(go.Bar(
     x=scenario_summary['Scenario'],
