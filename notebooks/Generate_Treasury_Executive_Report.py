@@ -921,25 +921,46 @@ print(f"3. Open in browser")
 
 # COMMAND ----------
 
-# Create summary record for dashboard integration
-summary_record = spark.createDataFrame([{
+# Create summary record for dashboard integration with explicit schema
+from pyspark.sql.types import StructType, StructField, TimestampType, StringType, DoubleType
+
+# Define schema explicitly to avoid type inference issues
+summary_schema = StructType([
+    StructField("report_date", TimestampType(), False),
+    StructField("report_type", StringType(), False),
+    StructField("total_deposits", DoubleType(), False),
+    StructField("portfolio_beta", DoubleType(), False),
+    StructField("at_risk_deposits", DoubleType(), False),
+    StructField("at_risk_pct", DoubleType(), False),
+    StructField("critical_risk_deposits", DoubleType(), False),
+    StructField("core_funding_pct", DoubleType(), False),
+    StructField("funding_stability_score", DoubleType(), False),
+    StructField("current_lcr", DoubleType(), True),
+    StructField("report_path", StringType(), False)
+])
+
+# Convert all numeric values to float explicitly
+summary_data = [{
     'report_date': report_date,
     'report_type': 'Treasury_Executive',
-    'total_deposits': total_deposits,
-    'portfolio_beta': portfolio_beta,
-    'at_risk_deposits': at_risk_balance,
-    'at_risk_pct': at_risk_pct,
-    'critical_risk_deposits': critical_balance,
-    'core_funding_pct': core_pct,
-    'funding_stability_score': funding_stability_score,
-    'current_lcr': current_lcr if has_lcr else None,
+    'total_deposits': float(total_deposits),
+    'portfolio_beta': float(portfolio_beta),
+    'at_risk_deposits': float(at_risk_balance),
+    'at_risk_pct': float(at_risk_pct),
+    'critical_risk_deposits': float(critical_balance),
+    'core_funding_pct': float(core_pct),
+    'funding_stability_score': float(funding_stability_score),
+    'current_lcr': float(current_lcr) if has_lcr and current_lcr is not None else None,
     'report_path': volume_path
-}])
+}]
+
+summary_record = spark.createDataFrame(summary_data, schema=summary_schema)
 
 # Save to Delta table
 summary_record.write.format("delta").mode("append").saveAsTable("cfo_banking_demo.gold_analytics.treasury_executive_reports")
 
 print("✓ Summary saved to gold_analytics.treasury_executive_reports")
+print(f"✓ Record count: {summary_record.count()}")
 
 # COMMAND ----------
 
