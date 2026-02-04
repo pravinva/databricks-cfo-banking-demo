@@ -97,10 +97,10 @@ print(response.json())
 **Table Comment for Databricks:**
 ```sql
 COMMENT ON TABLE cfo_banking_demo.ml_models.deposit_beta_training_enhanced IS
-'Phase 1 Deposit Beta Model - Enhanced 40+ feature model with 7.2% MAPE accuracy. Contains rate sensitivity analysis, relationship categorization (Strategic/Tactical/Expendable), and at-risk account identification. Use for: deposit pricing strategy, rate shock analysis, customer retention, and flight risk assessment.';
+'Phase 1 Deposit Beta Model - Training dataset with 41 features for XGBoost model achieving 7.2% MAPE accuracy. Contains rate sensitivity analysis, relationship categorization (Strategic/Tactical/Expendable), and at-risk account identification. Use for: deposit pricing strategy, rate shock analysis, customer retention, and flight risk assessment.';
 
-COMMENT ON COLUMN cfo_banking_demo.ml_models.deposit_beta_training_enhanced.predicted_beta IS
-'ML model predicted deposit beta coefficient (0-1 scale). Higher beta = more rate sensitive. Strategic customers typically 0.2-0.4, Tactical 0.4-0.7, Expendable 0.7-0.9.';
+COMMENT ON COLUMN cfo_banking_demo.ml_models.deposit_beta_training_enhanced.target_beta IS
+'Target deposit beta coefficient for model training (0-1 scale). Higher beta = more rate sensitive. Strategic customers typically 0.2-0.4, Tactical 0.4-0.7, Expendable 0.7-0.9.';
 
 COMMENT ON COLUMN cfo_banking_demo.ml_models.deposit_beta_training_enhanced.relationship_category IS
 'Customer segment based on relationship depth. Strategic = core banking relationships (sticky), Tactical = moderate sensitivity, Expendable = rate chasers (high flight risk).';

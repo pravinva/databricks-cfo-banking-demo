@@ -1,0 +1,281 @@
+================================================================================
+GENIE SPACE TABLE SCHEMA SUMMARY
+================================================================================
+
+
+================================================================================
+cfo_banking_demo.ml_models.deposit_beta_training_enhanced
+================================================================================
+Columns: 41
+
+  - account_id (STRING)
+  - customer_id (STRING)
+  - effective_date (DATE)
+  - target_beta (DOUBLE)
+  - account_open_date (DATE)
+  - cohort_quarter (TIMESTAMP)
+  - product_type (STRING)
+  - customer_segment (STRING)
+  - account_age_years (DECIMAL)
+  - balance_tier (STRING)
+  - balance_millions (DOUBLE)
+  - avg_balance_30d_millions (DOUBLE)
+  - stated_rate (DOUBLE)
+  - transaction_count_30d (INT)
+  - rate_gap (DOUBLE)
+  - rate_spread_3m (DOUBLE)
+  - digital_user (INT)
+  - product_count (LONG)
+  - total_relationship_balance_millions (DOUBLE)
+  - relationship_length_years (DECIMAL)
+  - relationship_score (DOUBLE)
+  - relationship_category (STRING)
+  - primary_bank_flag (INT)
+  - direct_deposit_flag (INT)
+  - cross_sell_online (BOOLEAN)
+  - cross_sell_mobile (BOOLEAN)
+  - cross_sell_autopay (BOOLEAN)
+  - market_fed_funds_rate (DOUBLE)
+  - market_rate_3m (DOUBLE)
+  - yield_curve_slope (DOUBLE)
+  - rate_regime (STRING)
+  - rate_change_velocity_3m (DOUBLE)
+  - yield_curve_inverted (INT)
+  - competitor_rate_spread (DOUBLE)
+  - online_bank_rate_spread (DOUBLE)
+  - market_rate_spread (DOUBLE)
+  - below_competitor_rate (INT)
+  - balance_trend_30d (DOUBLE)
+  - month_of_year (INT)
+  - quarter (INT)
+  - day_of_week (INT)
+
+================================================================================
+cfo_banking_demo.bronze_core_banking.deposit_accounts
+================================================================================
+Columns: 36
+
+  - account_id (STRING)
+  - account_number (STRING)
+  - customer_id (STRING)
+  - customer_name (STRING)
+  - customer_type (STRING)
+  - customer_segment (STRING)
+  - product_type (STRING)
+  - product_name (STRING)
+  - account_open_date (DATE)
+  - maturity_date (DATE)
+  - current_balance (DOUBLE)
+  - average_balance_30d (DOUBLE)
+  - average_balance_90d (DOUBLE)
+  - minimum_balance (DOUBLE)
+  - maximum_balance (DOUBLE)
+  - stated_rate (DOUBLE)
+  - beta (DOUBLE)
+  - decay_rate (DOUBLE)
+  - interest_accrued (DOUBLE)
+  - ytd_interest_paid (DOUBLE)
+  - transaction_count_30d (INT)
+  - last_transaction_date (DATE)
+  - account_status (STRING)
+  - fdic_insured (BOOLEAN)
+  - relationship_balance (DOUBLE)
+  - has_online_banking (BOOLEAN)
+  - has_mobile_banking (BOOLEAN)
+  - autopay_enrolled (BOOLEAN)
+  - overdraft_protection (BOOLEAN)
+  - monthly_fee (DOUBLE)
+  - fee_waivers (STRING)
+  - geography (STRING)
+  - branch_id (STRING)
+  - officer_id (STRING)
+  - effective_date (DATE)
+  - is_current (BOOLEAN)
+
+================================================================================
+cfo_banking_demo.ml_models.component_decay_metrics
+================================================================================
+Columns: 12
+
+  - relationship_category (STRING)
+  - product_type (STRING)
+  - is_surge_balance (INT)
+  - total_accounts (LONG)
+  - closed_accounts (LONG)
+  - closure_rate_cumulative (DOUBLE)
+  - lambda_closure_rate (DOUBLE)
+  - survivor_accounts (LONG)
+  - g_abgr (DOUBLE)
+  - stddev_monthly_growth (DOUBLE)
+  - expected_net_growth_rate (DOUBLE)
+  - abgr_classification (STRING)
+
+================================================================================
+cfo_banking_demo.ml_models.cohort_survival_rates
+================================================================================
+Columns: 16
+
+  - cohort_quarter (TIMESTAMP)
+  - cohort_year (INT)
+  - cohort_q (INT)
+  - relationship_category (STRING)
+  - product_type (STRING)
+  - is_surge_balance (INT)
+  - opening_regime (STRING)
+  - months_since_open (DOUBLE)
+  - account_count (LONG)
+  - total_balance (DECIMAL)
+  - initial_account_count (LONG)
+  - initial_balance (DECIMAL)
+  - account_survival_rate (DOUBLE)
+  - balance_survival_rate (DECIMAL)
+  - annualized_account_decay_rate (DOUBLE)
+  - annualized_balance_decay_rate (DOUBLE)
+
+================================================================================
+cfo_banking_demo.ml_models.deposit_runoff_forecasts
+================================================================================
+Columns: 10
+
+  - relationship_category (STRING)
+  - product_type (STRING)
+  - months_ahead (INT)
+  - current_account_count (LONG)
+  - current_balance_billions (DOUBLE)
+  - lambda (DOUBLE)
+  - g (DOUBLE)
+  - net_growth (DOUBLE)
+  - projected_balance_billions (DOUBLE)
+  - projected_account_count (DOUBLE)
+
+================================================================================
+cfo_banking_demo.ml_models.dynamic_beta_parameters
+================================================================================
+Columns: 6
+
+  - relationship_category (STRING)
+  - beta_min (DOUBLE)
+  - beta_max (DOUBLE)
+  - k_steepness (DOUBLE)
+  - R0_inflection (DOUBLE)
+  - calibration_date (STRING)
+
+================================================================================
+cfo_banking_demo.ml_models.stress_test_results
+================================================================================
+Columns: 10
+
+  - scenario_id (STRING)
+  - scenario_name (STRING)
+  - rate_shock_bps (LONG)
+  - stressed_market_rate (DOUBLE)
+  - stressed_avg_beta (DOUBLE)
+  - delta_nii_millions (DOUBLE)
+  - delta_eve_billions (DOUBLE)
+  - eve_cet1_ratio (DOUBLE)
+  - sot_status (STRING)
+  - calculation_date (STRING)
+
+================================================================================
+cfo_banking_demo.gold_regulatory.lcr_daily
+================================================================================
+Columns: 12
+
+  - calculation_date (DATE)
+  - calculation_timestamp (TIMESTAMP)
+  - total_hqla (DECIMAL)
+  - hqla_level_1 (DECIMAL)
+  - hqla_level_2a (DECIMAL)
+  - hqla_level_2b (DECIMAL)
+  - total_outflows (DECIMAL)
+  - total_inflows_uncapped (DECIMAL)
+  - total_inflows_capped (DECIMAL)
+  - net_outflows (DECIMAL)
+  - lcr_ratio (DECIMAL)
+  - lcr_status (STRING)
+
+================================================================================
+cfo_banking_demo.gold_regulatory.hqla_inventory
+================================================================================
+Columns: 7
+
+  - security_id (STRING)
+  - security_type (STRING)
+  - market_value (DOUBLE)
+  - credit_rating (STRING)
+  - hqla_level (STRING)
+  - haircut (DECIMAL)
+  - hqla_value (DOUBLE)
+
+================================================================================
+cfo_banking_demo.ml_models.ppnr_forecasts
+================================================================================
+Columns: 7
+
+  - month (TIMESTAMP)
+  - net_interest_income (LONG)
+  - non_interest_income (FLOAT)
+  - non_interest_expense (FLOAT)
+  - ppnr (DOUBLE)
+  - actual_nii (DOUBLE)
+  - actual_nie (DOUBLE)
+
+================================================================================
+cfo_banking_demo.ml_models.non_interest_income_training_data
+================================================================================
+Columns: 27
+
+  - month (TIMESTAMP)
+  - target_fee_income (DOUBLE)
+  - active_deposit_accounts (LONG)
+  - checking_accounts (LONG)
+  - total_deposits_billions (DOUBLE)
+  - total_transactions_millions (DECIMAL)
+  - avg_monthly_fee (DECIMAL)
+  - retail_deposit_pct (DECIMAL)
+  - commercial_deposit_pct (DECIMAL)
+  - active_loans (LONG)
+  - total_loan_balance_billions (DOUBLE)
+  - new_loans_30d (LONG)
+  - mortgage_balance_billions (DOUBLE)
+  - digital_transactions_millions (DECIMAL)
+  - branch_transactions_millions (DECIMAL)
+  - avg_10y_rate (DOUBLE)
+  - avg_2y_rate (DOUBLE)
+  - rate_volatility (DOUBLE)
+  - yield_curve_slope (DOUBLE)
+  - checking_account_pct (DOUBLE)
+  - digital_transaction_pct (DOUBLE)
+  - new_loan_rate (DOUBLE)
+  - month_sin (DOUBLE)
+  - month_cos (DOUBLE)
+  - quarter (INT)
+  - prior_month_fee_income (DOUBLE)
+  - prior_month_transactions (LONG)
+
+================================================================================
+cfo_banking_demo.ml_models.non_interest_expense_training_data
+================================================================================
+Columns: 21
+
+  - month (TIMESTAMP)
+  - target_operating_expense (DOUBLE)
+  - active_accounts (LONG)
+  - total_assets_billions (DOUBLE)
+  - total_transactions_millions (DECIMAL)
+  - active_branches (INT)
+  - digital_users (INT)
+  - loan_count (LONG)
+  - total_loan_balance_billions (DOUBLE)
+  - delinquent_loans (LONG)
+  - new_accounts_30d (LONG)
+  - new_loans_30d (LONG)
+  - digital_adoption_rate (DOUBLE)
+  - transactions_per_account (DOUBLE)
+  - delinquency_rate (DOUBLE)
+  - avg_10y_rate (DOUBLE)
+  - month_sin (DOUBLE)
+  - month_cos (DOUBLE)
+  - quarter (INT)
+  - prior_month_expense (DOUBLE)
+  - prior_month_accounts (LONG)
