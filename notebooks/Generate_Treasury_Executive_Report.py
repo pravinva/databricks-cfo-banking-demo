@@ -613,22 +613,31 @@ fig_composition.update_layout(
 fig_waterfall = go.Figure()
 
 # Validate scenario_results exists and has data
-if len(scenario_results) == 0:
-    print("⚠️ No scenario results available. Run Section 3 first.")
+if 'scenario_results' not in locals() or len(scenario_results) == 0:
+    print("⚠️ No scenario results available. Skipping waterfall chart.")
     scenario_summary = pd.DataFrame(columns=['Scenario', 'Runoff ($B)'])
+    # Create empty chart with message
+    fig_waterfall.add_annotation(
+        text="No scenario data available<br>Run Section 3 to generate scenarios",
+        xref="paper", yref="paper",
+        x=0.5, y=0.5, showarrow=False,
+        font=dict(size=14, color="gray")
+    )
 else:
     scenario_summary = pd.DataFrame([
         {'Scenario': r.get('scenario', 'Unknown'), 'Runoff ($B)': r.get('total_runoff', 0)/1e9}
         for r in scenario_results
     ])
 
-fig_waterfall.add_trace(go.Bar(
-    x=scenario_summary['Scenario'],
-    y=scenario_summary['Runoff ($B)'],
-    marker_color='#EF4444',
-    text=[f'${val:.2f}B' for val in scenario_summary['Runoff ($B)']],
-    textposition='outside'
-))
+    # Only add trace if we have data
+    if len(scenario_summary) > 0:
+        fig_waterfall.add_trace(go.Bar(
+            x=scenario_summary['Scenario'],
+            y=scenario_summary['Runoff ($B)'],
+            marker_color='#EF4444',
+            text=[f'${val:.2f}B' for val in scenario_summary['Runoff ($B)']],
+            textposition='outside'
+        ))
 
 fig_waterfall.update_layout(
     title='Projected Deposit Runoff Under Rate Shock Scenarios',
@@ -677,6 +686,15 @@ print("✓ Charts generated successfully")
 # MAGIC ## Section 7: Generate HTML Report for Treasurer
 
 # COMMAND ----------
+
+# Verify scenario_results is populated before rendering HTML
+if 'scenario_results' not in locals():
+    print("⚠️ WARNING: scenario_results not found. Creating empty list.")
+    scenario_results = []
+elif len(scenario_results) == 0:
+    print("⚠️ WARNING: scenario_results is empty. No scenarios were processed.")
+
+print(f"Preparing HTML report with {len(scenario_results)} scenarios...")
 
 # HTML template optimized for treasurer presentation
 html_template = """
@@ -907,10 +925,10 @@ template_vars = {
             f'<td style="padding: 12px; text-align: right;">{r.get("runoff_pct", 0):.1f}%</td>' +
             f'<td style="padding: 12px;">{r.get("treasurer_action", "N/A")}</td>' +
             '</tr>'
-            for r in scenario_results
+            for r in (scenario_results if 'scenario_results' in locals() else [])
         ]) +
         '</table></div>'
-    ) if len(scenario_results) > 0 else '<p>No scenario data available</p>',
+    ) if ('scenario_results' in locals() and len(scenario_results) > 0) else '<p>No scenario data available. Run Section 3 to generate rate shock scenarios.</p>',
 
     'rate_gap_html': (
         '<h3>Deposit Composition by Relationship Category</h3>' +
