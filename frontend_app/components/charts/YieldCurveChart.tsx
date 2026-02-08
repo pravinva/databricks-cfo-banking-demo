@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts'
+import { apiFetch } from '@/lib/api'
 
 interface YieldData {
   maturity: string
@@ -22,7 +23,7 @@ export default function YieldCurveChart() {
 
   const fetchYieldCurve = async () => {
     try {
-      const res = await fetch('/api/data/yield-curve')
+      const res = await apiFetch('/api/data/yield-curve')
       const result = await res.json()
 
       const formatted: YieldData[] = [

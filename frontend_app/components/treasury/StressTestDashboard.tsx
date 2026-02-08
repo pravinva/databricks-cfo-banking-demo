@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts'
 import { Shield, AlertTriangle, CheckCircle } from 'lucide-react'
+import { apiFetch } from '@/lib/api'
 
 interface StressTestResult {
   scenario: string
@@ -46,9 +47,9 @@ export default function StressTestDashboard() {
   const fetchData = async () => {
     try {
       const [resultsRes, betasRes, summaryRes] = await Promise.all([
-        fetch('/api/data/stress-test-results'),
-        fetch('/api/data/dynamic-beta-parameters'),
-        fetch('/api/data/stress-test-summary')
+        apiFetch('/api/data/stress-test-results'),
+        apiFetch('/api/data/dynamic-beta-parameters'),
+        apiFetch('/api/data/stress-test-summary')
       ])
 
       const resultsData = await resultsRes.json()
@@ -346,7 +347,7 @@ export default function StressTestDashboard() {
       <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
         <CardHeader>
           <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
-            PHASE 3 REGULATORY COMPLIANCE
+            APPROACH 3 REGULATORY COMPLIANCE
           </CardTitle>
           <p className="text-xs text-bloomberg-text-dim font-mono">CCAR/DFAST submission readiness</p>
         </CardHeader>
@@ -377,7 +378,7 @@ export default function StressTestDashboard() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-bloomberg-text-dim">Model Version:</span>
-                  <span className="text-bloomberg-text font-bold">Phase 3 Dynamic</span>
+                  <span className="text-bloomberg-text font-bold">Approach 3 Dynamic</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-bloomberg-text-dim">Scenarios Tested:</span>

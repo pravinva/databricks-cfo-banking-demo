@@ -14,22 +14,21 @@ import json
 import sys
 from typing import Dict, List, Any
 
-# List of all 12 tables in the Genie Space configuration
+# List of tables in the Genie Space configuration
 TABLES = [
-    # Phase 1: Deposit Beta Modeling
+    # Approach 1: Deposit Beta Modeling
     "cfo_banking_demo.ml_models.deposit_beta_training_enhanced",
     "cfo_banking_demo.bronze_core_banking.deposit_accounts",
 
-    # Phase 2: Vintage Analysis
+    # Approach 2: Vintage Analysis
     "cfo_banking_demo.ml_models.component_decay_metrics",
     "cfo_banking_demo.ml_models.cohort_survival_rates",
     "cfo_banking_demo.ml_models.deposit_runoff_forecasts",
 
-    # Phase 3: CCAR Stress Testing
+    # Approach 3: CCAR Stress Testing
     "cfo_banking_demo.ml_models.dynamic_beta_parameters",
     "cfo_banking_demo.ml_models.stress_test_results",
     "cfo_banking_demo.gold_regulatory.lcr_daily",
-    "cfo_banking_demo.gold_regulatory.hqla_inventory",
 
     # PPNR Forecasting
     "cfo_banking_demo.ml_models.ppnr_forecasts",
@@ -40,7 +39,7 @@ TABLES = [
 # Table-level comments based on Genie Space documentation
 TABLE_COMMENTS = {
     "cfo_banking_demo.ml_models.deposit_beta_training_enhanced":
-        "Phase 1 Deposit Beta Model - Training dataset with 41 features for XGBoost model achieving 7.2% MAPE accuracy. "
+        "Approach 1 Deposit Beta Model - Training dataset with 41 features for XGBoost model achieving 7.2% MAPE accuracy. "
         "Contains rate sensitivity analysis, relationship categorization (Strategic/Tactical/Expendable), and at-risk account identification. "
         "Use for: deposit pricing strategy, rate shock analysis, customer retention, and flight risk assessment.",
 
@@ -50,27 +49,27 @@ TABLE_COMMENTS = {
         "Updated daily via CDC. Use for: deposit portfolio analysis, customer segmentation, and balance trend monitoring.",
 
     "cfo_banking_demo.ml_models.component_decay_metrics":
-        "Phase 2 Vintage Analysis - Component-level decay metrics tracking deposit runoff patterns by cohort and product. "
+        "Approach 2 Vintage Analysis - Component-level decay metrics tracking deposit runoff patterns by cohort and product. "
         "Shows month-over-month decay rates, cumulative survival, and half-life calculations. "
         "Use for: liquidity forecasting, deposit stability analysis, and funding cost projections.",
 
     "cfo_banking_demo.ml_models.cohort_survival_rates":
-        "Phase 2 Vintage Analysis - Cohort-based survival rates tracking deposit retention over 36+ months. "
+        "Approach 2 Vintage Analysis - Cohort-based survival rates tracking deposit retention over 36+ months. "
         "Essential for deposit runoff forecasting and liquidity stress testing. "
         "Use for: LCR forecasting, deposit mix optimization, and retention strategy.",
 
     "cfo_banking_demo.ml_models.deposit_runoff_forecasts":
-        "Phase 2 Vintage Analysis - Forward-looking deposit runoff forecasts by cohort and product. "
+        "Approach 2 Vintage Analysis - Forward-looking deposit runoff forecasts by cohort and product. "
         "12-month rolling forecasts with confidence intervals. "
         "Use for: cash flow forecasting, liquidity planning, and ALCO reporting.",
 
     "cfo_banking_demo.ml_models.dynamic_beta_parameters":
-        "Phase 3 CCAR Stress Testing - Dynamic deposit beta coefficients under different stress scenarios. "
+        "Approach 3 CCAR Stress Testing - Dynamic deposit beta coefficients under different stress scenarios. "
         "Models non-linear rate sensitivity across Baseline, Adverse, and Severely Adverse scenarios. "
         "Use for: stress testing, CCAR submissions, regulatory capital planning.",
 
     "cfo_banking_demo.ml_models.stress_test_results":
-        "Phase 3 CCAR Stress Testing - Comprehensive deposit balance projections under regulatory stress scenarios. "
+        "Approach 3 CCAR Stress Testing - Comprehensive deposit balance projections under regulatory stress scenarios. "
         "9-quarter forward projections aligned with Federal Reserve CCAR requirements. "
         "Use for: CCAR/DFAST submissions, capital planning, and regulatory reporting.",
 
@@ -78,11 +77,6 @@ TABLE_COMMENTS = {
         "Regulatory LCR (Liquidity Coverage Ratio) calculations per Basel III / 12 CFR Part 249. "
         "Daily HQLA and net cash outflow calculations with regulatory weights. "
         "Use for: daily LCR monitoring, regulatory reporting (FR 2052a), and liquidity risk management.",
-
-    "cfo_banking_demo.gold_regulatory.hqla_inventory":
-        "High-Quality Liquid Assets (HQLA) inventory per Basel III classification (Level 1, 2A, 2B). "
-        "Daily fair value and haircut adjustments. "
-        "Use for: LCR calculations, liquidity buffer management, and ALCO reporting.",
 
     "cfo_banking_demo.ml_models.ppnr_forecasts":
         "PPNR (Pre-Provision Net Revenue) forecasts by stress scenario. "

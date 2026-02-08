@@ -27,7 +27,7 @@
 | **Basel III** | Third Basel Accord | International regulatory framework for bank capital adequacy, stress testing, and liquidity. |
 | **CET1** | Common Equity Tier 1 | Highest quality capital (common stock + retained earnings). Must be >7% under stress, >10.5% for "well-capitalized". |
 | **RWA** | Risk-Weighted Assets | Assets weighted by credit risk. Used in capital ratio denominator (CET1 / RWA). |
-| **HQLA** | High-Quality Liquid Assets | Cash, treasuries, agency securities. Numerator in LCR calculation. |
+| **HQLA** | High-Quality Liquid Assets | Cash and top-quality liquid assets. Numerator in LCR calculation. |
 | **SOC 2 Type II** | Service Organization Control 2 Type II | Audit standard for security, availability, confidentiality of customer data. |
 
 ### Modeling & Analytics
@@ -97,7 +97,7 @@
 4. **Standalone Value:** Even without Phase 2/3, CFO can make better pricing decisions
 
 **What We Build:**
-- XGBoost model with 40+ features (vs 15 baseline)
+- XGBoost model with canonical feature set (19 features)
 - Moody's Relationship Framework (Strategic/Tactical/Expendable)
 - Chen Market Regime Classification (Low/Medium/High rate environments)
 - Abrigo Competitive Pressure indicators (below-market pricing flags)

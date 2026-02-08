@@ -5,6 +5,7 @@ Provides intelligent AI agent with tool calling capabilities
 
 import os
 import json
+import requests
 from typing import Dict, List, Any, Optional
 from databricks.sdk import WorkspaceClient
 
@@ -18,7 +19,7 @@ class ClaudeAgent:
     TOOL_DEFINITIONS = [
         {
             "name": "call_deposit_beta_model",
-            "description": "Predict deposit runoff based on interest rate changes. Use this when analyzing rate shock scenarios, deposit sensitivity to rate changes, or beta coefficients. Returns predicted runoff amounts and percentages for a given product type and rate change in basis points.",
+            "description": "Treasury deposit modeling tool. Predict deposit runoff based on interest rate changes using the deposit beta model outputs. Use for rate shock scenarios (e.g., +50 bps on MMDA) and to explain beta sensitivity. Returns runoff amounts and runoff % for a given product type and rate change (bps).",
             "input_schema": {
                 "type": "object",
                 "properties": {
@@ -37,7 +38,7 @@ class ClaudeAgent:
         },
         {
             "name": "calculate_lcr",
-            "description": "Calculate the Liquidity Coverage Ratio (LCR) under stress scenarios. Use this when analyzing liquidity, regulatory compliance, Basel III requirements, or stress testing. Returns LCR ratio, HQLA amounts, net cash outflows, and compliance status.",
+            "description": "Optional treasury stress tool. Calculate the Liquidity Coverage Ratio (LCR) under stress scenarios. Use only when asked about liquidity stress impacts or regulatory buffers. Returns LCR ratio, HQLA amounts, net cash outflows, and Pass/Fail status.",
             "input_schema": {
                 "type": "object",
                 "properties": {
@@ -52,7 +53,7 @@ class ClaudeAgent:
         },
         {
             "name": "get_current_treasury_yields",
-            "description": "Get the latest U.S. Treasury yield curve data. Use this when analyzing market rates, yield curves, treasury bonds, interest rate environment, or economic indicators. Returns yields for 3M, 2Y, 5Y, 10Y, and 30Y maturities with curve shape analysis.",
+            "description": "Market data tool. Get the latest U.S. Treasury yield curve data (3M/2Y/5Y/10Y/30Y). Use to ground deposit pricing, beta discussions, and PPNR drivers in the current rate environment.",
             "input_schema": {
                 "type": "object",
                 "properties": {},
@@ -61,7 +62,7 @@ class ClaudeAgent:
         },
         {
             "name": "get_portfolio_summary",
-            "description": "Get comprehensive portfolio summary across securities, loans, and deposits. Use this when analyzing overall balance sheet, asset allocation, portfolio composition, or liabilities. Returns total amounts and breakdowns by category.",
+            "description": "Treasury context tool. Get a high-level portfolio summary (focus on deposits for this demo). Use for quick context (e.g., total deposits) before diving into deposit beta, vintage, or PPNR results.",
             "input_schema": {
                 "type": "object",
                 "properties": {},
@@ -69,14 +70,49 @@ class ClaudeAgent:
             }
         },
         {
+            "name": "get_ppnr_forecasts",
+            "description": "PPNR tool. Fetch the latest monthly PPNR forecast series (net interest income, non-interest income, non-interest expense, PPNR) from Unity Catalog. Use when summarizing PPNR outlook or explaining fee income drivers.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of months to return (default 24).",
+                        "default": 24
+                    }
+                },
+                "required": []
+            }
+        },
+        {
+            "name": "get_deposit_beta_by_product",
+            "description": "Approach 1 helper. Return deposit beta distribution by product type from cfo_banking_demo.ml_models.deposit_beta_predictions (account_count, total_balance, avg_beta, beta_tier). Use this for 'deposit beta by product' questions.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max number of products to return (default 10).",
+                        "default": 10
+                    }
+                },
+                "required": []
+            }
+        },
+        {
+            "name": "get_latest_yield_curve",
+            "description": "Yield curve helper. Fetch the latest available curve (3M/2Y/5Y/10Y/30Y) from cfo_banking_demo.silver_treasury.yield_curves.",
+            "input_schema": {"type": "object", "properties": {}, "required": []}
+        },
+        {
             "name": "query_unity_catalog",
-            "description": "Execute custom SQL queries against Unity Catalog banking database. Use this for ad-hoc analysis, custom reports, or when specific data needs that other tools don't cover. Available schemas: bronze_core_banking (loans, deposits), silver_treasury (securities, yields), gold_analytics (predictions), gold_regulatory (LCR, HQLA).",
+            "description": "Execute custom SQL queries against Unity Catalog for treasury modeling. Use for ad-hoc analysis across deposits, yield curves, deposit beta predictions, vintage/runoff outputs, stress testing outputs, and PPNR forecasts.",
             "input_schema": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "SQL query to execute. Must be a SELECT statement. Available tables include loan_portfolio, deposit_accounts, securities_portfolio, yield_curves, deposit_runoff_predictions, lcr_daily, hqla_inventory."
+                        "description": "SQL query to execute (SELECT only). Core tables: bronze_core_banking.deposit_accounts, silver_treasury.yield_curves, ml_models.deposit_beta_predictions, ml_models.component_decay_metrics, ml_models.cohort_survival_rates, ml_models.deposit_runoff_forecasts, ml_models.dynamic_beta_parameters, ml_models.stress_test_results, ml_models.ppnr_forecasts."
                     },
                     "max_rows": {
                         "type": "integer",
@@ -89,31 +125,42 @@ class ClaudeAgent:
         }
     ]
 
-    SYSTEM_PROMPT = """You are an expert AI assistant for CFO and Treasury operations at a banking institution. You have access to real-time banking data through Databricks Unity Catalog and specialized tools for financial analysis.
+    SYSTEM_PROMPT = """You are a domain-specific Treasury Modeling assistant focused ONLY on Deposits and PPNR (fee income modeling) for this demo. You are not a general banking/CFO assistant.
 
-Your capabilities include:
-- **Rate Shock Analysis**: Predict deposit runoff based on interest rate changes using ML-based deposit beta models
-- **Liquidity Analysis**: Calculate LCR (Liquidity Coverage Ratio) under various stress scenarios
-- **Market Data**: Access current U.S. Treasury yield curves and analyze interest rate environments
-- **Portfolio Analysis**: Provide comprehensive views of securities, loans, and deposits
-- **Custom Queries**: Execute SQL queries for ad-hoc analysis and reporting
+Your job is to help users understand and interpret treasury modeling outputs in a practical way:
+- Approach 1: Deposit Beta (static beta predictions)
+- Approach 2: Vintage Analysis (Chen component decay + Kaplan-Meier survival)
+- Approach 3: Stress Testing (dynamic beta curves + CCAR/DFAST-style scenarios)
+- PPNR: monthly forecasts (net interest income, non-interest income, non-interest expense, PPNR)
+- Market context: U.S. Treasury yield curve
 
-Key banking concepts you should be familiar with:
-- **Deposit Beta**: A coefficient (0 to 1) measuring how sensitive deposit rates are to market rate changes. Higher beta = more sensitive to rate changes.
-- **LCR (Liquidity Coverage Ratio)**: Basel III regulatory requirement. Must be ≥100%. Formula: HQLA / Net Cash Outflows. Measures ability to survive 30-day liquidity stress.
-- **HQLA (High-Quality Liquid Assets)**: Level 1 (cash, reserves, treasuries), Level 2A (GSE bonds, AAA corporates), Level 2B (high-quality equities, some corporates)
-- **Rate Shock**: Instantaneous parallel shift in interest rate curve, used for stress testing
-- **Runoff**: Expected outflows from deposit accounts due to rate changes or other factors
+How you should behave:
+1. Stay in scope: deposits, yield curves, deposit beta/vintage/stress outputs, and PPNR.
+2. Use tools for facts (tables/metrics). If you mention numeric values (balances, betas, runoff, PPNR), obtain them via tools. Prefer the specialized helpers first: get_deposit_beta_by_product, get_ppnr_forecasts, get_latest_yield_curve.
+   Avoid repetitive tool loops: aim for 1 tool round-trip per question unless the user asks for follow-ups.
+3. When asked for numbers, show the key aggregates and one or two supporting cuts (by product, by segment).
+4. When asked for drivers, relate results to rates (yield curve), rate gap, beta tier, and segment behavior.
 
-When users ask questions:
-1. First understand their intent - are they asking for analysis (use tools) or concepts (explain directly)
-2. Use appropriate tools to fetch data when needed
-3. Provide clear, professional explanations with relevant context
-4. Format responses in a clean, readable way
-5. Include relevant metrics, percentages, and dollar amounts
-6. Explain the business implications of the data
+Key concepts:
+- Deposit beta: sensitivity of deposit rates to market rates (0–1).
+- Chen component decay: D(t+1)=D(t)×(1-λ)×(1+g) where λ=closure rate and g=ABGR.
+- Kaplan-Meier: survival/retention curves by segment.
+- PPNR: NII + non-interest income − non-interest expense.
 
-Be concise but thorough. Use technical terminology appropriately but explain key concepts when relevant."""
+## Unity Catalog tables (core)
+Catalog: cfo_banking_demo
+
+- bronze_core_banking.deposit_accounts
+- silver_treasury.yield_curves
+- ml_models.deposit_beta_predictions
+- ml_models.component_decay_metrics
+- ml_models.cohort_survival_rates
+- ml_models.deposit_runoff_forecasts
+- ml_models.dynamic_beta_parameters
+- ml_models.stress_test_results
+- ml_models.ppnr_forecasts
+
+Use query_unity_catalog for custom SQL. Prefer the dedicated tools (get_current_treasury_yields, call_deposit_beta_model, get_ppnr_forecasts) when applicable."""
 
     def __init__(self, endpoint_name: str = "databricks-claude-sonnet-4-5"):
         """
@@ -124,39 +171,52 @@ Be concise but thorough. Use technical terminology appropriately but explain key
         """
         self.w = WorkspaceClient()
         self.endpoint_name = endpoint_name
-        self.conversation_history: List[Dict[str, Any]] = []
+        # Store conversation histories per session
+        self.conversation_histories: Dict[str, List[Dict[str, Any]]] = {}
+
+        # Setup REST API credentials
+        self.host = self.w.config.host.replace("https://", "").replace("http://", "")
+        self.url = f"https://{self.host}/serving-endpoints/{endpoint_name}/invocations"
+
+        # Get authentication token
+        if hasattr(self.w.config, 'token') and self.w.config.token:
+            self.token = self.w.config.token
+        else:
+            # Use OAuth or other auth method
+            auth_headers = self.w.config.authenticate()
+            self.token = auth_headers.get('Authorization', '').replace('Bearer ', '')
+
+        self.headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json"
+        }
 
     def _call_claude(self, messages: List[Dict[str, Any]], tools: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
-        Call Claude via Databricks Model Serving endpoint
-
-        Args:
-            messages: List of message dictionaries with 'role' and 'content'
-            tools: Optional list of tool definitions
-
-        Returns:
-            Claude API response
+        Call Claude via Databricks Model Serving endpoint using REST API.
+        The serving endpoint returns OpenAI-compatible chat.completion responses.
         """
-        payload = {
-            "messages": messages,
-            "max_tokens": 4096,
-            "anthropic_version": "bedrock-2023-05-31"
-        }
-
+        payload: Dict[str, Any] = {"messages": messages, "max_tokens": 4096}
         if tools:
-            payload["tools"] = tools
+            openai_tools = []
+            for tool in tools:
+                openai_tools.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool["name"],
+                            "description": tool["description"],
+                            "parameters": tool["input_schema"],
+                        },
+                    }
+                )
+            payload["tools"] = openai_tools
 
-        # Call Databricks Model Serving endpoint
-        response = self.w.serving_endpoints.query(
-            name=self.endpoint_name,
-            inputs=[payload]
-        )
+        response = requests.post(self.url, headers=self.headers, json=payload, timeout=60)
+        if response.status_code != 200:
+            raise Exception(f"Claude API error ({response.status_code}): {response.text}")
 
-        # Parse response
-        if hasattr(response, 'predictions') and response.predictions:
-            return response.predictions[0]
-        else:
-            raise Exception("Invalid response from Claude endpoint")
+        return response.json()
 
     def _execute_tool(self, tool_name: str, tool_input: Dict[str, Any], agent_tools) -> Dict[str, Any]:
         """
@@ -183,6 +243,55 @@ Be concise but thorough. Use technical terminology appropriately but explain key
             return agent_tools.get_current_treasury_yields()
         elif tool_name == "get_portfolio_summary":
             return agent_tools.get_portfolio_summary()
+        elif tool_name == "get_ppnr_forecasts":
+            limit = int(tool_input.get("limit", 24))
+            limit = max(1, min(limit, 120))
+            query = f"""
+                SELECT
+                    month,
+                    net_interest_income,
+                    non_interest_income,
+                    non_interest_expense,
+                    ppnr
+                FROM cfo_banking_demo.ml_models.ppnr_forecasts
+                ORDER BY month DESC
+                LIMIT {limit}
+            """
+            return agent_tools.query_unity_catalog(query=query, max_rows=limit)
+        elif tool_name == "get_deposit_beta_by_product":
+            limit = int(tool_input.get("limit", 10))
+            limit = max(1, min(limit, 50))
+            query = f"""
+                SELECT
+                    product_type,
+                    COUNT(*) AS account_count,
+                    SUM(current_balance) AS total_balance,
+                    AVG(predicted_beta) AS avg_beta,
+                    CASE
+                        WHEN AVG(predicted_beta) >= 0.60 THEN 'High Beta'
+                        WHEN AVG(predicted_beta) >= 0.35 THEN 'Medium Beta'
+                        ELSE 'Low Beta'
+                    END AS beta_tier
+                FROM cfo_banking_demo.ml_models.deposit_beta_predictions
+                GROUP BY product_type
+                ORDER BY total_balance DESC
+                LIMIT {limit}
+            """
+            return agent_tools.query_unity_catalog(query=query, max_rows=limit)
+        elif tool_name == "get_latest_yield_curve":
+            query = """
+                SELECT
+                    date,
+                    rate_3m,
+                    rate_2y,
+                    rate_5y,
+                    rate_10y,
+                    rate_30y
+                FROM cfo_banking_demo.silver_treasury.yield_curves
+                ORDER BY date DESC
+                LIMIT 1
+            """
+            return agent_tools.query_unity_catalog(query=query, max_rows=1)
         elif tool_name == "query_unity_catalog":
             return agent_tools.query_unity_catalog(
                 query=tool_input.get("query"),
@@ -220,86 +329,74 @@ Be concise but thorough. Use technical terminology appropriately but explain key
         Returns:
             Claude's response as a string
         """
-        # Add user message to conversation
-        self.conversation_history.append({
-            "role": "user",
-            "content": user_message
-        })
+        # Conversation history is stored in OpenAI message format (excluding system):
+        # [{"role":"user"|"assistant"|"tool", ...}, ...]
+        if session_id not in self.conversation_histories:
+            self.conversation_histories[session_id] = []
 
-        # Prepare messages with system prompt
-        messages = [
-            {"role": "user", "content": self.SYSTEM_PROMPT}
-        ] + self.conversation_history
+        conversation_history = self.conversation_histories[session_id]
+        conversation_history.append({"role": "user", "content": user_message})
 
-        # Initial Claude call with tools
-        response = self._call_claude(messages, tools=self.TOOL_DEFINITIONS)
+        system_messages = [{"role": "system", "content": self.SYSTEM_PROMPT}]
 
-        # Handle tool use iterations
         max_iterations = 5
         iteration = 0
+        retried_after_reset = False
 
         while iteration < max_iterations:
-            # Check if Claude wants to use tools
-            if response.get("stop_reason") == "tool_use":
-                # Extract tool uses from response
-                tool_uses = [block for block in response.get("content", []) if block.get("type") == "tool_use"]
-
-                if not tool_uses:
-                    break
-
-                # Execute all tool calls
-                tool_results = []
-                for tool_use in tool_uses:
-                    tool_name = tool_use.get("name")
-                    tool_input = tool_use.get("input", {})
-                    tool_use_id = tool_use.get("id")
-
-                    # Execute tool
-                    result = self._execute_tool(tool_name, tool_input, agent_tools)
-
-                    # Format result
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tool_use_id,
-                        "content": self._format_tool_result(result)
-                    })
-
-                # Add assistant message with tool use to conversation
-                self.conversation_history.append({
-                    "role": "assistant",
-                    "content": response.get("content", [])
-                })
-
-                # Add tool results to conversation
-                self.conversation_history.append({
-                    "role": "user",
-                    "content": tool_results
-                })
-
-                # Call Claude again with tool results
-                messages = [
-                    {"role": "user", "content": self.SYSTEM_PROMPT}
-                ] + self.conversation_history
-
+            messages = system_messages + conversation_history.copy()
+            try:
                 response = self._call_claude(messages, tools=self.TOOL_DEFINITIONS)
+            except Exception as e:
+                msg = str(e)
+                if (not retried_after_reset) and ("tool_use" in msg and "tool_result" in msg):
+                    # Session got poisoned with a dangling tool call; reset and retry once.
+                    retried_after_reset = True
+                    self.reset_conversation(session_id=session_id)
+                    self.conversation_histories[session_id] = [{"role": "user", "content": user_message}]
+                    conversation_history = self.conversation_histories[session_id]
+                    continue
+                raise
+
+            if "choices" not in response or not response["choices"]:
+                return "Error: No response from Claude"
+
+            choice = response["choices"][0]
+            message = choice.get("message", {})
+            finish_reason = choice.get("finish_reason")
+
+            tool_calls = message.get("tool_calls")
+            if finish_reason == "tool_calls" and tool_calls:
+                # Record the assistant tool call message (include content even if null)
+                conversation_history.append(
+                    {"role": "assistant", "content": message.get("content"), "tool_calls": tool_calls}
+                )
+
+                # Execute tool calls and append tool results immediately after
+                for tool_call in tool_calls:
+                    function_name = tool_call["function"]["name"]
+                    function_args = json.loads(tool_call["function"]["arguments"])
+                    tool_call_id = tool_call["id"]
+                    result = self._execute_tool(function_name, function_args, agent_tools)
+                    conversation_history.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": self._format_tool_result(result),
+                        }
+                    )
+
                 iteration += 1
-            else:
-                # No more tool uses, break
-                break
+                continue
 
-        # Extract final text response
-        content_blocks = response.get("content", [])
-        text_blocks = [block.get("text", "") for block in content_blocks if block.get("type") == "text"]
-        final_response = "\n".join(text_blocks)
+            # Final response
+            final_response = message.get("content") or ""
+            conversation_history.append({"role": "assistant", "content": final_response})
+            return final_response
 
-        # Add assistant's final response to conversation history
-        self.conversation_history.append({
-            "role": "assistant",
-            "content": final_response
-        })
+        return "Error: Too many tool-calling iterations. Please try a narrower question (e.g., one product or one table)."
 
-        return final_response
-
-    def reset_conversation(self):
-        """Clear conversation history"""
-        self.conversation_history = []
+    def reset_conversation(self, session_id: str = "default"):
+        """Clear conversation history for a specific session"""
+        if session_id in self.conversation_histories:
+            del self.conversation_histories[session_id]

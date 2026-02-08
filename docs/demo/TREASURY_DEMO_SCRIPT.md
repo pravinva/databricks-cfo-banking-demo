@@ -30,7 +30,7 @@
 
 **Modern Approach (2 weeks):**
 - Day 1-2: Unified lakehouse ingests all data automatically
-- Day 3-5: Enhanced beta model with 40+ features (vs 15 baseline)
+- Day 3-5: Static deposit beta model with canonical feature set (19 features)
 - Day 6-8: Vintage analysis with component decay (integrated)
 - Day 9-10: Dynamic beta + stress testing (CCAR/DFAST ready)
 - Day 11-12: AI/BI dashboards auto-generate insights
@@ -85,7 +85,7 @@ print(f"402,000 accounts loaded in {time_taken} seconds")
 ---
 
 ### **PART 3: Enhanced Beta Model (3 minutes)**
-**Slide 3: Phase 1 - From 15 to 40+ Features**
+**Slide 3: Approach 1 - Static deposit beta model**
 
 **Talk Track:**
 > "Your current model probably has 15 features—product type, balance, maybe account age. We've added 25 research-backed features from Moody's, Chen (2025), and Abrigo frameworks."

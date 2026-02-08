@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { TrendingUp, TrendingDown, AlertTriangle, Info } from 'lucide-react'
+import { apiFetch } from '@/lib/api'
 
 interface BetaMetrics {
   total_accounts: number
@@ -39,6 +40,7 @@ export default function DepositBetaDashboard() {
   const [distribution, setDistribution] = useState<BetaDistribution[]>([])
   const [atRiskAccounts, setAtRiskAccounts] = useState<AtRiskAccount[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -47,9 +49,9 @@ export default function DepositBetaDashboard() {
   const fetchData = async () => {
     try {
       const [metricsRes, distributionRes, atRiskRes] = await Promise.all([
-        fetch('/api/data/deposit-beta-metrics'),
-        fetch('/api/data/deposit-beta-distribution'),
-        fetch('/api/data/at-risk-deposits')
+        apiFetch('/api/data/deposit-beta-metrics'),
+        apiFetch('/api/data/deposit-beta-distribution'),
+        apiFetch('/api/data/at-risk-deposits')
       ])
 
       const metricsData = await metricsRes.json()
@@ -60,9 +62,16 @@ export default function DepositBetaDashboard() {
       if (distributionData.success) setDistribution(distributionData.data)
       if (atRiskData.success) setAtRiskAccounts(atRiskData.data)
 
+      if (!metricsData.success && !distributionData.success && !atRiskData.success) {
+        setLoadError(metricsData.error || distributionData.error || atRiskData.error || 'Failed to load deposit beta data')
+      } else {
+        setLoadError(null)
+      }
+
       setLoading(false)
     } catch (error) {
       console.error('Failed to fetch deposit beta data:', error)
+      setLoadError('Failed to fetch deposit beta data')
       setLoading(false)
     }
   }
@@ -72,13 +81,19 @@ export default function DepositBetaDashboard() {
   }
 
   const relationshipColors = {
-    Strategic: '#059669',   // Green
-    Tactical: '#0891B2',    // Teal
-    Expendable: '#DC2626'   // Red
+    'Low Beta': '#059669',     // Green
+    'Medium Beta': '#F59E0B',  // Amber
+    'High Beta': '#DC2626'     // Red
   }
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div className="border-2 border-bloomberg-red bg-bloomberg-surface p-4 font-mono text-sm text-bloomberg-red">
+          {loadError}
+        </div>
+      )}
+
       {/* KPI Cards Row */}
       <div className="grid grid-cols-4 gap-6">
         <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
@@ -87,13 +102,13 @@ export default function DepositBetaDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-bloomberg-text font-mono">
-              {metrics?.avg_beta.toFixed(3)}
+              {metrics ? metrics.avg_beta.toFixed(3) : '—'}
             </div>
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">
-              {metrics?.total_accounts.toLocaleString()} accounts
+              {metrics ? `${metrics.total_accounts.toLocaleString()} accounts` : '—'}
             </p>
             <p className="text-xs text-bloomberg-text-dim font-mono">
-              ${(metrics?.total_balance! / 1e9).toFixed(1)}B total
+              {metrics ? `$${(metrics.total_balance / 1e9).toFixed(1)}B total` : '—'}
             </p>
           </CardContent>
         </Card>
@@ -107,10 +122,10 @@ export default function DepositBetaDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-bloomberg-orange font-mono bloomberg-glow">
-              ${(metrics?.at_risk_balance! / 1e9).toFixed(1)}B
+              {metrics ? `$${(metrics.at_risk_balance / 1e9).toFixed(1)}B` : '—'}
             </div>
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">
-              {metrics?.at_risk_accounts.toLocaleString()} accounts
+              {metrics ? `${metrics.at_risk_accounts.toLocaleString()} accounts` : '—'}
             </p>
             <p className="text-xs text-bloomberg-amber font-mono font-bold">
               Below market rate
@@ -124,7 +139,7 @@ export default function DepositBetaDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-bloomberg-green font-mono bloomberg-glow-green">
-              {metrics?.strategic_pct.toFixed(1)}%
+              {metrics ? `${metrics.strategic_pct.toFixed(1)}%` : '—'}
             </div>
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">
               Low sensitivity (sticky)
@@ -141,7 +156,7 @@ export default function DepositBetaDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-bloomberg-red font-mono bloomberg-glow-red">
-              {metrics?.expendable_pct.toFixed(1)}%
+              {metrics ? `${metrics.expendable_pct.toFixed(1)}%` : '—'}
             </div>
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">
               High sensitivity (hot money)
@@ -270,9 +285,9 @@ export default function DepositBetaDashboard() {
       <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
         <CardHeader>
           <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
-            PHASE 1 MODEL PERFORMANCE
+            APPROACH 1 MODEL PERFORMANCE
           </CardTitle>
-          <p className="text-xs text-bloomberg-text-dim font-mono">Enhanced beta model with 40+ features</p>
+          <p className="text-xs text-bloomberg-text-dim font-mono">Static beta model with 19 features</p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-4 gap-6">
@@ -297,10 +312,10 @@ export default function DepositBetaDashboard() {
             <div className="p-4 border-2 border-bloomberg-border bg-black/20">
               <div className="text-xs text-bloomberg-text-dim font-mono mb-2">FEATURES</div>
               <div className="text-2xl font-bold text-bloomberg-orange font-mono bloomberg-glow">
-                40+
+                19
               </div>
               <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
-                Moody's + Chen + Abrigo
+                Canonical scoring feature set
               </div>
             </div>
             <div className="p-4 border-2 border-bloomberg-border bg-black/20">

@@ -13,10 +13,9 @@ Tables to add:
 6. cfo_banking_demo.ml_models.dynamic_beta_parameters
 7. cfo_banking_demo.ml_models.stress_test_results
 8. cfo_banking_demo.gold_regulatory.lcr_daily
-9. cfo_banking_demo.gold_regulatory.hqla_inventory
-10. cfo_banking_demo.ml_models.ppnr_forecasts
-11. cfo_banking_demo.ml_models.non_interest_income_training_data
-12. cfo_banking_demo.ml_models.non_interest_expense_training_data
+9. cfo_banking_demo.ml_models.ppnr_forecasts
+10. cfo_banking_demo.ml_models.non_interest_income_training_data
+11. cfo_banking_demo.ml_models.non_interest_expense_training_data
 """
 
 import json
@@ -62,7 +61,6 @@ def create_tables_config():
         {"identifier": "cfo_banking_demo.ml_models.dynamic_beta_parameters"},
         {"identifier": "cfo_banking_demo.ml_models.stress_test_results"},
         {"identifier": "cfo_banking_demo.gold_regulatory.lcr_daily"},
-        {"identifier": "cfo_banking_demo.gold_regulatory.hqla_inventory"},
         {"identifier": "cfo_banking_demo.ml_models.ppnr_forecasts"},
         {"identifier": "cfo_banking_demo.ml_models.non_interest_income_training_data"},
         {"identifier": "cfo_banking_demo.ml_models.non_interest_expense_training_data"},
@@ -149,11 +147,10 @@ def add_tables_to_space():
         print("   • cfo_banking_demo.ml_models.cohort_survival_rates")
         print("   • cfo_banking_demo.ml_models.deposit_runoff_forecasts")
 
-        print("\n📊 Stress Testing (4 tables):")
+        print("\n📊 Stress Testing (3 tables):")
         print("   • cfo_banking_demo.ml_models.dynamic_beta_parameters")
         print("   • cfo_banking_demo.ml_models.stress_test_results")
         print("   • cfo_banking_demo.gold_regulatory.lcr_daily")
-        print("   • cfo_banking_demo.gold_regulatory.hqla_inventory")
 
         print("\n📊 PPNR Modeling (3 tables):")
         print("   • cfo_banking_demo.ml_models.ppnr_forecasts")

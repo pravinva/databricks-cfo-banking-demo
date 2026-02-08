@@ -9,13 +9,22 @@ Based on Databricks Genie API documentation:
 - https://docs.databricks.com/aws/en/genie/conversation-api
 - https://docs.databricks.com/aws/en/genie/best-practices
 
-SQL expressions are defined in docs/genie-space/VERIFIED_QUERIES.md
+STATUS (Feb 2026): DEPRECATED
+
+This demo no longer uses Genie Space configuration docs. Natural-language exploration is
+handled by the in-app treasury AI assistant (Databricks Apps) over deposits + PPNR.
 """
 
 import json
 import subprocess
 import uuid
 from typing import Dict, List, Any
+
+
+raise SystemExit(
+    "DEPRECATED: Genie Space automation is no longer used in this repo. "
+    "Use the in-app treasury AI assistant instead."
+)
 
 
 # Genie Space Configuration

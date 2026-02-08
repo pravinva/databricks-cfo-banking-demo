@@ -6,6 +6,7 @@ import { Send, Loader2, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import Link from 'next/link'
+import { apiFetch } from '@/lib/api'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -17,6 +18,7 @@ export default function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sessionId, setSessionId] = useState<string>('demo_session')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -24,6 +26,25 @@ export default function AIAssistant() {
   }
 
   useEffect(scrollToBottom, [messages])
+
+  useEffect(() => {
+    try {
+      const key = 'treasury_assistant_session_id'
+      const existing = window.localStorage.getItem(key)
+      if (existing) {
+        setSessionId(existing)
+        return
+      }
+      const newId =
+        (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+          ? (crypto as any).randomUUID()
+          : `sess_${Date.now()}_${Math.random().toString(16).slice(2)}`
+      window.localStorage.setItem(key, newId)
+      setSessionId(newId)
+    } catch {
+      // Ignore; will fall back to default session id
+    }
+  }, [])
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
@@ -39,12 +60,12 @@ export default function AIAssistant() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: input,
-          session_id: 'demo_session'
+          session_id: sessionId
         })
       })
 

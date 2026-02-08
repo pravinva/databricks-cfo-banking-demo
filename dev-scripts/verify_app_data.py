@@ -128,38 +128,8 @@ else:
     print("⚠️  NO GL DATA FOUND")
     checks.append(("General Ledger", "✗ FAIL", "No data"))
 
-# 4. Check securities_portfolio
-print("\n\n4. SECURITIES PORTFOLIO")
+print("\n\n4. APP DATA CHECKS COMPLETE (NO INVESTMENT PORTFOLIO IN SCOPE)")
 print("-" * 100)
-securities_query = """
-SELECT
-    security_type,
-    COUNT(*) as security_count,
-    SUM(market_value) / 1e9 as market_value_billions
-FROM cfo_banking_demo.silver_treasury.securities_portfolio
-WHERE is_current = TRUE
-GROUP BY security_type
-ORDER BY market_value_billions DESC
-"""
-
-result = w.statement_execution.execute_statement(
-    warehouse_id=WAREHOUSE_ID,
-    statement=securities_query,
-    wait_timeout="30s"
-)
-
-if result.result and result.result.data_array and len(result.result.data_array) > 0:
-    print(f"{'Security Type':<25} {'Count':<15} {'Market Value (B)':<20}")
-    print("-" * 60)
-    for row in result.result.data_array:
-        stype = row[0]
-        count = int(row[1])
-        value = float(row[2])
-        print(f"{stype:<25} {count:<15,} ${value:<19.2f}")
-    checks.append(("Securities Portfolio", "✓ PASS", f"{len(result.result.data_array)} security types"))
-else:
-    print("⚠️  NO SECURITIES DATA FOUND")
-    checks.append(("Securities Portfolio", "✗ FAIL", "No data"))
 
 # Summary
 print("\n\n" + "=" * 100)

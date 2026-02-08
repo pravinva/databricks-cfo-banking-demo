@@ -225,7 +225,7 @@ with mlflow.start_run(run_name="deposit_beta_xgboost_v1") as run:
     mlflow.xgboost.log_model(
         model,
         artifact_path="model",
-        registered_model_name="cfo_banking_demo.models.deposit_beta"
+        registered_model_name="cfo_banking_demo.models.deposit_beta_model"
     )
 
     run_id = run.info.run_id
@@ -305,7 +305,7 @@ from mlflow.tracking import MlflowClient
 client = MlflowClient()
 
 # Get the latest version
-model_name = "cfo_banking_demo.models.deposit_beta"
+model_name = "cfo_banking_demo.models.deposit_beta_model"
 latest_version = client.search_model_versions(f"name='{model_name}'")[-1]
 
 print(f"Model: {model_name}")

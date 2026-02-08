@@ -22,8 +22,55 @@ WAREHOUSE_ID = os.getenv("DATABRICKS_WAREHOUSE_ID", "4b9b953939869799")
 
 try:
     from agent_tools_library import CFOAgentTools
-    agent_tools = CFOAgentTools(warehouse_id=WAREHOUSE_ID)
-    print(f"✓ Successfully loaded agent tools with warehouse: {WAREHOUSE_ID}")
+    def _try_init_agent_tools(profile: str | None):
+        if profile:
+            os.environ["DATABRICKS_CONFIG_PROFILE"] = profile
+        tools = CFOAgentTools(warehouse_id=WAREHOUSE_ID)
+
+        # Validate we're connected to the workspace that actually has demo data.
+        # This catches cases where the SDK authenticates fine but points at a workspace
+        # without `cfo_banking_demo` populated (e.g. a different profile).
+        validate = tools.query_unity_catalog(
+            "SELECT COUNT(*) FROM cfo_banking_demo.bronze_core_banking.deposit_accounts WHERE is_current = true",
+            max_rows=1,
+        )
+        if not validate.get("success") or not validate.get("data"):
+            raise RuntimeError(validate.get("error") or "Validation query failed")
+
+        try:
+            deposit_cnt = int(validate["data"][0][0])
+        except Exception:
+            deposit_cnt = 0
+        return tools, deposit_cnt
+
+    requested_profile = os.getenv("DATABRICKS_CONFIG_PROFILE")
+    candidate_profiles: list[str | None] = [requested_profile] if requested_profile else [None]
+    if (requested_profile or "").upper() != "DEFAULT":
+        candidate_profiles.append("DEFAULT")
+
+    agent_tools = None
+    last_err = None
+    for prof in candidate_profiles:
+        try:
+            tools, deposit_cnt = _try_init_agent_tools(prof)
+            if deposit_cnt <= 0 and (prof or "").upper() != "DEFAULT":
+                # If this profile yields 0 deposits, prefer trying DEFAULT before accepting.
+                print(f"⚠ Profile {prof or 'auto'} returned 0 deposits; trying next profile...")
+                agent_tools = tools  # keep as fallback if all else fails
+                continue
+            agent_tools = tools
+            effective_profile = os.getenv("DATABRICKS_CONFIG_PROFILE") or "auto"
+            print(
+                "✓ Successfully loaded agent tools "
+                f"(profile={effective_profile}, warehouse={WAREHOUSE_ID}, deposits={deposit_cnt})"
+            )
+            break
+        except Exception as e:
+            last_err = e
+            continue
+
+    if agent_tools is None:
+        raise last_err or RuntimeError("Agent tools init failed")
 except Exception as e:
     print(f"❌ ERROR: Could not load agent tools: {e}")
     import traceback
@@ -139,18 +186,50 @@ async def get_summary():
 
 @app.get("/api/data/yield-curve")
 async def get_yield_curve():
-    """Get current Treasury yield curve"""
+    """Get current Treasury yield curve
+
+    Prefer the persisted Unity Catalog table (so the UI works without AlphaVantage credentials),
+    and fall back to live fetch if needed.
+    """
     if not agent_tools:
         return JSONResponse({"error": "Agent tools not available"}, status_code=503)
 
     try:
-        result = agent_tools.get_current_treasury_yields()
-        if result["success"]:
+        # 1) Preferred: UC table populated by backfill job/notebooks
+        table_query = """
+            SELECT
+                date,
+                rate_3m,
+                rate_2y,
+                rate_5y,
+                rate_10y,
+                rate_30y
+            FROM cfo_banking_demo.silver_treasury.yield_curves
+            ORDER BY date DESC
+            LIMIT 1
+        """
+        table_result = agent_tools.query_unity_catalog(table_query)
+        if table_result.get("success") and table_result.get("data"):
+            row = table_result["data"][0]
             return {
-                "date": result["date"],
-                **result["yields"]
+                "date": row[0],
+                "3M": str(row[1]) if row[1] is not None else None,
+                "2Y": str(row[2]) if row[2] is not None else None,
+                "5Y": str(row[3]) if row[3] is not None else None,
+                "10Y": str(row[4]) if row[4] is not None else None,
+                "30Y": str(row[5]) if row[5] is not None else None,
+                "source": "uc_table"
             }
-        return JSONResponse({"error": "Failed to fetch yields"}, status_code=500)
+
+        # 2) Fallback: live fetch (AlphaVantage / external)
+        live_result = agent_tools.get_current_treasury_yields()
+        if live_result.get("success"):
+            return {"date": live_result["date"], **live_result["yields"], "source": "live"}
+
+        return JSONResponse(
+            {"error": "Failed to fetch yields", "details": live_result.get("error")},
+            status_code=500
+        )
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -607,102 +686,246 @@ async def get_deposits(
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-@app.get("/api/data/securities")
-async def get_securities(
-    security_type: str = None,
-    hqla_level: str = None,
-    limit: int = 100
+@app.get("/api/data/deposit-accounts")
+async def get_deposit_accounts(
+    product_type: str = None,
+    customer_segment: str = None,
+    limit: int = 200,
+    require_activity: bool = False,
 ):
-    """Get securities portfolio with filters"""
+    """Treasury: Return deposit accounts for drill-down tables (raw schema)"""
     if not agent_tools:
         return JSONResponse({"error": "Agent tools not available"}, status_code=503)
 
     try:
-        # Build filters
-        where_clauses = ["is_current = true"]
-
-        if security_type:
-            where_clauses.append(f"security_type = '{security_type}'")
-
+        where_clauses = ["account_status = 'Active'"]
+        if product_type:
+            where_clauses.append(f"product_type = '{product_type}'")
+        if customer_segment:
+            where_clauses.append(f"customer_segment = '{customer_segment}'")
         where_sql = " AND ".join(where_clauses)
 
-        # If HQLA filter, join with HQLA table
-        if hqla_level:
-            query = f"""
-                SELECT
-                    s.security_id,
-                    s.issuer_name,
-                    s.security_type,
-                    s.maturity_date,
-                    s.market_value,
-                    s.yield_to_maturity,
-                    s.duration,
-                    h.hqla_level,
-                    h.hqla_value
-                FROM cfo_banking_demo.silver_treasury.securities_portfolio s
-                JOIN cfo_banking_demo.gold_regulatory.hqla_inventory h
-                    ON s.security_id = h.security_id
-                WHERE {where_sql}
-                AND h.hqla_level = '{hqla_level}'
-                ORDER BY s.market_value DESC
-                LIMIT {limit}
-            """
-        else:
-            query = f"""
-                SELECT
-                    security_id,
-                    issuer_name,
-                    security_type,
-                    maturity_date,
-                    market_value,
-                    yield_to_maturity,
-                    duration,
-                    credit_rating
-                FROM cfo_banking_demo.silver_treasury.securities_portfolio
-                WHERE {where_sql}
-                ORDER BY market_value DESC
-                LIMIT {limit}
-            """
+        activity_filter_sql = "AND a.account_id IS NOT NULL" if require_activity else ""
+        query = f"""
+            WITH activity_accounts AS (
+                SELECT DISTINCT account_id
+                FROM cfo_banking_demo.silver_finance.deposit_subledger
+                WHERE account_id IS NOT NULL
 
-        result = agent_tools.query_unity_catalog(query)
+                UNION
 
-        if result["success"]:
-            # Convert array data to dictionaries
-            columns = result.get("columns", [])
-            securities = []
-            for row in result["data"]:
-                security_dict = {columns[i]: row[i] for i in range(len(columns))}
-                securities.append(security_dict)
+                SELECT DISTINCT customer_id AS account_id
+                FROM cfo_banking_demo.silver_finance.gl_entry_lines
+                WHERE customer_id IS NOT NULL
 
-            return {"securities": securities, "count": len(securities)}
-        else:
-            return JSONResponse({"error": "Failed to fetch securities"}, status_code=500)
+                UNION
 
+                SELECT DISTINCT reference_number AS account_id
+                FROM cfo_banking_demo.silver_finance.gl_entry_lines
+                WHERE reference_number IS NOT NULL
+            )
+            SELECT
+                d.account_id,
+                d.customer_name,
+                d.product_type,
+                d.customer_segment,
+                d.account_open_date,
+                d.current_balance,
+                d.stated_rate,
+                d.beta,
+                d.account_status,
+                CASE WHEN a.account_id IS NULL THEN 0 ELSE 1 END AS has_activity
+            FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
+            LEFT JOIN activity_accounts a
+              ON a.account_id = d.account_id
+            WHERE {where_sql}
+              AND d.is_current = true
+              {activity_filter_sql}
+            ORDER BY has_activity DESC, d.current_balance DESC
+            LIMIT {int(limit)}
+        """
+
+        result = agent_tools.query_unity_catalog(query, max_rows=int(limit))
+        if not result.get("success"):
+            return JSONResponse({"error": "Query failed", "details": result.get("error")}, status_code=500)
+
+        data = []
+        for row in (result.get("data") or []):
+            data.append({
+                "account_id": row[0],
+                "customer_name": row[1],
+                "product_type": row[2],
+                "customer_segment": row[3],
+                "account_open_date": row[4],
+                "current_balance": float(row[5]) if row[5] else 0.0,
+                "stated_rate": float(row[6]) if row[6] else 0.0,
+                "beta": float(row[7]) if row[7] else 0.0,
+                "account_status": row[8] or "Active",
+                "has_activity": bool(row[9]) if len(row) > 9 else False,
+            })
+
+        return {"success": True, "data": data}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/deposit-detail/{account_id}")
+async def get_deposit_detail(account_id: str):
+    """Treasury: Deposit account detail + GL entries + deposit subledger"""
+    if not agent_tools:
+        return JSONResponse({"error": "Agent tools not available"}, status_code=503)
+
+    def to_float(x):
+        try:
+            return float(x) if x is not None else 0.0
+        except Exception:
+            return 0.0
+
+    try:
+        deposit_query = f"""
+            SELECT
+                d.account_id,
+                d.customer_name,
+                d.product_type,
+                d.customer_segment,
+                d.account_open_date,
+                d.current_balance,
+                d.stated_rate,
+                d.beta,
+                d.account_status,
+                p.predicted_beta
+            FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
+            LEFT JOIN cfo_banking_demo.ml_models.deposit_beta_predictions p
+              ON p.account_id = d.account_id
+            WHERE d.account_id = '{account_id}'
+              AND d.is_current = true
+            LIMIT 1
+        """
+        dep_res = agent_tools.query_unity_catalog(deposit_query, max_rows=1)
+        if not dep_res.get("success") or not dep_res.get("data"):
+            return JSONResponse({"error": "Deposit not found"}, status_code=404)
+
+        row = dep_res["data"][0]
+        deposit = {
+            "account_id": row[0],
+            "customer_name": row[1],
+            "product_type": row[2],
+            "customer_segment": row[3],
+            "account_open_date": row[4],
+            "current_balance": to_float(row[5]),
+            "stated_rate": to_float(row[6]),
+            "beta": to_float(row[7]) if row[7] is not None else None,
+            "account_status": row[8] or "Active",
+            "predicted_beta": to_float(row[9]) if row[9] is not None else None,
+        }
+
+        subledger_query = f"""
+            SELECT
+                transaction_id,
+                transaction_timestamp,
+                transaction_type,
+                amount,
+                balance_after,
+                gl_entry_id,
+                channel,
+                description
+            FROM cfo_banking_demo.silver_finance.deposit_subledger
+            WHERE account_id = '{account_id}'
+            ORDER BY transaction_timestamp DESC
+            LIMIT 50
+        """
+        sub_res = agent_tools.query_unity_catalog(subledger_query, max_rows=50)
+        sub_rows = sub_res.get("data") if sub_res.get("success") else []
+        subledger_entries = []
+        for r in (sub_rows or []):
+            subledger_entries.append({
+                "transaction_id": r[0],
+                "transaction_timestamp": r[1],
+                "transaction_type": r[2],
+                "amount": to_float(r[3]),
+                "balance_after": to_float(r[4]),
+                "gl_entry_id": r[5],
+                "channel": r[6],
+                "description": r[7],
+            })
+
+        # GL headers can be discovered from either:
+        # - gl_entries.source_transaction_id = account_id (common for deposit events)
+        # - deposit_subledger.gl_entry_id (explicit foreign key)
+        # - gl_entry_lines.customer_id/reference_number = account_id (most reliable linkage)
+        gl_query = f"""
+            SELECT
+                ge.entry_id,
+                ge.source_transaction_id,
+                ge.entry_date,
+                ge.entry_timestamp,
+                ge.total_debits,
+                ge.total_credits,
+                ge.is_balanced,
+                ge.description
+            FROM cfo_banking_demo.silver_finance.gl_entries ge
+            WHERE ge.source_transaction_id = '{account_id}'
+               OR ge.entry_id IN (
+                    SELECT DISTINCT gl_entry_id
+                    FROM cfo_banking_demo.silver_finance.deposit_subledger
+                    WHERE account_id = '{account_id}' AND gl_entry_id IS NOT NULL
+               )
+               OR ge.entry_id IN (
+                    SELECT DISTINCT entry_id
+                    FROM cfo_banking_demo.silver_finance.gl_entry_lines
+                    WHERE customer_id = '{account_id}'
+                       OR reference_number = '{account_id}'
+               )
+            ORDER BY ge.entry_timestamp DESC
+            LIMIT 50
+        """
+        gl_res = agent_tools.query_unity_catalog(gl_query, max_rows=50)
+        gl_rows = gl_res.get("data") if gl_res.get("success") else []
+        gl_entries = []
+        for r in (gl_rows or []):
+            gl_entries.append({
+                "entry_id": r[0],
+                "source_transaction_id": r[1],
+                "entry_date": r[2],
+                "entry_timestamp": r[3],
+                "total_debits": to_float(r[4]),
+                "total_credits": to_float(r[5]),
+                "is_balanced": r[6],
+                "description": r[7],
+            })
+
+        response = {**deposit, "gl_entries": gl_entries, "subledger_entries": subledger_entries}
+        # Optional debug fields (frontend ignores them, but useful when API calls succeed yet arrays are empty)
+        if not sub_res.get("success"):
+            response["subledger_error"] = sub_res.get("error")
+        if not gl_res.get("success"):
+            response["gl_error"] = gl_res.get("error")
+        return response
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 # =============================================================================
-# TREASURY DEPOSIT MODELING API ENDPOINTS (Phase 1-3)
+# TREASURY DEPOSIT MODELING API ENDPOINTS (Approaches 1-3)
 # =============================================================================
 
 @app.get("/api/data/deposit-beta-metrics")
 async def get_deposit_beta_metrics():
-    """Phase 1: Deposit beta portfolio metrics"""
+    """Approach 1: Deposit beta portfolio metrics"""
     try:
         query = """
             SELECT
                 COUNT(*) as total_accounts,
-                SUM(balance_millions * 1000000) as total_balance,
-                AVG(target_beta) as avg_beta,
-                SUM(CASE WHEN below_competitor_rate = 1 THEN 1 ELSE 0 END) as at_risk_accounts,
-                SUM(CASE WHEN below_competitor_rate = 1 THEN balance_millions * 1000000 ELSE 0 END) as at_risk_balance,
-                SUM(CASE WHEN relationship_category = 'Strategic' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as strategic_pct,
-                SUM(CASE WHEN relationship_category = 'Tactical' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as tactical_pct,
-                SUM(CASE WHEN relationship_category = 'Expendable' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as expendable_pct
-            FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
-            WHERE effective_date = (SELECT MAX(effective_date) FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced)
+                SUM(current_balance) as total_balance,
+                AVG(predicted_beta) as avg_beta,
+                SUM(CASE WHEN predicted_beta >= 0.60 THEN 1 ELSE 0 END) as at_risk_accounts,
+                SUM(CASE WHEN predicted_beta >= 0.60 THEN current_balance ELSE 0 END) as at_risk_balance
+            FROM cfo_banking_demo.ml_models.deposit_beta_predictions
         """
         result = agent_tools.query_unity_catalog(query)
+        if not result.get("success"):
+            return JSONResponse(
+                {"error": "Query failed", "details": result.get("error")},
+                status_code=500
+            )
         if result["success"] and result["data"] and len(result["data"]) > 0:
             row = result["data"][0]
             data = {
@@ -711,9 +934,9 @@ async def get_deposit_beta_metrics():
                 "avg_beta": float(row[2]) if row[2] else 0.0,
                 "at_risk_accounts": int(row[3]) if row[3] else 0,
                 "at_risk_balance": float(row[4]) if row[4] else 0.0,
-                "strategic_pct": float(row[5]) if row[5] else 0.0,
-                "tactical_pct": float(row[6]) if row[6] else 0.0,
-                "expendable_pct": float(row[7]) if row[7] else 0.0
+                "strategic_pct": 0.0,
+                "tactical_pct": 0.0,
+                "expendable_pct": 0.0
             }
             return {"success": True, "data": data}
         return JSONResponse({"error": "No data found"}, status_code=404)
@@ -722,18 +945,21 @@ async def get_deposit_beta_metrics():
 
 @app.get("/api/data/deposit-beta-distribution")
 async def get_deposit_beta_distribution():
-    """Phase 1: Beta distribution by product and relationship"""
+    """Approach 1: Beta distribution by product and risk tier"""
     try:
         query = """
             SELECT
                 product_type,
                 COUNT(*) as account_count,
-                SUM(balance_millions * 1000000) as total_balance,
-                AVG(target_beta) as avg_beta,
-                relationship_category
-            FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
-            WHERE effective_date = (SELECT MAX(effective_date) FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced)
-            GROUP BY product_type, relationship_category
+                SUM(current_balance) as total_balance,
+                AVG(predicted_beta) as avg_beta,
+                CASE
+                    WHEN AVG(predicted_beta) >= 0.60 THEN 'High Beta'
+                    WHEN AVG(predicted_beta) >= 0.35 THEN 'Medium Beta'
+                    ELSE 'Low Beta'
+                END as relationship_category
+            FROM cfo_banking_demo.ml_models.deposit_beta_predictions
+            GROUP BY product_type
             ORDER BY total_balance DESC
         """
         result = agent_tools.query_unity_catalog(query)
@@ -755,22 +981,30 @@ async def get_deposit_beta_distribution():
 
 @app.get("/api/data/at-risk-deposits")
 async def get_at_risk_deposits():
-    """Phase 1: Top at-risk accounts priced below market"""
+    """Approach 1: Top accounts with highest beta and rate gap"""
     try:
         query = """
+            WITH yc AS (
+                SELECT rate_2y
+                FROM cfo_banking_demo.silver_treasury.yield_curves
+                WHERE date = (SELECT MAX(date) FROM cfo_banking_demo.silver_treasury.yield_curves)
+            )
             SELECT
-                account_id,
-                product_type,
-                balance_millions * 1000000 as current_balance,
-                stated_rate,
-                market_fed_funds_rate as market_rate,
-                rate_gap,
-                target_beta as predicted_beta,
-                relationship_category
-            FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
-            WHERE below_competitor_rate = 1
-              AND effective_date = (SELECT MAX(effective_date) FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced)
-            ORDER BY balance_millions DESC
+                p.account_id,
+                p.product_type,
+                p.current_balance,
+                p.stated_rate,
+                yc.rate_2y as market_rate,
+                (yc.rate_2y - p.stated_rate) as rate_gap,
+                p.predicted_beta,
+                CASE
+                    WHEN p.predicted_beta >= 0.60 THEN 'High Beta'
+                    WHEN p.predicted_beta >= 0.35 THEN 'Medium Beta'
+                    ELSE 'Low Beta'
+                END as relationship_category
+            FROM cfo_banking_demo.ml_models.deposit_beta_predictions p
+            CROSS JOIN yc
+            ORDER BY p.predicted_beta DESC, p.current_balance DESC
             LIMIT 50
         """
         result = agent_tools.query_unity_catalog(query)
@@ -789,6 +1023,49 @@ async def get_at_risk_deposits():
                 for row in result["data"]
             ]
             return {"success": True, "data": data}
+        return JSONResponse({"error": "No data found"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/ppnr-forecasts")
+async def get_ppnr_forecasts(limit: int = 24):
+    """PPNR: Return latest monthly PPNR forecast series"""
+    if not agent_tools:
+        return JSONResponse({"error": "Agent tools not available"}, status_code=503)
+
+    try:
+        query = f"""
+            SELECT
+                month,
+                net_interest_income,
+                non_interest_income,
+                non_interest_expense,
+                ppnr
+            FROM cfo_banking_demo.ml_models.ppnr_forecasts
+            ORDER BY month DESC
+            LIMIT {int(limit)}
+        """
+
+        result = agent_tools.query_unity_catalog(query)
+        if not result.get("success"):
+            return JSONResponse(
+                {"error": "Query failed", "details": result.get("error")},
+                status_code=500
+            )
+        if result["success"] and result["data"]:
+            cols = result.get("columns") or [
+                "month",
+                "net_interest_income",
+                "non_interest_income",
+                "non_interest_expense",
+                "ppnr",
+            ]
+            rows = [
+                {cols[i]: row[i] for i in range(min(len(cols), len(row)))}
+                for row in result["data"]
+            ]
+            return {"success": True, "data": list(reversed(rows))}
+
         return JSONResponse({"error": "No data found"}, status_code=404)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)

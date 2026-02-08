@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Loader2, Sparkles, X, MessageCircle, Minimize2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { apiFetch } from '@/lib/api'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -18,6 +19,7 @@ export default function FloatingAIAssistant() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sessionId, setSessionId] = useState<string>('demo_session')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -25,6 +27,25 @@ export default function FloatingAIAssistant() {
   }
 
   useEffect(scrollToBottom, [messages])
+
+  useEffect(() => {
+    try {
+      const key = 'treasury_assistant_session_id'
+      const existing = window.localStorage.getItem(key)
+      if (existing) {
+        setSessionId(existing)
+        return
+      }
+      const newId =
+        (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+          ? (crypto as any).randomUUID()
+          : `sess_${Date.now()}_${Math.random().toString(16).slice(2)}`
+      window.localStorage.setItem(key, newId)
+      setSessionId(newId)
+    } catch {
+      // Ignore; will fall back to default session id
+    }
+  }, [])
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
@@ -40,12 +61,12 @@ export default function FloatingAIAssistant() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: input,
-          session_id: 'demo_session'
+          session_id: sessionId
         })
       })
 
@@ -72,10 +93,10 @@ export default function FloatingAIAssistant() {
   }
 
   const exampleQueries = [
-    'Current 10Y Treasury yield',
-    'Rate shock: +50 bps on MMDA',
-    'LCR status',
-    'Portfolio summary'
+    'Latest PPNR forecast',
+    'Deposit beta by product (Approach 1)',
+    'Vintage runoff forecast by segment (Approach 2)',
+    'Current 10Y Treasury yield'
   ]
 
   return (
@@ -91,7 +112,7 @@ export default function FloatingAIAssistant() {
           >
             <Button
               onClick={() => setIsOpen(true)}
-              className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-xl hover:shadow-2xl transition-all duration-300 group"
+              className="h-14 px-4 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-xl hover:shadow-2xl transition-all duration-300 group flex items-center gap-2"
             >
               <motion.div
                 animate={{ rotate: [0, 10, -10, 0] }}
@@ -99,6 +120,9 @@ export default function FloatingAIAssistant() {
               >
                 <Sparkles className="h-6 w-6 text-white" />
               </motion.div>
+              <span className="text-white text-sm font-semibold tracking-wide">
+                Ask me
+              </span>
             </Button>
           </motion.div>
         )}
@@ -131,8 +155,8 @@ export default function FloatingAIAssistant() {
                       <Sparkles className="h-5 w-5 text-white" />
                     </motion.div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">AI Assistant</h3>
-                      <p className="text-xs text-blue-100">Claude Sonnet 4.5</p>
+                      <h3 className="text-sm font-semibold text-white">Treasury Assistant</h3>
+                      <p className="text-xs text-blue-100">Deposits + PPNR</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -181,7 +205,7 @@ export default function FloatingAIAssistant() {
                       <div className="flex items-center justify-center h-full text-slate-400">
                         <div className="text-center">
                           <Sparkles className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                          <p className="text-xs">Ask about Treasury, Risk, or Regulatory metrics</p>
+                          <p className="text-xs">Ask about deposit models, PPNR, and yield curve drivers</p>
                         </div>
                       </div>
                     )}

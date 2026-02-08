@@ -4,17 +4,17 @@ This document provides a comprehensive guide to all production notebooks in the 
 
 ---
 
-## 📊 **Phase 1-3: Treasury Deposit Beta Modeling** (Core Production)
+## 📊 **Approach 1-3: Treasury Deposit Beta Modeling** (Core Production)
 
-### **Phase 1: Enhanced Deposit Beta Model**
-**File**: `Phase1_Enhanced_Deposit_Beta_Model.py`
+### **Approach 1: Enhanced Deposit Beta Model**
+**File**: `Approach1_Enhanced_Deposit_Beta_Model.py`
 
 **Purpose**: Baseline static deposit beta prediction model
 
 **What It Does**:
 - Trains XGBoost regression model for deposit sensitivity (beta coefficients)
 - Feature engineering: balance, rates, account age, customer segment, product type
-- Registers model to Unity Catalog: `cfo_banking_demo.models.deposit_beta@champion`
+- Registers model to Unity Catalog: `cfo_banking_demo.models.deposit_beta_model@champion`
 
 **When to Use**:
 - Initial model training for deposit sensitivity
@@ -23,14 +23,14 @@ This document provides a comprehensive guide to all production notebooks in the 
 
 **Output Tables**:
 - `cfo_banking_demo.ml_models.deposit_beta_training_data`
-- Model: `cfo_banking_demo.models.deposit_beta@champion`
+- Model: `cfo_banking_demo.models.deposit_beta_model@champion`
 
 **Runtime**: ~5-10 minutes
 
 ---
 
-### **Phase 2: Vintage Analysis & Decay Modeling**
-**File**: `Phase2_Vintage_Analysis_and_Decay_Modeling.py`
+### **Approach 2: Vintage Analysis & Decay Modeling**
+**File**: `Approach2_Vintage_Analysis_and_Decay_Modeling.py`
 
 **Purpose**: Cohort-based deposit retention and runoff forecasting
 
@@ -55,8 +55,8 @@ This document provides a comprehensive guide to all production notebooks in the 
 
 ---
 
-### **Phase 3: Dynamic Beta & Stress Testing**
-**File**: `Phase3_Dynamic_Beta_and_Stress_Testing.py`
+### **Approach 3: Dynamic Beta & Stress Testing**
+**File**: `Approach3_Dynamic_Beta_and_Stress_Testing.py`
 
 **Purpose**: Advanced stress testing with time-varying beta coefficients (regulatory compliance)
 
@@ -256,7 +256,6 @@ cfo_banking_demo.models.deposit_beta_model with alias @champion.
 **What It Does**:
 - Creates loan portfolio with realistic distributions
 - Generates deposit accounts (DDA, MMDA, CD, Savings, NOW)
-- Populates securities portfolio (UST, MBS, Corporate bonds)
 - Creates historical yield curves
 - Generates customer and branch data
 
@@ -351,10 +350,10 @@ cfo_banking_demo.models.deposit_beta_model with alias @champion.
    - `Phase_1_Bronze_Tables.py` - Generate raw data
    - `Phase_2_DLT_Pipelines.py` - Transform to Silver/Gold
 
-2. **Treasury Models** (Phase 1-3):
-   - `Phase1_Enhanced_Deposit_Beta_Model.py` - Static beta model
-   - `Phase2_Vintage_Analysis_and_Decay_Modeling.py` - Cohort analysis
-   - `Phase3_Dynamic_Beta_and_Stress_Testing.py` - Advanced stress testing
+2. **Treasury Models (Approaches 1-3)**:
+   - `Approach1_Enhanced_Deposit_Beta_Model.py` - Enhanced static beta model
+   - `Approach2_Vintage_Analysis_and_Decay_Modeling.py` - Vintage + runoff forecasting
+   - `Approach3_Dynamic_Beta_and_Stress_Testing.py` - Dynamic beta + stress testing
 
 3. **PPNR Models**:
    - `Train_PPNR_Models.py` - Non-Interest Income & Expense
@@ -383,7 +382,7 @@ Recommended schedule for production deployment:
 | `Generate_Deposit_Analytics_Report.py` | Weekly | Sunday 11:30pm | Analytics report (after inference) |
 | `Generate_Vintage_Analysis_Tables.py` | Monthly | 1st of month | Cohort updates |
 | `Generate_Stress_Test_Results.py` | Quarterly | End of quarter | CCAR projections |
-| `Phase1_Enhanced_Deposit_Beta_Model.py` | Quarterly | Mid-quarter | Model retraining |
+| `Approach1_Enhanced_Deposit_Beta_Model.py` | Quarterly | Mid-quarter | Model retraining |
 | `Train_PPNR_Models.py` | Quarterly | Mid-quarter | PPNR model refresh |
 
 ---
@@ -398,9 +397,9 @@ For legacy/superseded notebooks, see `/notebooks/archive/README.md`
 
 | Task | Notebook |
 |------|----------|
-| **Train deposit beta model** | `Phase1_Enhanced_Deposit_Beta_Model.py` |
-| **Analyze deposit retention** | `Phase2_Vintage_Analysis_and_Decay_Modeling.py` |
-| **Run CCAR stress test** | `Phase3_Dynamic_Beta_and_Stress_Testing.py` |
+| **Train deposit beta model** | `Approach1_Enhanced_Deposit_Beta_Model.py` |
+| **Analyze deposit retention** | `Approach2_Vintage_Analysis_and_Decay_Modeling.py` |
+| **Run CCAR stress test** | `Approach3_Dynamic_Beta_and_Stress_Testing.py` |
 | **Forecast PPNR** | `Train_PPNR_Models.py` |
 | **Score deposit portfolio** | `Batch_Inference_Deposit_Beta_Model.py` |
 | **Generate analytics report** | `Generate_Deposit_Analytics_Report.py` |

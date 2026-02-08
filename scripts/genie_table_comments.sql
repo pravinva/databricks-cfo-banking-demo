@@ -201,20 +201,6 @@ COMMENT ON COLUMN cfo_banking_demo.gold_regulatory.lcr_daily.lcr_ratio IS 'Ratio
 COMMENT ON COLUMN cfo_banking_demo.gold_regulatory.lcr_daily.lcr_status IS 'Lcr Status (STRING)';
 
 
--- cfo_banking_demo.gold_regulatory.hqla_inventory
--- Columns: 7
-
-COMMENT ON TABLE cfo_banking_demo.gold_regulatory.hqla_inventory IS 'High-Quality Liquid Assets (HQLA) inventory per Basel III classification (Level 1, 2A, 2B). Daily fair value and haircut adjustments. Use for: LCR calculations, liquidity buffer management, and ALCO reporting.';
-
-COMMENT ON COLUMN cfo_banking_demo.gold_regulatory.hqla_inventory.security_id IS 'Security Id (STRING)';
-COMMENT ON COLUMN cfo_banking_demo.gold_regulatory.hqla_inventory.security_type IS 'Security Type (STRING)';
-COMMENT ON COLUMN cfo_banking_demo.gold_regulatory.hqla_inventory.market_value IS 'Market Value (DOUBLE)';
-COMMENT ON COLUMN cfo_banking_demo.gold_regulatory.hqla_inventory.credit_rating IS 'Credit Rating (STRING)';
-COMMENT ON COLUMN cfo_banking_demo.gold_regulatory.hqla_inventory.hqla_level IS 'Hqla Level (STRING)';
-COMMENT ON COLUMN cfo_banking_demo.gold_regulatory.hqla_inventory.haircut IS 'Haircut (DECIMAL)';
-COMMENT ON COLUMN cfo_banking_demo.gold_regulatory.hqla_inventory.hqla_value IS 'Hqla Value (DOUBLE)';
-
-
 -- cfo_banking_demo.ml_models.ppnr_forecasts
 -- Columns: 7
 

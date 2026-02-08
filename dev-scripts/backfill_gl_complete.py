@@ -29,11 +29,11 @@ except Exception as e:
     exit(1)
 
 # Step 2: Define complete chart of accounts
-# Based on $18B loans, $27B deposits, $13B securities = $44B total assets
+# Illustrative scale only (amounts are synthetic for demo)
 accounts = [
     # INTEREST INCOME (40xx) - Total ~$140M/month
     ('4010', 'Interest Income - Loans', 'interest_income', 85000000),           # $18B @ 5.5% = $82.5M/month
-    ('4020', 'Interest Income - Securities', 'interest_income', 40000000),      # $13B @ 3.5% = $37.9M/month
+    ('4020', 'Interest Income - Other Assets', 'interest_income', 40000000),   # Synthetic interest income component
     ('4030', 'Interest Income - Fed Funds Sold', 'interest_income', 15000000),  # $5B @ 3.0% = $12.5M/month
 
     # NON-INTEREST INCOME (41xx) - Total ~$50M/month

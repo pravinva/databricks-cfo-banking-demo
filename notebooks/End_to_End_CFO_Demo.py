@@ -96,15 +96,6 @@ portfolio_summary = spark.sql("""
         ROUND(SUM(current_balance)/1e9, 2)
     FROM cfo_banking_demo.silver_finance.deposit_portfolio
     WHERE is_current = true
-
-    UNION ALL
-
-    SELECT
-        'Securities',
-        COUNT(*),
-        ROUND(SUM(market_value)/1e9, 2)
-    FROM cfo_banking_demo.silver_finance.securities
-    WHERE is_current = true
 """)
 
 print("=" * 80)
@@ -302,7 +293,7 @@ todays_activity.display()
 # Load the trained deposit beta model
 import mlflow
 
-model_name = "cfo_banking_demo.models.deposit_beta"
+model_name = "cfo_banking_demo.models.deposit_beta_model"
 model = mlflow.pyfunc.load_model(f"models:/{model_name}@champion")
 
 print(f"✓ Loaded model: {model_name}@champion")
@@ -517,39 +508,20 @@ basel_iii.display()
 
 # COMMAND ----------
 
-# Calculate LCR
+# Calculate LCR (uses precomputed regulatory table; no instrument-level inventory surfaced)
 lcr = spark.sql("""
-    WITH hqla AS (
-        SELECT SUM(CASE
-            WHEN security_type IN ('UST', 'Agency MBS') THEN market_value * 1.00
-            WHEN security_type = 'Agency' THEN market_value * 0.85
-            WHEN security_type IN ('Corporate Bond', 'Municipal Bond') THEN market_value * 0.50
-            ELSE 0
-        END) as total_hqla
-        FROM cfo_banking_demo.silver_finance.securities
-        WHERE is_current = true
-    ),
-    outflows AS (
-        SELECT SUM(current_balance * CASE
-            WHEN product_type = 'DDA' THEN 0.03
-            WHEN product_type = 'MMDA' THEN 0.10
-            WHEN product_type = 'Savings' THEN 0.05
-            WHEN product_type = 'NOW' THEN 0.25
-            ELSE 0.00
-        END) as net_outflow
-        FROM cfo_banking_demo.silver_finance.deposit_portfolio
-        WHERE is_current = true
-    )
     SELECT
-        ROUND(h.total_hqla/1e9, 2) as hqla_billions,
-        ROUND(o.net_outflow/1e9, 2) as net_outflow_billions,
-        ROUND(h.total_hqla / o.net_outflow * 100, 1) as lcr_pct,
+        ROUND(total_hqla/1e9, 2) as hqla_billions,
+        ROUND(net_cash_outflows/1e9, 2) as net_outflow_billions,
+        ROUND(lcr_ratio, 1) as lcr_pct,
         100.0 as minimum_pct,
         CASE
-            WHEN ROUND(h.total_hqla / o.net_outflow * 100, 1) >= 100.0 THEN 'Compliant ✓'
+            WHEN ROUND(lcr_ratio, 1) >= 100.0 THEN 'Compliant ✓'
             ELSE 'Non-Compliant ✗'
         END as status
-    FROM hqla h, outflows o
+    FROM cfo_banking_demo.gold_regulatory.lcr_daily
+    ORDER BY calculation_timestamp DESC
+    LIMIT 1
 """)
 
 print("=" * 80)
@@ -627,7 +599,7 @@ lcr.display()
 # MAGIC
 # MAGIC ### 1. Data Foundation (WS1) ✓
 # MAGIC - Unity Catalog with bronze/silver/gold medallion
-# MAGIC - 500,000+ banking records (loans, deposits, securities)
+# MAGIC - 500,000+ banking records (loans and deposits)
 # MAGIC - Cross-domain queries in sub-second response times
 # MAGIC - Complete data lineage for audit trail
 # MAGIC

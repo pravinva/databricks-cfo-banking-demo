@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { apiFetch } from '@/lib/api'
 
 interface ComponentDecayMetrics {
   relationship_category: string
@@ -43,9 +44,9 @@ export default function VintageAnalysisDashboard() {
   const fetchData = async () => {
     try {
       const [decayRes, survivalRes, runoffRes] = await Promise.all([
-        fetch('/api/data/component-decay-metrics'),
-        fetch('/api/data/cohort-survival'),
-        fetch('/api/data/runoff-forecasts')
+        apiFetch('/api/data/component-decay-metrics'),
+        apiFetch('/api/data/cohort-survival'),
+        apiFetch('/api/data/runoff-forecasts')
       ])
 
       const decayData = await decayRes.json()
@@ -244,7 +245,7 @@ export default function VintageAnalysisDashboard() {
       <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
         <CardHeader>
           <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
-            PHASE 2 RUNOFF FORECAST DETAILS
+            APPROACH 2 RUNOFF FORECAST DETAILS
           </CardTitle>
           <p className="text-xs text-bloomberg-text-dim font-mono">Component decay model output by segment and year</p>
         </CardHeader>

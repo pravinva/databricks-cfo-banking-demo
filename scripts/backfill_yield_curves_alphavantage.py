@@ -270,7 +270,7 @@ def backfill_yield_curves(start_date="2024-01-01"):
     print("✅ BACKFILL COMPLETE")
     print("="*80)
     print(f"\n💡 Next Steps:")
-    print(f"  1. Run Phase 1 notebook: notebooks/Phase1_Enhanced_Deposit_Beta_Model.py")
+    print(f"  1. Run Approach 1 notebook: notebooks/Approach1_Enhanced_Deposit_Beta_Model.py")
     print(f"  2. Verify rate_regime classification is working")
     print(f"  3. Schedule weekly updates: scripts/weekly_yield_curve_update.py")
 

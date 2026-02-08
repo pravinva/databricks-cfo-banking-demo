@@ -195,19 +195,6 @@ Columns: 12
   - lcr_status (STRING)
 
 ================================================================================
-cfo_banking_demo.gold_regulatory.hqla_inventory
-================================================================================
-Columns: 7
-
-  - security_id (STRING)
-  - security_type (STRING)
-  - market_value (DOUBLE)
-  - credit_rating (STRING)
-  - hqla_level (STRING)
-  - haircut (DECIMAL)
-  - hqla_value (DOUBLE)
-
-================================================================================
 cfo_banking_demo.ml_models.ppnr_forecasts
 ================================================================================
 Columns: 7

@@ -104,10 +104,10 @@
 **Can run immediately with 27 days of data:**
 
 ```bash
-# Upload Phase 1 notebook to Databricks
+# Upload Approach 1 notebook to Databricks
 databricks workspace import \
-  notebooks/Phase1_Enhanced_Deposit_Beta_Model.py \
-  /Users/your_username/Phase1_Enhanced_Deposit_Beta_Model \
+  notebooks/Approach1_Enhanced_Deposit_Beta_Model.py \
+  /Users/your_username/Approach1_Enhanced_Deposit_Beta_Model \
   --language PYTHON
 
 # Run notebook
@@ -224,9 +224,9 @@ python3 verify_fed_funds_rate.py
 5. `PROGRESS_SUMMARY.md` - This file
 
 ### Notebooks (3 files)
-1. `notebooks/Phase1_Enhanced_Deposit_Beta_Model.py` - 853 lines
-2. `notebooks/Phase2_Vintage_Analysis_and_Decay_Modeling.py` - 892 lines
-3. `notebooks/Phase3_Dynamic_Beta_and_Stress_Testing.py` - Comprehensive
+1. `notebooks/Approach1_Enhanced_Deposit_Beta_Model.py` - 853 lines
+2. `notebooks/Approach2_Vintage_Analysis_and_Decay_Modeling.py` - 892 lines
+3. `notebooks/Approach3_Dynamic_Beta_and_Stress_Testing.py` - Comprehensive
 
 ### Scripts (5 files)
 1. `scripts/backfill_yield_curves_alphavantage.py` - AlphaVantage integration

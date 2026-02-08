@@ -59,22 +59,22 @@ python3 verify_historical_data_quality.py
 
 **Option A: Using Databricks CLI**
 ```bash
-# Upload Phase 1
+# Upload Approach 1
 databricks workspace import \
-  notebooks/Phase1_Enhanced_Deposit_Beta_Model.py \
-  /Users/pravin.varma@databricks.com/Phase1_Enhanced_Deposit_Beta_Model \
+  notebooks/Approach1_Enhanced_Deposit_Beta_Model.py \
+  /Users/pravin.varma@databricks.com/Approach1_Enhanced_Deposit_Beta_Model \
   --language PYTHON
 
-# Upload Phase 2
+# Upload Approach 2
 databricks workspace import \
-  notebooks/Phase2_Vintage_Analysis_and_Decay_Modeling.py \
-  /Users/pravin.varma@databricks.com/Phase2_Vintage_Analysis_and_Decay_Modeling \
+  notebooks/Approach2_Vintage_Analysis_and_Decay_Modeling.py \
+  /Users/pravin.varma@databricks.com/Approach2_Vintage_Analysis_and_Decay_Modeling \
   --language PYTHON
 
-# Upload Phase 3
+# Upload Approach 3
 databricks workspace import \
-  notebooks/Phase3_Dynamic_Beta_and_Stress_Testing.py \
-  /Users/pravin.varma@databricks.com/Phase3_Dynamic_Beta_and_Stress_Testing \
+  notebooks/Approach3_Dynamic_Beta_and_Stress_Testing.py \
+  /Users/pravin.varma@databricks.com/Approach3_Dynamic_Beta_and_Stress_Testing \
   --language PYTHON
 ```
 

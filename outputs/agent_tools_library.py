@@ -265,19 +265,10 @@ class CFOAgentTools:
             return result_obj
 
     def get_portfolio_summary(self):
-        """Get portfolio summary across securities, loans, deposits"""
+        """Get portfolio summary across loans and deposits"""
         start_time = time.time()
 
         try:
-            # Get securities
-            securities_query = """
-                SELECT SUM(market_value) as total
-                FROM cfo_banking_demo.silver_treasury.securities_portfolio
-                WHERE is_current = true
-            """
-            securities_result = self.query_unity_catalog(securities_query, max_rows=1)
-            securities = float(securities_result['data'][0][0]) if securities_result['success'] else 0
-
             # Get loans
             loans_query = """
                 SELECT SUM(current_balance) as total
@@ -300,10 +291,9 @@ class CFOAgentTools:
 
             result_obj = {
                 "success": True,
-                "securities": securities,
                 "loans": loans,
                 "deposits": deposits,
-                "total_assets": securities + loans,
+                "total_assets": loans,
                 "execution_time": execution_time
             }
 

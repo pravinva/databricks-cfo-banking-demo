@@ -265,9 +265,9 @@ relationship_category      -- Strategic/Tactical/Expendable classification
 - ✅ `analyze_schema_gaps.py` - Schema validation script
 
 ### Notebooks (Already Created)
-- ✅ `notebooks/Phase1_Enhanced_Deposit_Beta_Model.py` - 853 lines
-- ✅ `notebooks/Phase2_Vintage_Analysis_and_Decay_Modeling.py` - 892 lines
-- ✅ `notebooks/Phase3_Dynamic_Beta_and_Stress_Testing.py` - Comprehensive
+- ✅ `notebooks/Approach1_Enhanced_Deposit_Beta_Model.py` - 853 lines
+- ✅ `notebooks/Approach2_Vintage_Analysis_and_Decay_Modeling.py` - 892 lines
+- ✅ `notebooks/Approach3_Dynamic_Beta_and_Stress_Testing.py` - Comprehensive
 
 ---
 

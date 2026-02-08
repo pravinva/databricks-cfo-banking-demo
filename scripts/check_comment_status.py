@@ -15,7 +15,6 @@ TABLES = [
     "cfo_banking_demo.ml_models.dynamic_beta_parameters",
     "cfo_banking_demo.ml_models.stress_test_results",
     "cfo_banking_demo.gold_regulatory.lcr_daily",
-    "cfo_banking_demo.gold_regulatory.hqla_inventory",
     "cfo_banking_demo.ml_models.ppnr_forecasts",
     "cfo_banking_demo.ml_models.non_interest_income_training_data",
     "cfo_banking_demo.ml_models.non_interest_expense_training_data",

@@ -94,7 +94,7 @@ all_transactions AS (
             'Monthly Revenue Accrual' as description
         FROM business_volume_by_month v
         UNION ALL
-        SELECT '4020-000', 'Interest Income - Securities',
+        SELECT '4020-000', 'Interest Income - Other Assets',
             0.0,
             v.deposits_billions * 0.3 * 1e9 * 0.035 / 12 * (1 + (RAND() - 0.5) * 0.02),
             'Monthly Revenue Accrual'

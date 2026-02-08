@@ -118,8 +118,8 @@ revenue_transactions AS (
 
         UNION ALL
 
-        -- Interest Income on Securities
-        SELECT '4020-000', 'Interest Income - Securities',
+        -- Interest Income on Other Assets
+        SELECT '4020-000', 'Interest Income - Other Assets',
             v.deposits_billions * 0.3 * 1e9 * 0.035 / 12 * (1 + (RAND() - 0.5) * 0.02)
         FROM business_volume_by_month v
 

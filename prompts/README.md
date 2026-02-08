@@ -10,7 +10,7 @@ Ralph-Wiggum is an experimental agentic code generation tool that autonomously c
 
 ### Workstream 1: Data Foundation
 - `ralph_ws1_01_prompt.txt`: Unity Catalog structure setup
-- `ralph_ws1_02_prompt.txt`: Securities portfolio generation
+- `ralph_ws1_02_prompt.txt`: Investment portfolio generation
 - `ralph_ws1_03_prompt.txt`: Loan portfolio generation (97,200 records)
 - `ralph_ws1_04_prompt.txt`: Deposit portfolio generation (402,000 records)
 - `ralph_ws1_05_prompt.txt`: Balance sheet and capital structure

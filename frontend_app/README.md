@@ -1,6 +1,6 @@
 # Databricks CFO Platform - React Frontend
 
-World-class React + TypeScript frontend for CFO banking demo.
+React + TypeScript frontend for **Databricks Apps** (served by the FastAPI backend).
 
 ## Setup
 
@@ -9,15 +9,15 @@ npm install
 npm run dev
 ```
 
-Visit http://localhost:3000
+Visit `http://localhost:3000`.
 
-## Build for Production
+## Build for Databricks Apps (static export)
 
 ```bash
 npm run build
 ```
 
-Static files will be in `out/` directory.
+Static files will be in `out/` directory. The backend serves these files from `frontend_app/out/`.
 
 ## Integration with FastAPI
 

@@ -1,6 +1,6 @@
 # Report Generator Analysis
 
-## File: `notebooks/Generate_Deposit_Analytics_Report.py`
+## File: `../../notebooks/Generate_Deposit_Analytics_Report.py`
 
 **Status:** ✅ **PERFECTLY ALIGNED** - No changes needed!
 
@@ -13,17 +13,17 @@ The report generator notebook is **already 100% focused on deposits and treasury
 ### Report Sections:
 1. **Executive Summary** - Key deposit metrics and findings
 2. **Portfolio Composition** - Current deposit mix and characteristics
-3. **Deposit Beta Analysis** - Rate sensitivity by product type (Phase 1)
+3. **Deposit Beta Analysis** - Rate sensitivity by product type (Approach 1)
 4. **Rate Shock Scenarios** - Impact of +100bps, +200bps, +300bps shocks
 5. **Deposit Runoff Projections** - Expected outflows under stress
-6. **Vintage Analysis** - Cohort retention and decay patterns (Phase 2)
+6. **Vintage Analysis** - Cohort retention and decay patterns (Approach 2)
 7. **Recommendations** - Strategic insights and action items
 
 ### Data Sources Used:
 ✅ `silver_treasury.deposit_portfolio` - Deposit portfolio data
-✅ `ml_models.deposit_beta_predictions` - Phase 1 deposit beta predictions
-✅ `ml_models.cohort_survival_rates` - Phase 2 vintage analysis
-✅ `ml_models.stress_test_results` - Phase 3 CCAR stress testing
+✅ `ml_models.deposit_beta_predictions` - Approach 1 deposit beta predictions
+✅ `ml_models.cohort_survival_rates` - Approach 2 vintage analysis
+✅ `ml_models.stress_test_results` - Approach 3 stress testing
 
 ---
 
@@ -31,13 +31,13 @@ The report generator notebook is **already 100% focused on deposits and treasury
 
 ### ✅ 1. Deposit-Focused
 - **No loan references** - Exclusively focused on deposits
-- **No securities** - Does not include AFS/HTM
+- **No investment portfolio** - Out of scope
 - **Treasury operations** - Rate sensitivity, runoff, stress testing
 
-### ✅ 2. Covers All 3 Phases
-- **Phase 1: Deposit Beta** - Rate sensitivity analysis
-- **Phase 2: Vintage Analysis** - Cohort survival and decay
-- **Phase 3: Stress Testing** - CCAR scenarios (if data available)
+### ✅ 2. Covers All 3 Approaches
+- **Approach 1: Deposit Beta** - Rate sensitivity analysis
+- **Approach 2: Vintage Analysis** - Cohort survival and decay
+- **Approach 3: Stress Testing** - CCAR scenarios (if data available)
 
 ### ✅ 3. Use Cases Perfectly Aligned
 From the notebook (lines 20-24):
@@ -206,11 +206,11 @@ except Exception as e:
    - Report generator reads those predictions
    - Perfect pipeline: Inference → Report
 
-2. **Phase 2 Vintage Analysis**
+2. **Approach 2 Vintage Analysis**
    - Report reads `ml_models.cohort_survival_rates`
    - Displays Kaplan-Meier curves and decay metrics
 
-3. **Phase 3 Stress Testing**
+3. **Approach 3 Stress Testing**
    - Report reads `ml_models.stress_test_results`
    - Shows CCAR scenario outcomes
 
@@ -244,7 +244,7 @@ PORTFOLIO COMPOSITION
 - Savings: 13%
 
 ═══════════════════════════════════════════════════════════════
-DEPOSIT BETA ANALYSIS (PHASE 1)
+DEPOSIT BETA ANALYSIS (APPROACH 1)
 ═══════════════════════════════════════════════════════════════
 [Chart: Beta Distribution by Product Type]
 MMDA: 0.35 (least sensitive)
@@ -267,7 +267,7 @@ DEPOSIT RUNOFF PROJECTIONS
 [Chart: Expected Runoff by Rate Scenario]
 
 ═══════════════════════════════════════════════════════════════
-VINTAGE ANALYSIS (PHASE 2)
+VINTAGE ANALYSIS (APPROACH 2)
 ═══════════════════════════════════════════════════════════════
 [Chart: Kaplan-Meier Survival Curves]
 Strategic customers: λ=0.05 (5% closure rate)
@@ -295,7 +295,7 @@ RECOMMENDATIONS
 **Status:** ✅ **PERFECTLY ALIGNED**
 
 The `Generate_Deposit_Analytics_Report.py` notebook is:
-- 100% deposit-focused (no loans, no securities)
+- 100% deposit-focused (no loan portfolio, no investment portfolio)
 - Covers all 3 phases (Beta, Vintage, Stress Testing)
 - Uses correct data sources (ml_models tables)
 - Perfect for treasury team use cases (ALCO, Board, CCAR)

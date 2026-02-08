@@ -1,13 +1,13 @@
 # Archived Notebooks
 
-This directory contains notebooks that have been superseded by the Phase 1-3 modeling architecture or are redundant.
+This directory contains notebooks that have been superseded by the Approaches 1-3 deposit modeling architecture or are redundant.
 
 ## Archived Files
 
 ### Complete_Deposit_Beta_Model_Workflow.py
 - **Date**: 2026-01-29
-- **Status**: Superseded by Phase1_Enhanced_Deposit_Beta_Model.py
-- **Reason**: Phase 1 provides same functionality with better organization as part of 3-phase architecture
+- **Status**: Superseded by Approach1_Enhanced_Deposit_Beta_Model.py
+- **Reason**: Approach 1 provides the same functionality with better organization as part of the 3-approach architecture
 
 ### Train_Deposit_Beta_Model_with_Agent.py
 - **Date**: 2026-01-27
@@ -22,7 +22,7 @@ This directory contains notebooks that have been superseded by the Phase 1-3 mod
 ### Deposit_Beta_AutoML_Training.py
 - **Date**: 2026-01-25
 - **Status**: Optional/reference only
-- **Reason**: AutoML approach; Phase 1-3 uses XGBoost directly. Keep if demonstrating AutoML capabilities.
+- **Reason**: AutoML approach; Approaches 1-3 use XGBoost directly. Keep if demonstrating AutoML capabilities.
 
 ## Current Production Notebooks
 

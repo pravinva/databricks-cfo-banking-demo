@@ -33,13 +33,12 @@
 
 # COMMAND ----------
 
-# Non-Interest Income includes:
+# Non-Interest Income includes (fee-focused):
 # - Service charges on deposits
 # - Card interchange fees
 # - Wealth management fees
-# - Investment banking fees
-# - Trading revenue
-# - Mortgage servicing fees
+# - Loan origination / servicing fees
+# - Other deposit-related fee income
 
 sql_query_nii = """
 CREATE OR REPLACE TABLE cfo_banking_demo.ml_models.non_interest_income_training_data AS

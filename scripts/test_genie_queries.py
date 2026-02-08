@@ -83,17 +83,6 @@ QUERIES = {
         LIMIT 5
     """,
 
-    "Query #10 - HQLA Inventory": """
-        SELECT
-            hqla_level,
-            security_type,
-            COUNT(*) AS security_count,
-            ROUND(SUM(market_value) / 1000000, 2) AS total_market_value_millions
-        FROM cfo_banking_demo.gold_regulatory.hqla_inventory
-        GROUP BY hqla_level, security_type
-        LIMIT 5
-    """,
-
     "Query #11 - PPNR Forecast": """
         SELECT
             month,

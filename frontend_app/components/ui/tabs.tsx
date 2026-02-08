@@ -9,11 +9,18 @@ const Tabs = React.forwardRef<
 
   return (
     <div ref={ref} className={cn("w-full", className)} {...props}>
-      {React.Children.map(children, child =>
-        React.isValidElement(child)
-          ? React.cloneElement(child as React.ReactElement<any>, { activeTab, setActiveTab })
-          : child
-      )}
+      {React.Children.map(children, child => {
+        if (!React.isValidElement(child)) return child
+
+        // Works for both function components and React.forwardRef (object type)
+        const typeAny = child.type as any
+        const displayName = typeAny?.displayName || typeAny?.name
+
+        // Only TabsList needs setActiveTab; TabsContent should not receive it (avoids React DOM warnings)
+        const injectedProps = displayName === "TabsList" ? { activeTab, setActiveTab } : { activeTab }
+
+        return React.cloneElement(child as React.ReactElement<any>, injectedProps)
+      })}
     </div>
   )
 })

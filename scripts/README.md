@@ -45,10 +45,9 @@ python3 scripts/update_genie_table_comments.py
 6. `ml_models.dynamic_beta_parameters` (6 columns)
 7. `ml_models.stress_test_results` (10 columns)
 8. `gold_regulatory.lcr_daily` (12 columns)
-9. `gold_regulatory.hqla_inventory` (7 columns)
-10. `ml_models.ppnr_forecasts` (7 columns)
-11. `ml_models.non_interest_income_training_data` (27 columns)
-12. `ml_models.non_interest_expense_training_data` (21 columns)
+9. `ml_models.ppnr_forecasts` (7 columns)
+10. `ml_models.non_interest_income_training_data` (27 columns)
+11. `ml_models.non_interest_expense_training_data` (21 columns)
 
 ### 3. `genie_schema_summary.txt`
 **Purpose:** Human-readable summary of all table schemas.
@@ -185,8 +184,7 @@ databricks tables get cfo_banking_demo.ml_models.deposit_beta_training_enhanced
 
 ## Related Documentation
 
-- [Genie Space Configuration](../docs/genie-space/GENIE_SPACE_CONFIGURATION.md)
-- [Quick Start Guide](../docs/genie-space/QUICK_START_GENIE.md)
+- [Treasury Modeling Docs Index](../docs/README.md)
 - [Unity Catalog Best Practices](https://docs.databricks.com/data-governance/unity-catalog/index.html)
 
 ---

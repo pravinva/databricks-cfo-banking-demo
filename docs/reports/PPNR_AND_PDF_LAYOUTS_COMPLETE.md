@@ -8,7 +8,7 @@ Successfully implemented PPNR and fee income analysis across the report generato
 
 ## 1. PPNR Section Added to Main Report Generator
 
-**File:** `notebooks/Generate_Deposit_Analytics_Report.py`
+**File:** `../../notebooks/Generate_Deposit_Analytics_Report.py`
 
 ### Changes Made:
 

@@ -146,15 +146,31 @@ except Exception as e:
 
 # COMMAND ----------
 
-# Load deposit portfolio from Unity Catalog
-deposits_df = spark.table("cfo_banking_demo.ml_models.deposit_beta_training_enhanced")
-deposits_pdf = deposits_df.toPandas()
+# Load latest batch predictions (canonical scoring output)
+pred_df = spark.table("cfo_banking_demo.ml_models.deposit_beta_predictions")
+pred_pdf = pred_df.toPandas()
 
-# Convert Decimal columns to float (Unity Catalog can return Decimal types)
-numeric_cols = ['balance_millions', 'target_beta', 'stated_rate', 'rate_gap', 'market_fed_funds_rate']
-for col in numeric_cols:
-    if col in deposits_pdf.columns:
-        deposits_pdf[col] = deposits_pdf[col].astype(float)
+# Latest market rate snapshot (for rate gap)
+yc_df = (
+    spark.table("cfo_banking_demo.silver_treasury.yield_curves")
+    .orderBy(F.col("date").desc())
+    .limit(1)
+)
+yc_pdf = yc_df.toPandas()
+market_rate = float(yc_pdf.iloc[0]["rate_2y"]) if len(yc_pdf) else 0.036
+
+# Normalize to the report schema expected downstream
+deposits_pdf = pred_pdf.copy()
+deposits_pdf["balance_millions"] = deposits_pdf["current_balance"].astype(float) / 1_000_000.0
+deposits_pdf["target_beta"] = deposits_pdf["predicted_beta"].astype(float)
+deposits_pdf["market_fed_funds_rate"] = market_rate
+deposits_pdf["rate_gap"] = (market_rate - deposits_pdf["stated_rate"].astype(float))
+
+# Simple, demo-friendly flags/tiers (replaces competitive + relationship enrichment)
+deposits_pdf["below_competitor_rate"] = (deposits_pdf["rate_gap"] >= 0.005).astype(int)  # 50 bps gap
+deposits_pdf["relationship_category"] = deposits_pdf["target_beta"].apply(
+    lambda b: "Strategic" if b < 0.25 else ("Tactical" if b < 0.60 else "Expendable")
+)
 
 # Load runoff forecasts (vintage analysis)
 try:
@@ -166,7 +182,7 @@ try:
             runoff_pdf[col] = runoff_pdf[col].astype(float)
     has_runoff_forecast = True
 except:
-    print("⚠️ Runoff forecasts not available (run Phase 2 notebook)")
+    print("⚠️ Runoff forecasts not available (run Approach 2 notebook)")
     has_runoff_forecast = False
 
 # Load LCR data for liquidity impact
