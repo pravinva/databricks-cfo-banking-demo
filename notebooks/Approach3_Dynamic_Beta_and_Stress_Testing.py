@@ -385,7 +385,7 @@ print("✓ Ensemble prediction function created with smooth regime transitions")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Part 3: Stress Testing Framework (CCAR/DFAST)
+# MAGIC ## Part 3: Stress Testing Framework (CCAR-style)
 
 # COMMAND ----------
 
@@ -394,7 +394,7 @@ print("✓ Ensemble prediction function created with smooth regime transitions")
 
 # COMMAND ----------
 
-# CCAR/DFAST scenarios
+# CCAR scenarios (DFAST is legacy terminology)
 stress_scenarios = {
     'baseline': {
         'name': 'Baseline (No Shock)',
@@ -426,7 +426,7 @@ stress_scenarios = {
 }
 
 print("=" * 80)
-print("REGULATORY STRESS TESTING SCENARIOS (CCAR/DFAST)")
+print("REGULATORY STRESS TESTING SCENARIOS (CCAR)")
 print("=" * 80)
 
 for scenario_id, scenario in stress_scenarios.items():
@@ -1010,7 +1010,7 @@ print(f"   Liquidity Gap:              ${liquidity_profile['liquidity_gap'].sum(
 print(f"   Repricing Gap:              ${repricing_gap:+.2f}B {'(LIABILITY-SENSITIVE)' if repricing_gap < 0 else '(ASSET-SENSITIVE)'}")
 print(f"   Fixed Rate Gap:             ${fixed_rate_gap:+.2f}B")
 
-print("\n3. STRESS TEST RESULTS (CCAR/DFAST)")
+print("\n3. STRESS TEST RESULTS (CCAR)")
 print("-" * 80)
 
 for result in stress_test_results:
@@ -1071,7 +1071,7 @@ print("\n" + "=" * 80)
 # MAGIC    - Hybrid approach: Easier than full dynamic model
 # MAGIC
 # MAGIC 3. ✅ **Stress Testing Framework:**
-# MAGIC    - CCAR/DFAST scenarios (Baseline, Adverse, Severely Adverse)
+# MAGIC    - CCAR scenarios (Baseline, Adverse, Severely Adverse) (DFAST is legacy terminology)
 # MAGIC    - NII sensitivity (Repricing Gap analysis)
 # MAGIC    - EVE sensitivity (Fixed Rate Gap analysis)
 # MAGIC    - Standard Outlier Test (EVE/CET1 > -15%)
@@ -1094,7 +1094,7 @@ print("\n" + "=" * 80)
 # MAGIC - **Stress Test Accuracy:** +20-30% improvement
 # MAGIC - **EVE Forecast Accuracy:** Significantly enhanced
 # MAGIC - **Business Value:** $200M capital risk mitigation
-# MAGIC - **Regulatory Compliance:** CCAR/DFAST ready
+# MAGIC - **Regulatory Compliance:** CCAR-style ready (DFAST is legacy terminology)
 # MAGIC
 # MAGIC ### Important Notes:
 # MAGIC - ⚠️ **Use dynamic beta for stress testing ONLY**, not operational ALM
@@ -1106,4 +1106,4 @@ print("\n" + "=" * 80)
 # MAGIC - Integrate with treasury systems for real-time gap analysis
 # MAGIC - Build ALCO dashboards with sensitivity attribution
 # MAGIC - Establish quarterly recalibration process
-# MAGIC - Prepare CCAR/DFAST submission materials
+# MAGIC - Prepare CCAR submission materials (DFAST is legacy terminology)

@@ -25,6 +25,7 @@ Complete documentation for the Databricks Treasury Modeling Demo focused on depo
 - **[TREASURER_MATERIALS_INDEX.md](treasurer/TREASURER_MATERIALS_INDEX.md)** - Start here for meeting prep
 - **[TREASURER_ONE_PAGER.md](treasurer/TREASURER_ONE_PAGER.md)** - 1-page overview (convert to PDF)
 - **[TREASURER_MEETING_GUIDE.md](treasurer/TREASURER_MEETING_GUIDE.md)** - Full demo script and Q&A
+- **[TREASURY_MODELING_DEPOSITS_PPNR_EXECUTIVE_POV.md](treasurer/TREASURY_MODELING_DEPOSITS_PPNR_EXECUTIVE_POV.md)** - Exec POV (Deposits + PPNR) + which approach to use when
 
 ### 🧰 Guides
 **Location:** `guides/`
@@ -32,6 +33,7 @@ Complete documentation for the Databricks Treasury Modeling Demo focused on depo
 - **[STRESS_TEST_TERMINOLOGY.md](guides/STRESS_TEST_TERMINOLOGY.md)** - CCAR terminology + stress-testing terms
 - **[UPDATE_NOTEBOOKS.md](guides/UPDATE_NOTEBOOKS.md)** - Notebook naming/renames and alignment notes
 - **[UC_VOLUMES_MIGRATION.md](guides/UC_VOLUMES_MIGRATION.md)** - UC volumes migration notes
+- **[DEPOSIT_MODELING_PPNR_MODELER_PLAYBOOK.md](guides/DEPOSIT_MODELING_PPNR_MODELER_PLAYBOOK.md)** - Modeler playbook + approach selection guidance
 
 ---
 
@@ -96,7 +98,7 @@ Natural-language analytics is provided via the **in-app AI assistant** (Databric
 ## Key Terminology
 
 **CCAR** - Comprehensive Capital Analysis and Review (Federal Reserve stress testing)
-**DFAST** - Dodd-Frank Act Stress Testing (deprecated term, underlying regulation)
+**DFAST** - Legacy Dodd-Frank Act Stress Testing regulation (commonly referenced, but “CCAR stress testing” is the preferred label)
 **PPNR** - Pre-Provision Net Revenue (NII + Non-Interest Income - Non-Interest Expense)
 **Deposit Beta** - Rate sensitivity coefficient (0-1 scale)
 **Vintage Analysis** - Cohort-based runoff forecasting

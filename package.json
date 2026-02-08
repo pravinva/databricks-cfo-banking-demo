@@ -1,0 +1,11 @@
+{
+  "name": "cfo-platform-app",
+  "private": true,
+  "workspaces": [
+    "frontend_app"
+  ],
+  "scripts": {
+    "build": "npm --workspace frontend_app run build"
+  }
+}
+

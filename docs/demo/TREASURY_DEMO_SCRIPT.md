@@ -32,7 +32,7 @@
 - Day 1-2: Unified lakehouse ingests all data automatically
 - Day 3-5: Static deposit beta model with canonical feature set (19 features)
 - Day 6-8: Vintage analysis with component decay (integrated)
-- Day 9-10: Dynamic beta + stress testing (CCAR/DFAST ready)
+- Day 9-10: Dynamic beta + stress testing (**CCAR-style**; “DFAST” is the legacy regulation behind CCAR)
 - Day 11-12: AI/BI dashboards auto-generate insights
 - Day 13-14: Present to ALCO with live, drill-down dashboards
 
@@ -41,7 +41,7 @@
 - ✅ **10-15% more accurate:** MAPE improvement through advanced features
 - ✅ **Integrated:** One platform for beta, vintage, stress testing
 - ✅ **Real-time:** Dashboards update automatically
-- ✅ **Regulatory ready:** CCAR/DFAST templates built-in
+- ✅ **Regulatory ready:** CCAR-style stress templates built-in (avoid using “DFAST” as the primary label)
 
 ---
 
@@ -90,7 +90,7 @@ print(f"402,000 accounts loaded in {time_taken} seconds")
 **Talk Track:**
 > "Your current model probably has 15 features—product type, balance, maybe account age. We've added 25 research-backed features from Moody's, Chen (2025), and Abrigo frameworks."
 
-**Show Phase 1 Notebook Results:**
+**Show Approach 1 Notebook Results:**
 ```
 Baseline Model MAPE: 12.3%
 Enhanced Model MAPE: 7.2%
@@ -120,12 +120,12 @@ Improvement: +41.5% accuracy
 ---
 
 ### **PART 4: Vintage Analysis & Runoff Forecasting (3 minutes)**
-**Slide 4: Phase 2 - Component Decay Model**
+**Slide 4: Approach 2 - Component Decay Model**
 
 **Talk Track:**
 > "Traditional vintage analysis tracks cohort survival. We go further with Chen's component decay model: D(t+1) = D(t) × (1-λ) × (1+g). Lambda is closure rate, g is balance growth rate. This matters because..."
 
-**Show Phase 2 Results:**
+**Show Approach 2 Results:**
 ```
 3-YEAR DEPOSIT RUNOFF OUTLOOK
 ================================
@@ -151,12 +151,12 @@ Expendable Deposits:
 ---
 
 ### **PART 5: Dynamic Beta & Stress Testing (2 minutes)**
-**Slide 5: Phase 3 - Regulatory Stress Testing**
+**Slide 5: Approach 3 - Regulatory Stress Testing**
 
 **Talk Track:**
 > "Static betas miss regime changes. When the Fed raised rates 500bps in 18 months, did your beta stay constant? Ours doesn't. We use Chen's sigmoid function to show beta evolves with rate environment."
 
-**Show Phase 3 Dynamic Beta Function:**
+**Show Approach 3 Dynamic Beta Function:**
 ```
 DYNAMIC BETA PREDICTIONS BY RATE SCENARIO
 ==========================================
@@ -168,7 +168,7 @@ Rate     Strategic   Tactical   Expendable
 (Beta increases non-linearly as rates rise)
 ```
 
-**Show CCAR/DFAST Results:**
+**Show CCAR Results (DFAST is legacy term):**
 ```
 SEVERELY ADVERSE SCENARIO (+200bps shock)
 ========================================
@@ -179,7 +179,7 @@ LCR @ Stress:        105% (compliant ✓)
 ```
 
 **Live Demo (30 seconds):**
-- Show Dashboard 5: CCAR/DFAST Regulatory
+- Show Dashboard 5: CCAR Regulatory
 - Capital ratio projections chart (9 quarters)
 - Stress test pass/fail summary (traffic lights)
 
@@ -244,7 +244,7 @@ LCR @ Stress:        105% (compliant ✓)
 > "Here's what I'm proposing:"
 >
 > **Week 1-2:** Pilot with your Q1 2026 deposit beta model
-> - We'll run Phase 1-3 notebooks on your actual data
+> - We'll run Approach 1-3 notebooks on your actual data
 > - Build 3 core dashboards (Executive, ALM, Treasury)
 > - Present results to ALCO alongside your existing model
 >
@@ -265,9 +265,9 @@ LCR @ Stress:        105% (compliant ✓)
 ### Before Demo:
 
 **Data Preparation:**
-- ✅ Run Phase 1 notebook (deposit_beta_training_enhanced table exists)
-- ✅ Run Phase 2 notebook (component_decay_metrics, cohort_survival_rates exist)
-- ✅ Run Phase 3 notebook (dynamic_beta_parameters exist)
+- ✅ Run Approach 1 notebook (deposit beta training data exists)
+- ✅ Run Approach 2 notebook (component_decay_metrics, cohort_survival_rates exist)
+- ✅ Run Approach 3 notebook (dynamic_beta_parameters exist)
 - ✅ Verify historical data: 12.7M rows in deposit_accounts_historical
 
 **Dashboards Built:**
@@ -286,15 +286,15 @@ LCR @ Stress:        105% (compliant ✓)
 **Timing Control:**
 - Part 1 (Problem): 2 min ⏱️
 - Part 2 (Approach): 3 min ⏱️
-- Part 3 (Phase 1): 3 min ⏱️
-- Part 4 (Phase 2): 3 min ⏱️
-- Part 5 (Phase 3): 2 min ⏱️
+- Part 3 (Approach 1): 3 min ⏱️
+- Part 4 (Approach 2): 3 min ⏱️
+- Part 5 (Approach 3): 2 min ⏱️
 - Part 6 (Dashboards): 2 min ⏱️
 - **Total: 15 minutes**
 
 **Key Moments:**
-1. **"Wow" moment 1:** Phase 1 MAPE improvement (7.2% vs 12.3%)
-2. **"Wow" moment 2:** Phase 2 runoff forecast (-71.7% for Expendable)
+1. **"Wow" moment 1:** Approach 1 MAPE improvement (7.2% vs 12.3%)
+2. **"Wow" moment 2:** Approach 2 runoff forecast (-71.7% for Expendable)
 3. **"Wow" moment 3:** Dashboard 7 real-time treasury alerts
 
 ### After Demo:
@@ -380,13 +380,13 @@ LCR @ Stress:        105% (compliant ✓)
 **Have ready:**
 1. **Screenshots:** Pre-captured images of all dashboards
 2. **Video recording:** 3-minute walkthrough of live system
-3. **PDF exports:** Static versions of Phase 1/2/3 results
+3. **PDF exports:** Static versions of Approach 1/2/3 results
 
 ### If They Want Deeper Dive:
 
 **Technical Deep Dive (30 minutes):**
 1. Show Unity Catalog schema structure
-2. Walk through Phase 1 notebook cell-by-cell
+2. Walk through Approach 1 notebook cell-by-cell
 3. Explain XGBoost hyperparameter tuning
 4. Demo MLflow experiment tracking
 5. Show AI/BI Dashboard Agent creating visuals
@@ -424,7 +424,7 @@ Future State:
 > - 6x faster model development (12 weeks → 2 weeks)
 > - 41% accuracy improvement (MAPE: 12.3% → 7.2%)
 > - Real-time dashboards for ALCO, CFO, and Treasury
-> - CCAR/DFAST regulatory templates built-in
+> - CCAR-style regulatory templates built-in (DFAST is legacy term)
 >
 > **Next Steps:**
 > 1. Schedule pilot planning session (30 minutes)

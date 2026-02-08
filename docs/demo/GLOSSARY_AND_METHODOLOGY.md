@@ -22,7 +22,7 @@
 | Acronym | Full Name | Definition |
 |---------|-----------|------------|
 | **CCAR** | Comprehensive Capital Analysis and Review | Annual Federal Reserve stress test for large banks (>$100B assets). Tests capital adequacy under adverse scenarios. |
-| **DFAST** | Dodd-Frank Act Stress Testing | Mid-tier bank stress test ($10-100B assets). Less stringent than CCAR but similar methodology. |
+| **DFAST** | Dodd-Frank Act Stress Testing | Legacy regulatory term commonly referenced; prefer “CCAR stress testing” terminology in current discussions. |
 | **LCR** | Liquidity Coverage Ratio | Ratio of high-quality liquid assets to net cash outflows over 30 days. Must be >100% per Basel III. |
 | **Basel III** | Third Basel Accord | International regulatory framework for bank capital adequacy, stress testing, and liquidity. |
 | **CET1** | Common Equity Tier 1 | Highest quality capital (common stock + retained earnings). Must be >7% under stress, >10.5% for "well-capitalized". |
@@ -67,7 +67,7 @@
 
 ---
 
-## Why 3 Phases in Deposit Modeling?
+## Why 3 Approaches in Deposit Modeling?
 
 ### The Strategic Rationale
 
@@ -82,11 +82,11 @@
 - Monolithic models that can't be updated independently
 - Stakeholders wait months to see any value
 
-**Solution:** Incremental value delivery in 3 distinct phases
+**Solution:** Incremental value delivery in 3 distinct approaches (not sequential phases)
 
 ---
 
-## Phase 1: Enhanced Deposit Beta Model
+## Approach 1: Enhanced Deposit Beta Model
 
 ### **Goal:** Predict interest rate sensitivity with research-backed features
 
@@ -94,7 +94,7 @@
 1. **Immediate CFO Value:** "What happens to my $30B deposit portfolio if the Fed moves rates?"
 2. **Foundational:** Beta is used in all downstream models (runoff, stress testing, ALM)
 3. **Quick Win:** 2 weeks to build, 41% accuracy improvement vs baseline
-4. **Standalone Value:** Even without Phase 2/3, CFO can make better pricing decisions
+4. **Standalone Value:** Even without Approach 2/3, CFO can make better pricing decisions
 
 **What We Build:**
 - XGBoost model with canonical feature set (19 features)
@@ -117,14 +117,14 @@ Account #12345:
 
 ---
 
-## Phase 2: Vintage Analysis & Component Decay Modeling
+## Approach 2: Vintage Analysis & Component Decay Modeling
 
 ### **Goal:** Forecast deposit runoff using cohort survival and component separation
 
 **Why This Second?**
-1. **Builds on Phase 1:** Uses beta predictions from Phase 1 as inputs
+1. **Can use Approach 1 outputs:** Optionally uses beta predictions as inputs
 2. **ALCO Requirement:** Treasury committees need 3-year runoff forecasts for liquidity planning
-3. **More Complex:** Requires historical time-series data (Phase 1 only needs point-in-time)
+3. **More Complex:** Requires historical time-series data (Approach 1 can be point-in-time)
 4. **Regulatory Need:** LCR calculations require runoff assumptions by segment
 
 **What We Build:**
@@ -145,39 +145,39 @@ Traditional models lump everything into one "runoff rate". But these are differe
 **Business Decision:**
 > "We're losing 72% of Expendable deposits. Focus retention on Strategic segment instead (only -47% runoff)."
 
-**Why Not Combined with Phase 1?**
-- Phase 1 answers: "What's the beta TODAY?"
-- Phase 2 answers: "How many deposits will we have in 3 YEARS?"
+**Why Not Combined with Approach 1?**
+- Approach 1 answers: "What's the beta TODAY?"
+- Approach 2 answers: "How many deposits will we have in 3 YEARS?"
 - Different questions → different models → different stakeholders
 
 ---
 
-## Phase 3: Dynamic Beta & Stress Testing
+## Approach 3: Dynamic Beta & Stress Testing (CCAR-style)
 
 ### **Goal:** Model non-linear beta response and generate regulatory stress test submissions
 
 **Why This Third?**
-1. **Most Advanced:** Requires outputs from Phase 1 (beta) and Phase 2 (runoff)
-2. **Regulatory Cadence:** CCAR/DFAST are annual/semi-annual, not daily decisions
-3. **Specialized Audience:** Board Risk Committee, regulators (vs operational use in Phase 1/2)
+1. **Most Advanced:** Can incorporate outputs from Approach 1 (beta) and Approach 2 (runoff)
+2. **Regulatory Cadence:** CCAR-style stress testing is annual/semi-annual, not daily decisions (DFAST is legacy terminology)
+3. **Specialized Audience:** Board Risk Committee, regulators (vs operational use in Approach 1/2)
 4. **Controversial:** Dynamic betas show 30-40% MORE risk than static models (management may resist)
 
 **What We Build:**
 - Chen Sigmoid Function: β(Rm) = βmin + (βmax - βmin) / [1 + exp(-k*(Rm-R0))]
   - Shows beta evolves non-linearly as rates change
   - Example: Strategic customers' beta goes from 0.06 (0% rates) → 0.55 (6% rates)
-- CCAR/DFAST Scenarios: Baseline, Adverse (+100bps), Severely Adverse (+200bps)
+- CCAR Scenarios: Baseline, Adverse (+100bps), Severely Adverse (+200bps) (DFAST is legacy term)
 - EVE Sensitivity: Taylor series decomposition (duration + convexity + beta effects)
 - Capital Projections: 9-quarter forecasts of CET1, Tier 1, Total Capital ratios
 
 **Why Dynamic vs Static Beta?**
 
-**Static Model (Phase 1):**
+**Static Model (Approach 1):**
 - Assumes β = 0.42 at all rate levels
 - Good for current environment
 - Used for day-to-day ALM decisions
 
-**Dynamic Model (Phase 3):**
+**Dynamic Model (Approach 3):**
 - β increases as rates rise (rate fatigue, competition intensifies)
 - Example: At 6% rates, β = 0.78 (not 0.42!)
 - Shows TRUE risk under extreme stress
@@ -195,42 +195,13 @@ Severely Adverse Scenario (+200bps shock):
 **Business Decision:**
 > "We pass CCAR stress tests. Submit to Fed Reserve by April 5th deadline."
 
-**Why Not Combined with Phase 1/2?**
-- Phase 1/2 are used MONTHLY for operational decisions
-- Phase 3 is used ANNUALLY for regulatory submissions
-- Mixing them confuses operational risk (use static beta) vs stress risk (use dynamic beta)
-
----
+**Why Not Combined with Approach 1/2?**
+- Approach 1/2 are used MONTHLY for operational decisions
+- Approach 3 is used ANNUALLY for regulatory submissions
 
 ## The Incremental Value Story
 
-### Week 2 (Phase 1 Complete):
-**Deliver to CFO:**
-> "Here's your $30B portfolio beta: 0.42. Here's $8.5B at-risk. Raise rates on Money Market by 25bps."
-
-**Value:** Immediate pricing decision
-**Stakeholder:** CFO, Treasurer
-**Use Case:** Monthly pricing committee
-
----
-
-### Week 4 (Phase 2 Complete):
-**Deliver to ALCO:**
-> "3-year runoff forecast: Expendable -72%, Strategic -47%. Focus retention budget on Strategic segment."
-
-**Value:** Multi-year liquidity planning
-**Stakeholder:** ALCO Committee, Treasury
-**Use Case:** Annual budget planning, LCR calculations
-
----
-
-### Week 6 (Phase 3 Complete):
-**Deliver to Board Risk Committee:**
-> "CCAR stress test results: CET1 minimum 8.2% (pass). Severely Adverse scenario shows -$285M NII impact."
-
-**Value:** Regulatory compliance
-**Stakeholder:** Board Risk Committee, Regulators
-**Use Case:** Annual CCAR submission (due April 5)
+This demo intentionally avoids a week-based maturity roadmap. Banks of any size can adopt **Approach 1/2/3** independently based on their current needs and constraints.
 
 ---
 
@@ -250,48 +221,48 @@ Month 6: Start over
 - ❌ Stakeholders lose confidence
 - ❌ Can't update beta model without re-running stress tests
 
-### **Option B: Three-Phase Model (Databricks Approach)**
+### **Option B: Three-Approach Model (Databricks Approach)**
 ```
-Week 2: Phase 1 working → CFO gets beta predictions
-Week 4: Phase 2 working → ALCO gets runoff forecasts
-Week 6: Phase 3 working → Board gets stress tests
+Approach 1: CFO/Treasury gets beta predictions + segmentation
+Approach 2: ALCO/Treasury gets runoff forecasts by cohort/segment
+Approach 3: Board/Risk gets CCAR-style stress testing outputs
 ```
 
 **Benefits:**
 - ✅ Value every 2 weeks (incremental delivery)
 - ✅ Easy to debug (isolate phase-specific issues)
 - ✅ Stakeholders see progress
-- ✅ Independent updates (recalibrate Phase 1 without touching Phase 3)
+- ✅ Independent updates (recalibrate Approach 1 without touching Approach 3)
 
 ---
 
-## How the Phases Integrate
+## How the Approaches Integrate
 
 ### **Data Flow:**
 
 ```
-Phase 1 Output: deposit_beta_training_enhanced
+Approach 1 Output: deposit_beta_predictions / deposit_beta_training_data
   ↓ (contains predicted beta for each account)
 
-Phase 2 Input: Uses Phase 1 betas + historical time-series
-Phase 2 Output: deposit_cohort_analysis, component_decay_metrics
+Approach 2 Input: Can use Approach 1 betas + historical time-series
+Approach 2 Output: deposit_cohort_analysis, component_decay_metrics
   ↓ (contains runoff forecasts by segment)
 
-Phase 3 Input: Uses Phase 1 betas + Phase 2 runoff rates
-Phase 3 Output: dynamic_beta_parameters, stress_test_results
+Approach 3 Input: Can use Approach 1 betas + Approach 2 runoff rates
+Approach 3 Output: dynamic_beta_parameters, stress_test_results
 ```
 
 ### **Example Integration:**
 
-**Phase 1 Predicts:**
+**Approach 1 Predicts:**
 > Account #12345 (Expendable) has β = 0.78
 
-**Phase 2 Uses That:**
+**Approach 2 Uses That:**
 > Expendable segment has λ = 6.68% closure rate
 > If rates rise 100bps, Expendable accounts with β > 0.70 close at 2x rate
 > Forecasted runoff: -72% over 3 years
 
-**Phase 3 Uses Both:**
+**Approach 3 Uses Both:**
 > Under Severely Adverse (+200bps):
 > - Expendable beta increases to 0.88 (dynamic function)
 > - Closure rate accelerates to 12% (stress multiplier)
@@ -308,11 +279,11 @@ Phase 3 Output: dynamic_beta_parameters, stress_test_results
 - Ship version 1.0
 - Realize users wanted something different
 
-**Agile (New Way - 3 Phases):**
-- Sprint 1 (Phase 1): Ship login + core features
-- Sprint 2 (Phase 2): Ship analytics
-- Sprint 3 (Phase 3): Ship advanced features
-- Users get value after Sprint 1, not after 6 months
+**Agile (New Way - 3 Approaches):**
+- Approach 1: Ship beta + segmentation
+- Approach 2: Add runoff curves + decay metrics
+- Approach 3: Add CCAR-style stress testing outputs
+- Stakeholders get value early, not after months
 
 ### **Similar to Manufacturing:**
 
@@ -321,7 +292,7 @@ Phase 3 Output: dynamic_beta_parameters, stress_test_results
 - Integrate at end
 - Find problems late
 
-**Modular Assembly (New Way - 3 Phases):**
+**Modular Assembly (New Way - 3 Approaches):**
 - Build engine first → test it works
 - Build transmission → test it works
 - Integrate → final testing
@@ -329,7 +300,7 @@ Phase 3 Output: dynamic_beta_parameters, stress_test_results
 
 ---
 
-## When to Combine Phases?
+## When to Combine Approaches?
 
 ### **Scenario 1: Mature Treasury Team**
 If your team already has:
@@ -337,38 +308,38 @@ If your team already has:
 - ✅ Historical data pipelines
 - ✅ Quarterly recalibration process
 
-**Then:** Build all 3 phases in parallel (3 weeks instead of 6)
+**Then:** Build all 3 approaches in parallel (timeline depends on data readiness)
 
 ### **Scenario 2: Regulatory Deadline**
-If CCAR submission is due in 4 weeks:
-- ✅ Skip Phase 1 enhancements (use existing beta)
-- ✅ Focus on Phase 3 stress testing
-- ✅ Come back to Phase 1/2 after submission
+If a CCAR submission is due soon:
+- ✅ Use an existing beta baseline if needed
+- ✅ Focus on Approach 3 stress testing outputs
+- ✅ Backfill Approach 1/2 improvements after submission
 
 ### **Scenario 3: New to Databricks**
 If this is your first lakehouse project:
-- ✅ Do Phase 1 only (2 weeks)
+- ✅ Do Approach 1 only first
 - ✅ Prove value to stakeholders
-- ✅ Get budget approval for Phase 2/3
+- ✅ Get budget approval for Approach 2/3
 
 ---
 
 ## Key Takeaway
 
-**3 Phases = 3 Business Questions:**
+**3 Approaches = 3 Business Questions:**
 
-1. **Phase 1:** "What's my interest rate risk TODAY?" (Beta prediction)
-2. **Phase 2:** "How much money will I have in 3 YEARS?" (Runoff forecasting)
-3. **Phase 3:** "Will I pass regulatory stress tests?" (CCAR/DFAST compliance)
+1. **Approach 1:** "What's my interest rate risk TODAY?" (Beta prediction)
+2. **Approach 2:** "How much money will I have in 3 YEARS?" (Runoff forecasting)
+3. **Approach 3:** "Will I pass regulatory stress tests?" (CCAR-style compliance)
 
 **Different questions require different models.**
 **Building them separately = faster time-to-value + easier maintenance.**
 
 ---
 
-## Appendix: Phase Comparison Table
+## Appendix: Approach Comparison Table
 
-| Aspect | Phase 1 | Phase 2 | Phase 3 |
+| Aspect | Approach 1 | Approach 2 | Approach 3 |
 |--------|---------|---------|---------|
 | **Primary Output** | Beta predictions | Runoff forecasts | Stress test results |
 | **Time Horizon** | Current period | 1-3 years | 9 quarters (CCAR) |
@@ -378,9 +349,9 @@ If this is your first lakehouse project:
 | **Data Requirement** | Point-in-time | Time-series | Historical + scenarios |
 | **Accuracy Metric** | MAPE (beta) | MAE (runoff) | RMSE (stress) |
 | **Business Decision** | Pricing | Liquidity planning | Capital adequacy |
-| **Regulatory Use** | Optional | LCR calculations | CCAR/DFAST mandatory |
+| **Regulatory Use** | Optional | LCR calculations | CCAR-style stress testing |
 | **Build Time** | 2 weeks | 2 weeks | 2 weeks |
-| **Can Run Standalone?** | ✅ Yes | ⚠️ Needs Phase 1 | ⚠️ Needs Phase 1+2 |
+| **Can Run Standalone?** | ✅ Yes | ✅ Yes | ✅ Yes (with simplified assumptions) |
 
 ---
 

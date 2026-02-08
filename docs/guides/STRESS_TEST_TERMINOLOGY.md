@@ -75,7 +75,7 @@ This document clarifies terminology used in the CFO Banking Demo related to regu
 
 ## Usage in This Demo
 
-### Phase 3: Dynamic Beta and Stress Testing
+### Approach 3: Dynamic Beta and Stress Testing
 **Notebook:** `Approach3_Dynamic_Beta_and_Stress_Testing.py`
 
 **What it does:**
@@ -205,7 +205,7 @@ Where Capital is impacted by:
 
 **When discussing this demo:**
 - ✅ "This demo shows PPNR modeling for CCAR stress testing"
-- ✅ "Phase 3 demonstrates deposit beta sensitivity under CCAR scenarios"
+- ✅ "Approach 3 demonstrates deposit beta sensitivity under CCAR scenarios"
 - ✅ "We project CET1 ratios following CCAR framework"
 - ❌ "This is a CCAR/DFAST demo" (DFAST is deprecated)
 - ❌ "PPNR stress testing" (PPNR is an input, not the test itself)

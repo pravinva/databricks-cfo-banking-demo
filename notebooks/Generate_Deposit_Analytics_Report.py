@@ -20,7 +20,7 @@
 # MAGIC
 # MAGIC **Use Cases**:
 # MAGIC - ALCO presentations
-# MAGIC - Regulatory reporting (CCAR/DFAST)
+# MAGIC - Regulatory reporting (CCAR-style stress testing; DFAST is legacy terminology)
 # MAGIC - Executive briefings
 # MAGIC - Board presentations
 
@@ -775,7 +775,7 @@ html_template = """
             <li><strong>Product Mix Optimization:</strong> {{ product_recommendation }}</li>
             <li><strong>Rate Strategy:</strong> {{ rate_recommendation }}</li>
             <li><strong>Monitoring:</strong> Implement weekly deposit beta tracking and monthly model retraining to capture changing customer behavior.</li>
-            <li><strong>Stress Testing:</strong> Include deposit runoff scenarios in ALCO stress tests and capital planning exercises (CCAR/DFAST).</li>
+            <li><strong>Stress Testing:</strong> Include deposit runoff scenarios in ALCO stress tests and capital planning exercises (CCAR-style; DFAST is legacy terminology).</li>
         </ol>
     </div>
 

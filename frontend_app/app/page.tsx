@@ -227,7 +227,7 @@ function DashboardContent() {
                   Vintage Analysis
                 </TabsTrigger>
                 <TabsTrigger value="stress-test" className="text-bloomberg-orange">
-                  CCAR/DFAST
+                  CCAR Stress
                 </TabsTrigger>
                 <TabsTrigger value="ppnr" className="text-bloomberg-orange">
                   PPNR

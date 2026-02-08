@@ -53,74 +53,91 @@ print(f"✓ Model loaded successfully")
 
 # COMMAND ----------
 
-# Load current deposit portfolio
-deposit_df = spark.table("cfo_banking_demo.silver_treasury.deposit_portfolio")
+# Canonical scoring source: current deposit accounts (matches Approach 1 training feature engineering)
+deposit_df = (
+    spark.table("cfo_banking_demo.bronze_core_banking.deposit_accounts")
+    .filter((F.col("is_current") == True) & (F.col("account_status") == "Active"))
+)
 
-# Get latest yield curve data
-yield_curve_df = spark.table("cfo_banking_demo.silver_treasury.yield_curves") \
-    .filter(F.col("date") == F.lit((spark.table("cfo_banking_demo.silver_treasury.yield_curves")
-                                     .agg(F.max("date")).collect()[0][0])))
+# Latest yield curve snapshot (single row)
+yield_curve_latest = (
+    spark.table("cfo_banking_demo.silver_treasury.yield_curves")
+    .filter(
+        F.col("date")
+        == spark.table("cfo_banking_demo.silver_treasury.yield_curves")
+        .agg(F.max("date").alias("max_date"))
+        .collect()[0]["max_date"]
+    )
+)
 
-# Join deposit data with rate environment
-scoring_df = deposit_df.crossJoin(yield_curve_df)
+scoring_df = deposit_df.crossJoin(yield_curve_latest)
 
-# Create features (same as training)
-feature_df = scoring_df.select(
-    F.col("account_id"),
-    F.col("product_type"),
-    F.col("customer_segment"),
-    F.col("current_balance"),
-    F.col("stated_rate"),
-    F.col("beta").alias("actual_beta"),  # Keep for validation if available
-
-    # Encoded features
-    F.when(F.col("product_type") == "DDA", 1)
-     .when(F.col("product_type") == "Savings", 2)
-     .when(F.col("product_type") == "NOW", 3)
-     .when(F.col("product_type") == "MMDA", 4)
-     .when(F.col("product_type") == "CD", 5)
-     .otherwise(0).alias("product_type_encoded"),
-
-    F.when(F.col("customer_segment") == "Retail", 1)
-     .when(F.col("customer_segment") == "Commercial", 2)
-     .when(F.col("customer_segment") == "Institutional", 3)
-     .otherwise(0).alias("segment_encoded"),
-
-    # Account features
-    (F.datediff(F.current_date(), F.col("account_open_date")) / 30.0).alias("account_age_months"),
-
-    # Churn features
-    F.when(F.col("account_status") == "Closed", 1).otherwise(0).alias("churned"),
-    F.when(F.col("account_status") == "Dormant", 1).otherwise(0).alias("dormant"),
-    (F.col("current_balance") * F.rand() * 0.2).alias("balance_volatility_30d"),
-    F.abs(F.col("stated_rate") - 0.045).alias("rate_gap"),
-
-    # Churn risk composite
-    (F.when(F.col("account_status") == "Closed", 1).otherwise(0) * 0.4 +
-     F.when(F.col("account_status") == "Dormant", 1).otherwise(0) * 0.3 +
-     (F.abs(F.col("stated_rate") - 0.045) * 10) * 0.3).alias("churn_risk_score"),
-
-    # Market rates
-    F.coalesce(F.col("rate_2y"), F.lit(0.036)).alias("current_market_rate"),
-    F.coalesce(F.col("rate_5y"), F.lit(0.038)).alias("market_rate_5y"),
-    F.coalesce(F.col("rate_10y"), F.lit(0.043)).alias("market_rate_10y"),
-
-    # Balance features
-    F.log(F.col("current_balance") + 1).alias("log_balance"),
-    (F.col("current_balance") / 1000000.0).alias("balance_millions"),
-
-    # Balance trend
-    F.when(F.col("average_balance_30d") > 0,
-           (F.col("current_balance") - F.col("average_balance_30d")) / F.col("average_balance_30d"))
-     .otherwise(0).alias("balance_trend_30d"),
-
-    # Rate spread features
-    (F.col("stated_rate") - F.coalesce(F.col("rate_2y"), F.lit(0.036))).alias("rate_spread"),
-    ((F.col("stated_rate") - F.coalesce(F.col("rate_2y"), F.lit(0.036))) *
-     F.col("current_balance") / 1000000.0).alias("rate_spread_x_balance"),
-
-    # Transaction features
-    F.col("transaction_count_30d")
+# Create features (aligned to Approach 1 canonical feature set)
+feature_df = (
+    scoring_df.select(
+        F.col("account_id"),
+        F.col("product_type"),
+        F.col("customer_segment"),
+        F.col("account_open_date"),
+        F.col("current_balance"),
+        F.col("average_balance_30d"),
+        F.col("stated_rate"),
+        F.col("transaction_count_30d"),
+        F.col("account_status"),
+        F.col("beta").alias("actual_beta"),  # if available, used for validation only
+        # Encoded features
+        F.when(F.col("product_type") == "DDA", 1)
+        .when(F.col("product_type") == "Savings", 2)
+        .when(F.col("product_type") == "NOW", 3)
+        .when(F.col("product_type") == "MMDA", 4)
+        .when(F.col("product_type") == "CD", 5)
+        .otherwise(0)
+        .alias("product_type_encoded"),
+        F.when(F.col("customer_segment") == "Retail", 1)
+        .when(F.col("customer_segment") == "Commercial", 2)
+        .when(F.col("customer_segment") == "Institutional", 3)
+        .otherwise(0)
+        .alias("segment_encoded"),
+        # Account features
+        (F.datediff(F.current_date(), F.col("account_open_date")) / 30.0).alias("account_age_months"),
+        # Churn flags (batch scoring should produce interpretable risk flags even if churn is rare)
+        F.when(F.col("account_status") == "Closed", 1).otherwise(0).alias("churned"),
+        F.when(F.col("account_status") == "Dormant", 1).otherwise(0).alias("dormant"),
+        # Volatility / gaps
+        F.when(
+            F.col("average_balance_30d").isNotNull() & (F.col("average_balance_30d") > 0),
+            F.abs(F.col("current_balance") - F.col("average_balance_30d")) / F.col("average_balance_30d"),
+        )
+        .otherwise(0.0)
+        .alias("balance_volatility_30d"),
+        # Market rates
+        F.coalesce(F.col("rate_2y"), F.lit(0.036)).alias("current_market_rate"),
+        F.coalesce(F.col("rate_5y"), F.lit(0.038)).alias("market_rate_5y"),
+        F.coalesce(F.col("rate_10y"), F.lit(0.043)).alias("market_rate_10y"),
+        # Rate gap/spreads
+        F.abs(F.col("stated_rate") - F.coalesce(F.col("rate_2y"), F.lit(0.036))).alias("rate_gap"),
+        (F.col("stated_rate") - F.coalesce(F.col("rate_2y"), F.lit(0.036))).alias("rate_spread"),
+        (
+            (F.col("stated_rate") - F.coalesce(F.col("rate_2y"), F.lit(0.036)))
+            * F.col("current_balance")
+            / 1_000_000.0
+        ).alias("rate_spread_x_balance"),
+        # Balance transforms
+        F.log(F.col("current_balance") + F.lit(1.0)).alias("log_balance"),
+        (F.col("current_balance") / 1_000_000.0).alias("balance_millions"),
+        F.when(
+            F.col("average_balance_30d").isNotNull() & (F.col("average_balance_30d") > 0),
+            (F.col("current_balance") - F.col("average_balance_30d")) / F.col("average_balance_30d"),
+        )
+        .otherwise(0.0)
+        .alias("balance_trend_30d"),
+        # Composite churn risk score (simple, interpretable)
+        (
+            F.when(F.col("account_status") == "Closed", 1).otherwise(0) * F.lit(0.4)
+            + F.when(F.col("account_status") == "Dormant", 1).otherwise(0) * F.lit(0.3)
+            + (F.abs(F.col("stated_rate") - F.coalesce(F.col("rate_2y"), F.lit(0.036))) * F.lit(10.0)) * F.lit(0.3)
+        ).alias("churn_risk_score"),
+    )
 )
 
 print(f"✓ Prepared {feature_df.count():,} accounts for scoring")

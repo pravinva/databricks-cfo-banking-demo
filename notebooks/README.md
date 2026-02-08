@@ -63,7 +63,7 @@ This document provides a comprehensive guide to all production notebooks in the 
 **What It Does**:
 - **Chen (2025) Sigmoid Function**: Non-linear beta dynamics
   - β(Rm) = βmin + (βmax - βmin) / [1 + exp(-k*(Rm-R0))]
-- **Basel III / CCAR / DFAST stress scenarios**:
+- **Basel III / CCAR stress scenarios** (DFAST is legacy terminology):
   - Baseline: Current trajectory
   - Adverse: +100bps gradual increase
   - Severely Adverse: +200bps rapid shock
@@ -72,7 +72,7 @@ This document provides a comprehensive guide to all production notebooks in the 
 - **Standard Outlier Test (SOT)**: EVE/CET1 ratio compliance
 
 **When to Use**:
-- CCAR/DFAST regulatory stress testing
+- CCAR-style regulatory stress testing
 - Economic Value of Equity (EVE) analysis
 - Multi-scenario capital planning
 - Rapid rate shock impact assessment
@@ -106,7 +106,7 @@ This document provides a comprehensive guide to all production notebooks in the 
 - **PPNR Calculation**: NII + Non-Interest Income - Non-Interest Expense
 
 **When to Use**:
-- CCAR/DFAST stress testing (9-quarter projections)
+- CCAR-style stress testing (9-quarter projections)
 - Annual budgeting and financial planning
 - Quarterly earnings forecasts
 - Scenario analysis (recession, boom, baseline)
@@ -138,7 +138,7 @@ This document provides a comprehensive guide to all production notebooks in the 
 - Generates deposit runoff projections
 - Writes predictions to Delta tables
 
-**When to Use**:
+- **When to Use**:
 - Weekly/monthly portfolio scoring
 - Post-model retraining validation
 - Rate shock scenario analysis
@@ -174,7 +174,7 @@ This document provides a comprehensive guide to all production notebooks in the 
 **When to Use**:
 - ALCO (Asset Liability Committee) presentations
 - Monthly/quarterly treasury reporting
-- Regulatory stress testing documentation (CCAR/DFAST)
+- Regulatory stress testing documentation (CCAR-style; DFAST is legacy terminology)
 - Executive briefings on deposit stability
 - Board presentations on liquidity risk
 
@@ -248,7 +248,7 @@ cfo_banking_demo.models.deposit_beta_model with alias @champion.
 
 ## 🏗️ **Data Foundation Notebooks**
 
-### **Phase 1: Bronze Tables (Data Generation)**
+### **Step 1: Bronze Tables (Data Generation)**
 **File**: `Phase_1_Bronze_Tables.py`
 
 **Purpose**: Generate synthetic banking data for demo
@@ -270,7 +270,7 @@ cfo_banking_demo.models.deposit_beta_model with alias @champion.
 
 ---
 
-### **Phase 2: DLT Pipelines (Silver/Gold Transformations)**
+### **Step 2: DLT Pipelines (Silver/Gold Transformations)**
 **File**: `Phase_2_DLT_Pipelines.py`
 
 **Purpose**: Delta Live Tables pipelines for data transformation and quality
@@ -295,7 +295,7 @@ cfo_banking_demo.models.deposit_beta_model with alias @champion.
 
 ## 🎯 **Stress Testing & Regulatory Reporting**
 
-### **CCAR/DFAST Stress Testing**
+### **CCAR Stress Testing**
 **File**: `Generate_Stress_Test_Results.py`
 
 **Purpose**: Generate 9-quarter stress test projections for regulatory compliance
@@ -308,7 +308,7 @@ cfo_banking_demo.models.deposit_beta_model with alias @champion.
 - Produces regulatory reporting tables
 
 **When to Use**:
-- CCAR/DFAST regulatory submissions
+- CCAR-style regulatory submissions (DFAST is legacy terminology)
 - Capital planning and optimization
 - Board-level stress test presentations
 
@@ -359,7 +359,7 @@ cfo_banking_demo.models.deposit_beta_model with alias @champion.
    - `Train_PPNR_Models.py` - Non-Interest Income & Expense
 
 4. **Stress Testing**:
-   - `Generate_Stress_Test_Results.py` - CCAR/DFAST projections
+   - `Generate_Stress_Test_Results.py` - CCAR stress projections (DFAST is legacy term)
    - `Generate_Vintage_Analysis_Tables.py` - Vintage cohorts
 
 5. **Batch Inference**:
@@ -381,7 +381,7 @@ Recommended schedule for production deployment:
 | `Batch_Inference_Deposit_Beta_Model.py` | Weekly | Sunday 11pm | Portfolio scoring |
 | `Generate_Deposit_Analytics_Report.py` | Weekly | Sunday 11:30pm | Analytics report (after inference) |
 | `Generate_Vintage_Analysis_Tables.py` | Monthly | 1st of month | Cohort updates |
-| `Generate_Stress_Test_Results.py` | Quarterly | End of quarter | CCAR projections |
+| `Generate_Stress_Test_Results.py` | Quarterly | End of quarter | CCAR projections (DFAST is legacy term) |
 | `Approach1_Enhanced_Deposit_Beta_Model.py` | Quarterly | Mid-quarter | Model retraining |
 | `Train_PPNR_Models.py` | Quarterly | Mid-quarter | PPNR model refresh |
 

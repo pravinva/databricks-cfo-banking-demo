@@ -68,7 +68,11 @@ export default function StressTestDashboard() {
   }
 
   if (loading) {
-    return <div className="text-sm text-bloomberg-text-dim font-mono">Loading CCAR/DFAST stress tests...</div>
+    return (
+      <div className="text-sm text-bloomberg-text-dim font-mono">
+        Loading CCAR stress tests...
+      </div>
+    )
   }
 
   // Transform stress results for charts
@@ -349,7 +353,9 @@ export default function StressTestDashboard() {
           <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
             APPROACH 3 REGULATORY COMPLIANCE
           </CardTitle>
-          <p className="text-xs text-bloomberg-text-dim font-mono">CCAR/DFAST submission readiness</p>
+          <p className="text-xs text-bloomberg-text-dim font-mono">
+            CCAR submission readiness (DFAST is legacy term)
+          </p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-6">

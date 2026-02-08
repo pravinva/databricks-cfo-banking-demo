@@ -44,7 +44,7 @@ From the notebook (lines 20-24):
 ```
 Use Cases:
 - ALCO presentations
-- Regulatory reporting (CCAR/DFAST)
+- Regulatory reporting (CCAR-style stress testing)
 - Executive briefings
 - Board presentations
 ```
@@ -136,13 +136,13 @@ except Exception as e:
 **Line 22:**
 ```python
 # Current:
-- Regulatory reporting (CCAR/DFAST)
+- Regulatory reporting (CCAR-style stress testing)
 
 # Should be:
 - Regulatory reporting (CCAR Stress Testing)
 ```
 
-**Why:** DFAST is deprecated terminology. Should use "CCAR" or "Stress Testing"
+**Why:** DFAST is legacy terminology. Prefer "CCAR stress testing" or "Stress Testing"
 
 **Impact:** Very minor - just a comment update
 

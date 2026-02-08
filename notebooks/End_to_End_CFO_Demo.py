@@ -680,19 +680,19 @@ lcr.display()
 # MAGIC %md
 # MAGIC ## Next Steps
 # MAGIC
-# MAGIC ### Phase 1: Production Deployment (Weeks 1-4)
+# MAGIC ### Next steps (implementation backlog)
 # MAGIC - Connect to real core banking system (CDC from Fivetran/Airbyte)
 # MAGIC - Deploy DLT pipelines for real-time GL posting
 # MAGIC - Train deposit beta model on historical data
 # MAGIC - Configure Model Serving endpoints
 # MAGIC
-# MAGIC ### Phase 2: Expand Coverage (Weeks 5-8)
+# MAGIC ### Expand coverage (optional)
 # MAGIC - Add FR Y-9C consolidated financials
 # MAGIC - Implement CECL reserve calculations
 # MAGIC - Build FTP (Funds Transfer Pricing) model
-# MAGIC - Create stress testing scenarios (CCAR/DFAST)
+# MAGIC - Create stress testing scenarios (CCAR-style; DFAST is legacy terminology)
 # MAGIC
-# MAGIC ### Phase 3: Advanced Analytics (Weeks 9-12)
+# MAGIC ### Advanced analytics (optional)
 # MAGIC - Credit risk modeling (PD, LGD, EAD)
 # MAGIC - Interest rate risk modeling (NII at Risk)
 # MAGIC - Liquidity stress testing automation

@@ -344,7 +344,7 @@ Scenarios are defined in Python configuration (5 minutes to add a new scenario).
 - **Audit logging**: All data access tracked and logged
 - **PII masking**: Account numbers and customer names can be tokenized
 
-Many banks run Databricks in production for CCAR, DFAST, and AML use cases. It's FedRAMP, SOC 2 Type II, and ISO 27001 certified."
+Many banks run Databricks in production for CCAR-style regulatory stress testing (DFAST is legacy terminology) and AML use cases. It's FedRAMP, SOC 2 Type II, and ISO 27001 certified."
 
 ---
 

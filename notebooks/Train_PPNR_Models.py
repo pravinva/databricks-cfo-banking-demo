@@ -723,7 +723,7 @@ print(f"✓ PPNR forecasts saved to: cfo_banking_demo.ml_models.ppnr_forecasts")
 # MAGIC 3. ✅ **PPNR Forecast**
 # MAGIC    - Table: `cfo_banking_demo.ml_models.ppnr_forecasts`
 # MAGIC    - Formula: NII + Non-Interest Income - Non-Interest Expense
-# MAGIC    - Use: CCAR/DFAST stress testing, strategic planning
+# MAGIC    - Use: CCAR-style stress testing (DFAST is legacy terminology), strategic planning
 # MAGIC
 # MAGIC **Key Drivers:**
 # MAGIC - **Non-Interest Income:** Transaction volume, account count, loan originations
