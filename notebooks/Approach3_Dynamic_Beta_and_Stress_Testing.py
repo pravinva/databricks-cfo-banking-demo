@@ -260,7 +260,17 @@ import mlflow.xgboost
 
 # Load Approach 2 training data
 training_df = spark.table("cfo_banking_demo.ml_models.deposit_beta_training_phase2")
-required_cols = {"market_fed_funds_rate", "rate_regime"}
+required_cols = {
+    "market_fed_funds_rate",
+    "rate_regime",
+    "digital_user",
+    "product_count",
+    "relationship_length_years",
+    "primary_bank_flag",
+    "direct_deposit_flag",
+    "yield_curve_slope",
+    "competitor_rate_spread",
+}
 missing_cols = sorted(required_cols - set(training_df.columns))
 if missing_cols:
     raise RuntimeError(

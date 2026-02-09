@@ -627,6 +627,14 @@ WITH base_training AS (
             WHEN CAST(current_balance AS DOUBLE) < 10000000 THEN '1m_10m'
             ELSE 'gt_10m'
         END AS balance_tier,
+        -- Canonical behavioral / competitive features (populate defaults if not available upstream)
+        CAST(0 AS INT) AS digital_user,
+        CAST(1 AS INT) AS product_count,
+        CAST(DATEDIFF(CURRENT_DATE(), account_open_date) / 365.25 AS DOUBLE) AS relationship_length_years,
+        CAST(0 AS INT) AS primary_bank_flag,
+        CAST(0 AS INT) AS direct_deposit_flag,
+        CAST(COALESCE(market_rate_10y, 0.0) - COALESCE(current_market_rate, 0.0) AS DOUBLE) AS yield_curve_slope,
+        CAST(0.0 AS DOUBLE) AS competitor_rate_spread,
         CASE
             WHEN target_beta < 0.25 THEN 'Strategic'
             WHEN target_beta < 0.60 THEN 'Tactical'
