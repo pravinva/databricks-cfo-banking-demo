@@ -333,6 +333,7 @@ _print_dynamic_beta_sanity_checks(rate_beta_relationship, dynamic_params)
 
 # COMMAND ----------
 
+import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error, r2_score
 import mlflow
@@ -358,7 +359,44 @@ if missing_cols:
         + ", ".join(missing_cols)
         + ". Re-run Approach 2 Step 3.1 to recreate the table after pulling latest repo changes."
     )
-training_pdf = training_df.toPandas()
+
+# Root cause fix: avoid collecting a huge/Decimal-heavy DataFrame to the driver.
+# Only select needed columns, cast decimals to doubles, and sample/limit rows before toPandas.
+_TRAIN_SAMPLE_FRACTION = 0.05
+_MAX_TRAIN_ROWS = 500_000
+
+training_sdf = (
+    training_df.select(
+        # numeric/features
+        F.col("account_age_years").cast("double").alias("account_age_years"),
+        F.col("balance_millions").cast("double").alias("balance_millions"),
+        F.col("stated_rate").cast("double").alias("stated_rate"),
+        F.col("rate_gap").cast("double").alias("rate_gap"),
+        F.col("transaction_count_30d").cast("double").alias("transaction_count_30d"),
+        F.col("digital_user").cast("double").alias("digital_user"),
+        F.col("product_count").cast("double").alias("product_count"),
+        F.col("relationship_length_years").cast("double").alias("relationship_length_years"),
+        F.col("primary_bank_flag").cast("double").alias("primary_bank_flag"),
+        F.col("direct_deposit_flag").cast("double").alias("direct_deposit_flag"),
+        F.col("market_fed_funds_rate").cast("double").alias("market_fed_funds_rate"),
+        F.col("yield_curve_slope").cast("double").alias("yield_curve_slope"),
+        F.col("competitor_rate_spread").cast("double").alias("competitor_rate_spread"),
+        F.col("cohort_12m_survival").cast("double").alias("cohort_12m_survival"),
+        F.col("segment_closure_rate").cast("double").alias("segment_closure_rate"),
+        F.col("segment_abgr").cast("double").alias("segment_abgr"),
+        # categoricals for encoding
+        F.col("product_type").cast("string").alias("product_type"),
+        F.col("customer_segment").cast("string").alias("customer_segment"),
+        F.col("relationship_category").cast("string").alias("relationship_category"),
+        F.col("rate_regime").cast("string").alias("rate_regime"),
+        # label
+        F.col("target_beta").cast("double").alias("target_beta"),
+    )
+    .sample(withReplacement=False, fraction=_TRAIN_SAMPLE_FRACTION, seed=42)
+    .limit(_MAX_TRAIN_ROWS)
+)
+
+training_pdf = training_sdf.toPandas()
 
 # Define features (same as Approach 2)
 feature_cols = [
@@ -558,17 +596,28 @@ WHERE d.is_current = TRUE
   AND c.relationship_category IS NOT NULL
 """
 
-current_deposits = spark.sql(current_deposits_query).toPandas()
+# Root cause fix: do portfolio aggregation in Spark to avoid collecting all accounts to the driver.
+current_deposits_df = spark.sql(current_deposits_query).select(
+    F.col("relationship_category").cast("string").alias("relationship_category"),
+    F.col("current_balance").cast("double").alias("current_balance"),
+    F.col("beta").cast("double").alias("beta"),
+    F.col("stated_rate").cast("double").alias("stated_rate"),
+    F.col("account_id").cast("string").alias("account_id"),
+)
 
-# Aggregate by repricing characteristics
-portfolio_summary = current_deposits.groupby('relationship_category').agg({
-    'current_balance': 'sum',
-    'account_id': 'count',
-    'beta': 'mean',
-    'stated_rate': 'mean'
-}).reset_index()
+portfolio_summary_df = (
+    current_deposits_df.groupBy("relationship_category")
+    .agg(
+        F.sum("current_balance").alias("current_balance"),
+        F.count("account_id").alias("account_id"),
+        F.avg("beta").alias("beta"),
+        F.avg("stated_rate").alias("stated_rate"),
+    )
+    .orderBy("relationship_category")
+    .withColumn("balance_billions", F.col("current_balance") / F.lit(1e9))
+)
 
-portfolio_summary['balance_billions'] = portfolio_summary['current_balance'] / 1e9
+portfolio_summary = portfolio_summary_df.toPandas()
 
 print("\n" + "=" * 80)
 print("CURRENT DEPOSIT PORTFOLIO SUMMARY")
