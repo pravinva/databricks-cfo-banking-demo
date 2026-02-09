@@ -727,14 +727,15 @@ if "balance_tier" not in phase2_pdf.columns:
         phase2_pdf["balance_tier"] = pd.cut(
             bal,
             bins=[-1, 10_000, 100_000, 1_000_000, 10_000_000, float("inf")],
-            labels=["<$10k", "$10k-$100k", "$100k-$1M", "$1M-$10M", ">$10M"],
+            # Keep labels "feature-name safe" for downstream one-hot encoding / XGBoost.
+            labels=["lt_10k", "10k_100k", "100k_1m", "1m_10m", "gt_10m"],
         ).astype(str)
     elif "balance_millions" in phase2_pdf.columns:
         bm = pd.to_numeric(phase2_pdf["balance_millions"], errors="coerce").fillna(0.0)
         phase2_pdf["balance_tier"] = pd.cut(
             bm,
             bins=[-1, 0.01, 0.1, 1.0, 10.0, float("inf")],
-            labels=["<$10k", "$10k-$100k", "$100k-$1M", "$1M-$10M", ">$10M"],
+            labels=["lt_10k", "10k_100k", "100k_1m", "1m_10m", "gt_10m"],
         ).astype(str)
     else:
         phase2_pdf["balance_tier"] = "Unknown"
@@ -800,6 +801,27 @@ categorical_features = ['product_type', 'customer_segment', 'balance_tier',
 # Encode categoricals
 categorical_features = [c for c in categorical_features if c in phase2_pdf.columns]
 phase2_pdf_encoded = pd.get_dummies(phase2_pdf, columns=categorical_features, drop_first=True)
+
+# XGBoost is strict about feature names: must be strings and cannot contain [, ], or <.
+# Some one-hot encoded column names can still contain special characters depending on source data,
+# so sanitize them deterministically.
+import re
+phase2_pdf_encoded.columns = [str(c) for c in phase2_pdf_encoded.columns]
+_col_map = {}
+_seen = set()
+for c in phase2_pdf_encoded.columns:
+    safe = re.sub(r"[][<>]", "_", c)
+    safe = re.sub(r"[^0-9A-Za-z_]+", "_", safe).strip("_")
+    if not safe:
+        safe = "feature"
+    base = safe
+    i = 1
+    while safe in _seen:
+        i += 1
+        safe = f"{base}_{i}"
+    _seen.add(safe)
+    _col_map[c] = safe
+phase2_pdf_encoded = phase2_pdf_encoded.rename(columns=_col_map)
 
 # Get all feature columns
 all_features = phase2_features + [col for col in phase2_pdf_encoded.columns
