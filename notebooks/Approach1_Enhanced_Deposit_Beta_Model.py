@@ -70,7 +70,10 @@ training_df = (
         .otherwise(0)
         .alias("segment_encoded"),
         # Account features
-        (F.datediff(F.current_date(), F.col("account_open_date")) / 30.0).alias("account_age_months"),
+        # Cast explicitly to keep Delta schema stable across runs.
+        (F.datediff(F.current_date(), F.to_date(F.col("account_open_date"))) / F.lit(30.0))
+        .cast("double")
+        .alias("account_age_months"),
         # Churn flags
         F.when(F.col("account_status") == "Closed", 1).otherwise(0).alias("churned"),
         F.when(F.col("account_status") == "Dormant", 1).otherwise(0).alias("dormant"),
@@ -114,7 +117,12 @@ training_df = (
     .withColumn("dataset_timestamp", F.current_timestamp())
 )
 
-training_df.write.mode("overwrite").saveAsTable("cfo_banking_demo.ml_models.deposit_beta_training_data")
+(
+    training_df.write.format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .saveAsTable("cfo_banking_demo.ml_models.deposit_beta_training_data")
+)
 print(f"✓ Wrote training data: {training_df.count():,} rows")
 
 # COMMAND ----------
