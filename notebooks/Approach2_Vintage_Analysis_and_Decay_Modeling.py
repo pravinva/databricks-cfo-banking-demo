@@ -47,9 +47,21 @@ import pandas as pd
 import numpy as np
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
+from pyspark.sql.types import DecimalType
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+def _cast_decimal_cols_to_double(df):
+    """
+    Avoid slow DecimalType -> pandas conversions by casting DecimalType columns to double first.
+    This prevents warnings like:
+      pyspark.sql.pandas.utils: The conversion of DecimalType columns is inefficient...
+    """
+    for field in df.schema.fields:
+        if isinstance(field.dataType, DecimalType):
+            df = df.withColumn(field.name, F.col(field.name).cast("double"))
+    return df
 
 print("Starting Approach 2: Vintage Analysis and Decay Modeling")
 print("=" * 80)
@@ -256,7 +268,7 @@ display(survival_df.limit(20))
 # COMMAND ----------
 
 # Load survival data
-survival_pdf = survival_df.toPandas()
+survival_pdf = _cast_decimal_cols_to_double(survival_df).toPandas()
 
 # Plot survival curves by relationship category
 fig, axes = plt.subplots(2, 2, figsize=(18, 14))
@@ -498,7 +510,7 @@ display(decay_df)
 
 # COMMAND ----------
 
-decay_pdf = decay_df.toPandas()
+decay_pdf = _cast_decimal_cols_to_double(decay_df).toPandas()
 
 print("=" * 80)
 print("COMPONENT DECAY MODEL VALIDATION (Chen Framework)")
@@ -703,7 +715,7 @@ import mlflow
 import mlflow.xgboost
 
 # Load Approach 2 training data
-phase2_pdf = phase2_df.toPandas()
+phase2_pdf = _cast_decimal_cols_to_double(phase2_df).toPandas()
 
 # Define Approach 2 feature set (Approach 1 + vintage + decay)
 phase2_features = [
@@ -882,7 +894,7 @@ display(runoff_forecast_df.limit(50))
 
 # COMMAND ----------
 
-runoff_pdf = runoff_forecast_df.toPandas()
+runoff_pdf = _cast_decimal_cols_to_double(runoff_forecast_df).toPandas()
 
 fig, axes = plt.subplots(1, 2, figsize=(18, 6))
 
