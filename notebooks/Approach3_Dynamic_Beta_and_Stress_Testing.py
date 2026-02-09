@@ -92,6 +92,26 @@ print(f"\nMarket rate range: {rate_beta_relationship['market_rate'].min():.2%} -
 
 display(rate_beta_relationship.head(20))
 
+# Hard requirements: dynamic calibration needs rate variation (no fallbacks)
+expected_categories = {"Strategic", "Tactical", "Expendable"}
+observed_categories = set(str(x) for x in rate_beta_relationship["category"].dropna().unique())
+missing_categories = sorted(expected_categories - observed_categories)
+if missing_categories:
+    raise RuntimeError(
+        "Approach 3 calibration requires relationship_category in "
+        f"{sorted(expected_categories)} but is missing: {missing_categories}. "
+        "Rebuild deposit_beta_training_phase2 (Approach 2 Step 3.1) and verify relationship_category values."
+    )
+
+unique_rates = sorted(set(float(x) for x in rate_beta_relationship["market_rate"].dropna().unique()))
+if len(unique_rates) < 4:
+    raise RuntimeError(
+        "Approach 3 dynamic beta calibration requires 4+ distinct market rate points. "
+        f"Found {len(unique_rates)} (min={min(unique_rates) if unique_rates else 'n/a'}, "
+        f"max={max(unique_rates) if unique_rates else 'n/a'}). "
+        "With a single/small number of rate snapshots, you cannot fit a sigmoid from data."
+    )
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -122,69 +142,67 @@ fig, axes = plt.subplots(1, 3, figsize=(20, 6))
 for idx, category in enumerate(['Strategic', 'Tactical', 'Expendable']):
     subset = rate_beta_relationship[rate_beta_relationship['category'] == category]
 
-    if len(subset) >= 4:  # Need enough points for fitting
-        # Prepare data
-        X_data = subset['market_rate'].values
-        y_data = subset['avg_beta'].values
+    # Need enough points for fitting (no fallbacks)
+    if len(subset) < 4:
+        raise RuntimeError(
+            f"Not enough calibration points for category={category}. "
+            f"Need >=4 aggregated points; found {len(subset)}."
+        )
 
-        # Initial guesses based on category
-        if category == 'Strategic':
-            p0 = [0.05, 0.60, 2.0, 0.025]  # Low beta customers
-        elif category == 'Tactical':
-            p0 = [0.10, 0.75, 2.0, 0.025]  # Medium beta customers
-        else:  # Expendable
-            p0 = [0.20, 0.90, 2.0, 0.025]  # High beta customers
+    # Prepare data
+    X_data = subset['market_rate'].values
+    y_data = subset['avg_beta'].values
 
-        try:
-            # Fit sigmoid function
-            params, covariance = curve_fit(
-                dynamic_beta_function,
-                X_data,
-                y_data,
-                p0=p0,
-                bounds=([0.0, 0.5, 0.5, 0.0], [0.5, 1.5, 10.0, 0.10]),
-                maxfev=10000
-            )
+    # Initial guesses based on category
+    if category == 'Strategic':
+        p0 = [0.05, 0.60, 2.0, 0.025]  # Low beta customers
+    elif category == 'Tactical':
+        p0 = [0.10, 0.75, 2.0, 0.025]  # Medium beta customers
+    else:  # Expendable
+        p0 = [0.20, 0.90, 2.0, 0.025]  # High beta customers
 
-            beta_min, beta_max, k, R0 = params
-            dynamic_params[category] = {
-                'beta_min': beta_min,
-                'beta_max': beta_max,
-                'k': k,
-                'R0': R0
-            }
+    try:
+        # Fit sigmoid function
+        params, covariance = curve_fit(
+            dynamic_beta_function,
+            X_data,
+            y_data,
+            p0=p0,
+            bounds=([0.0, 0.5, 0.5, 0.0], [0.5, 1.5, 10.0, 0.10]),
+            maxfev=10000
+        )
 
-            # Plot actual vs fitted
-            X_smooth = np.linspace(X_data.min(), X_data.max(), 100)
-            y_fitted = dynamic_beta_function(X_smooth, *params)
+        beta_min, beta_max, k, R0 = params
+        dynamic_params[category] = {
+            'beta_min': beta_min,
+            'beta_max': beta_max,
+            'k': k,
+            'R0': R0
+        }
 
-            axes[idx].scatter(X_data * 100, y_data, alpha=0.6, s=100, label='Actual Data')
-            axes[idx].plot(X_smooth * 100, y_fitted, 'r-', linewidth=2, label='Dynamic Beta Function')
-            axes[idx].axvline(x=R0 * 100, color='green', linestyle='--', alpha=0.5, label=f'Inflection (R0={R0*100:.1f}%)')
-            axes[idx].axhline(y=beta_min, color='blue', linestyle='--', alpha=0.3, label=f'βmin={beta_min:.2f}')
-            axes[idx].axhline(y=beta_max, color='orange', linestyle='--', alpha=0.3, label=f'βmax={beta_max:.2f}')
-            axes[idx].set_xlabel('Market Rate (%)')
-            axes[idx].set_ylabel('Deposit Beta')
-            axes[idx].set_title(f'{category} Customers\nDynamic Beta Function')
-            axes[idx].legend(fontsize=8)
-            axes[idx].grid(alpha=0.3)
+        # Plot actual vs fitted
+        X_smooth = np.linspace(X_data.min(), X_data.max(), 100)
+        y_fitted = dynamic_beta_function(X_smooth, *params)
 
-            print(f"\n{category} Customers - Calibrated Parameters:")
-            print(f"  β_min (low rates):  {beta_min:.4f}")
-            print(f"  β_max (high rates): {beta_max:.4f}")
-            print(f"  k (steepness):      {k:.4f}")
-            print(f"  R0 (inflection):    {R0*100:.2f}%")
+        axes[idx].scatter(X_data * 100, y_data, alpha=0.6, s=100, label='Actual Data')
+        axes[idx].plot(X_smooth * 100, y_fitted, 'r-', linewidth=2, label='Dynamic Beta Function')
+        axes[idx].axvline(x=R0 * 100, color='green', linestyle='--', alpha=0.5, label=f'Inflection (R0={R0*100:.1f}%)')
+        axes[idx].axhline(y=beta_min, color='blue', linestyle='--', alpha=0.3, label=f'βmin={beta_min:.2f}')
+        axes[idx].axhline(y=beta_max, color='orange', linestyle='--', alpha=0.3, label=f'βmax={beta_max:.2f}')
+        axes[idx].set_xlabel('Market Rate (%)')
+        axes[idx].set_ylabel('Deposit Beta')
+        axes[idx].set_title(f'{category} Customers\nDynamic Beta Function')
+        axes[idx].legend(fontsize=8)
+        axes[idx].grid(alpha=0.3)
 
-        except Exception as e:
-            print(f"\n⚠️ Could not calibrate {category}: {e}")
-            # Use defaults with proper structure
-            beta_min, beta_max, k, R0 = p0
-            dynamic_params[category] = {
-                'beta_min': beta_min,
-                'beta_max': beta_max,
-                'k': k,
-                'R0': R0
-            }
+        print(f"\n{category} Customers - Calibrated Parameters:")
+        print(f"  β_min (low rates):  {beta_min:.4f}")
+        print(f"  β_max (high rates): {beta_max:.4f}")
+        print(f"  k (steepness):      {k:.4f}")
+        print(f"  R0 (inflection):    {R0*100:.2f}%")
+
+    except Exception as e:
+        raise RuntimeError(f"Could not calibrate dynamic beta for category={category}: {e}") from e
 
 plt.tight_layout()
 plt.show()
@@ -200,6 +218,51 @@ print("=" * 80)
 
 # COMMAND ----------
 
+def _print_dynamic_beta_sanity_checks(rate_beta_relationship_df, params_dict) -> None:
+    """
+    Sanity checks to confirm dynamic beta is actually calibrated and not silently falling back.
+    """
+    print("\n" + "=" * 80)
+    print("SANITY CHECKS (Dynamic Beta)")
+    print("=" * 80)
+
+    # 1) Market-rate variation (dynamic calibration needs multiple rate points)
+    uniq_rates = sorted(set(float(x) for x in rate_beta_relationship_df["market_rate"].dropna().unique()))
+    print(f"Unique market_rate points: {len(uniq_rates)}")
+    if uniq_rates:
+        print(f"market_rate min/max: {min(uniq_rates):.4f} / {max(uniq_rates):.4f}")
+    if len(uniq_rates) < 4:
+        raise RuntimeError("Not enough rate variation to calibrate a sigmoid from data (need 4+ distinct rates).")
+
+    # 2) Category alignment
+    observed_cats = sorted(set(str(x) for x in rate_beta_relationship_df['category'].dropna().unique()))
+    param_cats = sorted(list(params_dict.keys()))
+    print(f"Observed categories: {observed_cats}")
+    print(f"Params categories:   {param_cats}")
+    missing = sorted(set(observed_cats) - set(param_cats))
+    extra = sorted(set(param_cats) - set(observed_cats))
+    if missing:
+        raise RuntimeError(f"Params missing categories: {missing}")
+    if extra:
+        print(f"ℹ️ Params has extra categories (unused): {extra}")
+
+    # 3) Snapshot consistency check at the current (dominant) rate level
+    if uniq_rates:
+        # pick the most frequent rate point in the aggregated table
+        dominant_rate = (
+            rate_beta_relationship_df.groupby("market_rate")["count"].sum().sort_values(ascending=False).index[0]
+        )
+        snap = rate_beta_relationship_df[rate_beta_relationship_df["market_rate"] == dominant_rate].copy()
+        if len(snap):
+            print(f"\nSnapshot @ market_rate={float(dominant_rate):.4f}")
+            print(snap[["category", "avg_beta", "count"]].sort_values("category").to_string(index=False))
+            for cat in observed_cats:
+                if cat in params_dict:
+                    pred = predict_dynamic_beta(float(dominant_rate), cat, params_dict)
+                    print(f"  predicted_beta({cat})={pred:.4f}")
+                else:
+                    print(f"  predicted_beta({cat})=FALLBACK (missing params)")
+
 def predict_dynamic_beta(market_rate, relationship_category, params_dict):
     """
     Predict beta using calibrated dynamic function
@@ -213,8 +276,10 @@ def predict_dynamic_beta(market_rate, relationship_category, params_dict):
         Predicted beta value
     """
     if relationship_category not in params_dict:
-        # Default to medium parameters
-        return 0.50
+        raise KeyError(
+            f"Missing dynamic beta params for relationship_category={relationship_category}. "
+            "This indicates category mismatch or failed calibration."
+        )
 
     params = params_dict[relationship_category]
     return dynamic_beta_function(
@@ -224,6 +289,8 @@ def predict_dynamic_beta(market_rate, relationship_category, params_dict):
         params['k'],
         params['R0']
     )
+
+_print_dynamic_beta_sanity_checks(rate_beta_relationship, dynamic_params)
 
 # Test predictions across rate scenarios
 test_rates = [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06]
@@ -240,6 +307,9 @@ for rate in test_rates:
     expendable_beta = predict_dynamic_beta(rate, 'Expendable', dynamic_params)
 
     print(f"{rate*100:>5.1f}%    {strategic_beta:>6.4f}         {tactical_beta:>6.4f}         {expendable_beta:>6.4f}")
+
+# Run sanity checks after printing the scenario table
+_print_dynamic_beta_sanity_checks(rate_beta_relationship, dynamic_params)
 
 # COMMAND ----------
 
@@ -863,14 +933,9 @@ print("\n" + gap_analysis_summary.to_string(index=False))
 
 # COMMAND ----------
 
-# Check if calibration succeeded, otherwise use defaults
+# Check if calibration succeeded (no defaults)
 if not dynamic_params:
-    print("⚠️ No calibrated parameters available, using default values")
-    dynamic_params = {
-        'Strategic': {'beta_min': 0.05, 'beta_max': 0.60, 'k': 2.0, 'R0': 0.025},
-        'Tactical': {'beta_min': 0.10, 'beta_max': 0.75, 'k': 2.0, 'R0': 0.025},
-        'Expendable': {'beta_min': 0.20, 'beta_max': 0.90, 'k': 2.0, 'R0': 0.025}
-    }
+    raise RuntimeError("Dynamic beta calibration produced no parameters. Cannot proceed.")
 
 # Convert to DataFrame for storage
 dynamic_params_df = pd.DataFrame([
