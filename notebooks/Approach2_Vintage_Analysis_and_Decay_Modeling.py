@@ -612,6 +612,21 @@ WITH base_training AS (
     SELECT
         *,
         DATE_TRUNC('quarter', account_open_date) as cohort_quarter,
+        -- Provide canonical rate columns needed by Approach 3 (no fallback).
+        -- In this demo, use the current market rate feature as the fed funds proxy.
+        CAST(current_market_rate AS DOUBLE) AS market_fed_funds_rate,
+        CASE
+            WHEN CAST(current_market_rate AS DOUBLE) < 0.01 THEN 'Low'
+            WHEN CAST(current_market_rate AS DOUBLE) < 0.03 THEN 'Medium'
+            ELSE 'High'
+        END AS rate_regime,
+        CASE
+            WHEN CAST(current_balance AS DOUBLE) < 10000 THEN 'lt_10k'
+            WHEN CAST(current_balance AS DOUBLE) < 100000 THEN '10k_100k'
+            WHEN CAST(current_balance AS DOUBLE) < 1000000 THEN '100k_1m'
+            WHEN CAST(current_balance AS DOUBLE) < 10000000 THEN '1m_10m'
+            ELSE 'gt_10m'
+        END AS balance_tier,
         CASE
             WHEN target_beta < 0.25 THEN 'Strategic'
             WHEN target_beta < 0.60 THEN 'Tactical'
