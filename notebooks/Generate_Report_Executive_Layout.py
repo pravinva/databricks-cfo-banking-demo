@@ -63,20 +63,31 @@ else:
     portfolio_beta = (deposits_pdf['current_balance'] * deposits_pdf['beta']).sum() / total_deposits
 
 # PPNR metrics
+# Note: `ml_models.ppnr_forecasts` schema is monthly and does not include scenario columns in this demo.
 if has_ppnr:
-    current_ppnr_data = ppnr_pdf[(ppnr_pdf['scenario'] == 'Baseline') & (ppnr_pdf['forecast_horizon_months'] == 3)]
-    if len(current_ppnr_data) > 0:
-        current_ppnr = current_ppnr_data.iloc[0]['forecasted_ppnr']
-        efficiency_ratio = (
-            current_ppnr_data.iloc[0]['forecasted_noninterest_expense'] /
-            (current_ppnr_data.iloc[0]['forecasted_nii'] + current_ppnr_data.iloc[0]['forecasted_noninterest_income'])
-        ) * 100
+    ppnr_pdf = ppnr_pdf.copy()
+    # Ensure numeric types for ratio math
+    for c in ["net_interest_income", "non_interest_income", "non_interest_expense", "ppnr"]:
+        if c in ppnr_pdf.columns:
+            ppnr_pdf[c] = pd.to_numeric(ppnr_pdf[c], errors="coerce")
+
+    if "month" in ppnr_pdf.columns and len(ppnr_pdf) > 0:
+        latest_month = ppnr_pdf["month"].max()
+        current_ppnr_data = ppnr_pdf[ppnr_pdf["month"] == latest_month]
     else:
-        current_ppnr = 0
-        efficiency_ratio = 0
+        current_ppnr_data = ppnr_pdf.iloc[0:0]
+
+    if len(current_ppnr_data) > 0:
+        row = current_ppnr_data.iloc[0]
+        current_ppnr = float(row.get("ppnr") or 0.0)
+        denom = float((row.get("net_interest_income") or 0.0) + (row.get("non_interest_income") or 0.0))
+        efficiency_ratio = (float(row.get("non_interest_expense") or 0.0) / denom * 100.0) if denom else 0.0
+    else:
+        current_ppnr = 0.0
+        efficiency_ratio = 0.0
 else:
-    current_ppnr = 0
-    efficiency_ratio = 0
+    current_ppnr = 0.0
+    efficiency_ratio = 0.0
 
 # COMMAND ----------
 
