@@ -717,6 +717,62 @@ import mlflow.xgboost
 # Load Approach 2 training data
 phase2_pdf = _cast_decimal_cols_to_double(phase2_df).toPandas()
 
+# Normalize schema for demo robustness (tables may not contain these fields yet)
+phase2_pdf = phase2_pdf.copy()
+
+# Derive tiers/regimes if missing (prevents KeyError in get_dummies)
+if "balance_tier" not in phase2_pdf.columns:
+    if "current_balance" in phase2_pdf.columns:
+        bal = pd.to_numeric(phase2_pdf["current_balance"], errors="coerce").fillna(0.0)
+        phase2_pdf["balance_tier"] = pd.cut(
+            bal,
+            bins=[-1, 10_000, 100_000, 1_000_000, 10_000_000, float("inf")],
+            labels=["<$10k", "$10k-$100k", "$100k-$1M", "$1M-$10M", ">$10M"],
+        ).astype(str)
+    elif "balance_millions" in phase2_pdf.columns:
+        bm = pd.to_numeric(phase2_pdf["balance_millions"], errors="coerce").fillna(0.0)
+        phase2_pdf["balance_tier"] = pd.cut(
+            bm,
+            bins=[-1, 0.01, 0.1, 1.0, 10.0, float("inf")],
+            labels=["<$10k", "$10k-$100k", "$100k-$1M", "$1M-$10M", ">$10M"],
+        ).astype(str)
+    else:
+        phase2_pdf["balance_tier"] = "Unknown"
+
+if "rate_regime" not in phase2_pdf.columns:
+    # Prefer market rate features if available; otherwise default
+    if "current_market_rate" in phase2_pdf.columns:
+        r = pd.to_numeric(phase2_pdf["current_market_rate"], errors="coerce").fillna(0.0)
+        phase2_pdf["rate_regime"] = pd.cut(
+            r,
+            bins=[-float("inf"), 0.01, 0.03, float("inf")],
+            labels=["Low", "Medium", "High"],
+        ).astype(str)
+    else:
+        phase2_pdf["rate_regime"] = "Unknown"
+
+# Fill other optional demo features if absent (keeps feature list stable)
+defaults = {
+    "digital_user": 0,
+    "product_count": 1,
+    "relationship_length_years": phase2_pdf.get("account_age_years", 0),
+    "relationship_score": 0.0,
+    "primary_bank_flag": 0,
+    "direct_deposit_flag": 0,
+    "market_fed_funds_rate": phase2_pdf.get("current_market_rate", 0.0),
+    "yield_curve_slope": (
+        phase2_pdf.get("market_rate_10y", 0.0) - phase2_pdf.get("current_market_rate", 0.0)
+        if ("market_rate_10y" in phase2_pdf.columns and "current_market_rate" in phase2_pdf.columns)
+        else 0.0
+    ),
+    "rate_change_velocity_3m": 0.0,
+    "competitor_rate_spread": 0.0,
+    "segment_abgr_classification": phase2_pdf.get("segment_abgr_classification", "Unknown"),
+}
+for col, default in defaults.items():
+    if col not in phase2_pdf.columns:
+        phase2_pdf[col] = default
+
 # Define Approach 2 feature set (Approach 1 + vintage + decay)
 phase2_features = [
     # Approach 1 features
@@ -742,6 +798,7 @@ categorical_features = ['product_type', 'customer_segment', 'balance_tier',
                         'relationship_category', 'rate_regime', 'segment_abgr_classification']
 
 # Encode categoricals
+categorical_features = [c for c in categorical_features if c in phase2_pdf.columns]
 phase2_pdf_encoded = pd.get_dummies(phase2_pdf, columns=categorical_features, drop_first=True)
 
 # Get all feature columns
@@ -749,6 +806,11 @@ all_features = phase2_features + [col for col in phase2_pdf_encoded.columns
                                    if any(cat in col for cat in categorical_features)]
 
 # Prepare data
+missing_feats = [c for c in all_features if c not in phase2_pdf_encoded.columns]
+if missing_feats:
+    print(f"⚠ Dropping missing feature columns: {missing_feats}")
+    all_features = [c for c in all_features if c in phase2_pdf_encoded.columns]
+
 X = phase2_pdf_encoded[all_features].fillna(0).astype(float)
 y = phase2_pdf_encoded['target_beta'].astype(float)
 
