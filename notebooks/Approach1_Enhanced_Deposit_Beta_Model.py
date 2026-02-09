@@ -25,23 +25,59 @@ mlflow.set_registry_uri("databricks-uc")
 
 # COMMAND ----------
 
-# Latest yield curve snapshot (single row)
-yield_curve_latest = (
-    spark.table("cfo_banking_demo.silver_treasury.yield_curves")
-    .filter(
-        F.col("date")
-        == spark.table("cfo_banking_demo.silver_treasury.yield_curves")
-        .agg(F.max("date").alias("max_date"))
-        .collect()[0]["max_date"]
+"""
+Build a time-series training set (not a single snapshot).
+
+Approach 3 dynamic calibration requires multiple market-rate points; that is only possible if
+the training data spans multiple `effective_date` values joined to the corresponding yield curve date.
+"""
+
+# Build a date-aligned deposits × yield curves base set (as-of join by effective_date).
+base_df = spark.sql(
+    """
+    WITH deposits AS (
+      SELECT
+        account_id,
+        customer_id,
+        product_type,
+        customer_segment,
+        account_open_date,
+        current_balance,
+        average_balance_30d,
+        stated_rate,
+        transaction_count_30d,
+        account_status,
+        CAST(effective_date AS DATE) AS effective_date,
+        CAST(beta AS DOUBLE) AS beta
+      FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
+      WHERE account_open_date IS NOT NULL
+        AND effective_date IS NOT NULL
+        AND beta IS NOT NULL
+    ),
+    dates AS (
+      SELECT DISTINCT effective_date FROM deposits
+    ),
+    yc_map AS (
+      SELECT
+        d.effective_date,
+        MAX(y.date) AS yc_date
+      FROM dates d
+      JOIN cfo_banking_demo.silver_treasury.yield_curves y
+        ON y.date <= d.effective_date
+      GROUP BY d.effective_date
     )
+    SELECT
+      dep.*,
+      y.rate_2y,
+      y.rate_5y,
+      y.rate_10y
+    FROM deposits dep
+    LEFT JOIN yc_map m
+      ON dep.effective_date = m.effective_date
+    LEFT JOIN cfo_banking_demo.silver_treasury.yield_curves y
+      ON y.date = m.yc_date
+    """
 )
-
-deposits = (
-    spark.table("cfo_banking_demo.bronze_core_banking.deposit_accounts")
-    .filter((F.col("is_current") == True) & F.col("beta").isNotNull())
-)
-
-base_df = deposits.crossJoin(yield_curve_latest)
 
 training_df = (
     base_df.select(
@@ -71,7 +107,7 @@ training_df = (
         .alias("segment_encoded"),
         # Account features
         # Cast explicitly to keep Delta schema stable across runs.
-        (F.datediff(F.current_date(), F.to_date(F.col("account_open_date"))) / F.lit(30.0))
+        (F.datediff(F.col("effective_date"), F.to_date(F.col("account_open_date"))) / F.lit(30.0))
         .cast("double")
         .alias("account_age_months"),
         # Churn flags
