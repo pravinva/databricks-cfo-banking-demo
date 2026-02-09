@@ -826,6 +826,10 @@ print(f"Test set: {len(X_test):,}")
 # COMMAND ----------
 
 # Train Approach 2 model
+# Be explicit about MLflow backends (avoids surprises across workspaces/runtimes).
+# Note: "Experiment ... does not exist. Creating a new experiment." is informational, not a failure.
+mlflow.set_tracking_uri("databricks")
+mlflow.set_registry_uri("databricks-uc")
 mlflow.set_experiment("/Users/pravin.varma@databricks.com/deposit_beta_approach2_vintage_decay")
 
 with mlflow.start_run(run_name="approach2_vintage_decay_model") as run:
