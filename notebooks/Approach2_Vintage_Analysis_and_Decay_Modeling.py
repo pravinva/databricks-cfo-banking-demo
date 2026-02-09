@@ -736,6 +736,8 @@ import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error, r2_score
 import mlflow
 import mlflow.xgboost
+import pandas as pd
+import numpy as np
 
 # Load Approach 2 training data
 phase2_pdf = _cast_decimal_cols_to_double(phase2_df).toPandas()

@@ -77,15 +77,25 @@ print("=" * 80)
 
 # Load historical deposit beta data (from Approach 1/2 models)
 historical_df = spark.table("cfo_banking_demo.ml_models.deposit_beta_training_phase2")
-historical_pdf = historical_df.toPandas()
+# Root cause fix: converting the full Spark table to pandas can crash the driver,
+# and DecimalType -> pandas conversion is slow. Do the aggregation in Spark,
+# then materialize the small result to pandas.
+rate_beta_relationship_df = (
+    historical_df.select(
+        F.col("market_fed_funds_rate").cast("double").alias("market_rate"),
+        F.col("relationship_category").alias("category"),
+        F.col("target_beta").cast("double").alias("target_beta"),
+        F.col("account_id").alias("account_id"),
+    )
+    .groupBy("market_rate", "category")
+    .agg(
+        F.avg("target_beta").alias("avg_beta"),
+        F.count("account_id").alias("count"),
+    )
+    .orderBy("market_rate", "category")
+)
 
-# Aggregate beta by market rate level and relationship category
-rate_beta_relationship = historical_pdf.groupby(['market_fed_funds_rate', 'relationship_category']).agg({
-    'target_beta': 'mean',
-    'account_id': 'count'
-}).reset_index()
-
-rate_beta_relationship.columns = ['market_rate', 'category', 'avg_beta', 'count']
+rate_beta_relationship = rate_beta_relationship_df.toPandas()
 
 print(f"Historical observations: {len(rate_beta_relationship):,}")
 print(f"\nMarket rate range: {rate_beta_relationship['market_rate'].min():.2%} - {rate_beta_relationship['market_rate'].max():.2%}")

@@ -184,7 +184,51 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import mlflow.xgboost
 
-training_pdf = spark.table("cfo_banking_demo.ml_models.deposit_beta_training_data").toPandas()
+# WARNING: pulling the full training table to the driver can crash the cluster.
+# Also, DecimalType -> pandas conversion is slow. Keep the pandas training loop,
+# but only materialize a manageable, recent, primitive-typed slice.
+_TRAIN_WINDOW_MONTHS = 12
+_TRAIN_SAMPLE_FRACTION = 0.05
+_MAX_TRAIN_ROWS = 300_000
+
+training_sdf = (
+    spark.table("cfo_banking_demo.ml_models.deposit_beta_training_data")
+    .filter(F.col("effective_date") >= F.add_months(F.current_date(), -_TRAIN_WINDOW_MONTHS))
+    .select(
+        "product_type_encoded",
+        "segment_encoded",
+        "current_balance",
+        "stated_rate",
+        "account_age_months",
+        "churned",
+        "dormant",
+        "balance_volatility_30d",
+        "rate_gap",
+        "churn_risk_score",
+        "current_market_rate",
+        "market_rate_5y",
+        "market_rate_10y",
+        "log_balance",
+        "balance_millions",
+        "balance_trend_30d",
+        "rate_spread",
+        "rate_spread_x_balance",
+        "transaction_count_30d",
+        "target_beta",
+    )
+    .withColumn("current_balance", F.col("current_balance").cast("double"))
+    .withColumn("stated_rate", F.col("stated_rate").cast("double"))
+    .withColumn("balance_millions", F.col("balance_millions").cast("double"))
+    .withColumn("log_balance", F.col("log_balance").cast("double"))
+    .withColumn("target_beta", F.col("target_beta").cast("double"))
+)
+
+training_sdf = (
+    training_sdf.sample(withReplacement=False, fraction=_TRAIN_SAMPLE_FRACTION, seed=42)
+    .limit(_MAX_TRAIN_ROWS)
+)
+
+training_pdf = training_sdf.toPandas()
 
 feature_cols = [
     "product_type_encoded",

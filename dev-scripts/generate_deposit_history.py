@@ -12,9 +12,109 @@ including account closures and balance movements based on:
 from databricks.sdk import WorkspaceClient
 from datetime import datetime, timedelta
 import random
+import os
+import time
+
+
+def resolve_warehouse_id(w: WorkspaceClient) -> str:
+    """
+    Resolve a SQL Warehouse ID for Statement Execution.
+
+    Root cause fix:
+    - The previous version hard-coded a warehouse ID that doesn't exist in all workspaces.
+    - This resolver prefers an explicit env var, otherwise discovers an available warehouse.
+    """
+    explicit = os.getenv("DATABRICKS_WAREHOUSE_ID")
+    if explicit:
+        return explicit
+
+    try:
+        warehouses = list(w.warehouses.list())
+    except Exception as e:
+        raise RuntimeError(
+            "Could not list SQL warehouses. Set DATABRICKS_WAREHOUSE_ID to a valid warehouse id."
+        ) from e
+
+    if not warehouses:
+        raise RuntimeError(
+            "No SQL warehouses found in this workspace. Create one, or set DATABRICKS_WAREHOUSE_ID."
+        )
+
+    # Prefer common defaults if present (case-insensitive exact match).
+    preferred_names = [
+        "Serverless Starter Warehouse",
+        "Starter Warehouse",
+        "Serverless",
+        "Shared Warehouse",
+    ]
+    for pref in preferred_names:
+        for wh in warehouses:
+            if (getattr(wh, "name", "") or "").strip().lower() == pref.lower():
+                return wh.id
+
+    # Otherwise prefer a running/starting warehouse, else just pick the first.
+    for wh in warehouses:
+        if getattr(wh, "state", None) in ("RUNNING", "STARTING"):
+            return wh.id
+
+    return warehouses[0].id
+
+
+def execute_sql(
+    w: WorkspaceClient,
+    warehouse_id: str,
+    statement: str,
+    *,
+    label: str = "sql",
+    wait_timeout: str = "50s",
+    poll_interval_s: float = 1.0,
+    max_wait_s: float = 900.0,
+):
+    """
+    Execute SQL via Statement Execution and wait for completion.
+
+    Note: `execute_statement(..., wait_timeout=...)` may return before completion.
+    This helper ensures we only proceed once the statement is SUCCEEDED.
+    """
+    resp = w.statement_execution.execute_statement(
+        warehouse_id=warehouse_id,
+        statement=statement,
+        wait_timeout=wait_timeout,
+    )
+    statement_id = resp.statement_id
+    if not statement_id:
+        raise RuntimeError("Statement execution did not return a statement_id.")
+
+    def normalize_state(s):
+        # databricks-sdk may return an enum (e.g. StatementState.SUCCEEDED) or a string.
+        if s is None:
+            return None
+        return getattr(s, "value", str(s))
+
+    state = normalize_state(getattr(getattr(resp, "status", None), "state", None))
+    print(f"   → submitted {label}: statement_id={statement_id} initial_state={state}")
+    start = time.time()
+    last_print = start
+    while state not in ("SUCCEEDED", "FAILED", "CANCELED"):
+        if time.time() - start > max_wait_s:
+            raise TimeoutError(f"Timed out waiting for statement_id={statement_id} state={state}")
+        time.sleep(poll_interval_s)
+        resp = w.statement_execution.get_statement(statement_id)
+        state = normalize_state(getattr(getattr(resp, "status", None), "state", None))
+        now = time.time()
+        if now - last_print >= 10:
+            print(f"     … {label} still {state} (elapsed={int(now-start)}s)")
+            last_print = now
+
+    if state != "SUCCEEDED":
+        err = getattr(getattr(resp, "status", None), "error", None)
+        raise RuntimeError(f"SQL failed: statement_id={statement_id} state={state} error={err}")
+
+    return resp
 
 w = WorkspaceClient()
-WAREHOUSE_ID = "4b9b953939869799"
+WAREHOUSE_ID = resolve_warehouse_id(w)
+print(f"Using SQL warehouse_id={WAREHOUSE_ID}")
 
 print("=" * 80)
 print("GENERATING SYNTHETIC DEPOSIT ACCOUNT HISTORY")
@@ -24,7 +124,7 @@ print("=" * 80)
 print("\n1. Creating historical snapshots table structure...")
 
 create_table_sql = """
-CREATE TABLE IF NOT EXISTS cfo_banking_demo.bronze_core_banking.deposit_accounts_historical (
+CREATE OR REPLACE TABLE cfo_banking_demo.bronze_core_banking.deposit_accounts_historical (
     account_id STRING,
     customer_id STRING,
     product_type STRING,
@@ -32,7 +132,11 @@ CREATE TABLE IF NOT EXISTS cfo_banking_demo.bronze_core_banking.deposit_accounts
     account_open_date DATE,
     effective_date DATE,
     current_balance DECIMAL(18,2),
+    average_balance_30d DECIMAL(18,2),
+    average_balance_90d DECIMAL(18,2),
     stated_rate DECIMAL(8,4),
+    transaction_count_30d INT,
+    account_status STRING,
     is_current BOOLEAN,
     is_closed BOOLEAN,
     closure_date DATE,
@@ -41,11 +145,7 @@ CREATE TABLE IF NOT EXISTS cfo_banking_demo.bronze_core_banking.deposit_accounts
 PARTITIONED BY (effective_date)
 """
 
-result = w.statement_execution.execute_statement(
-    warehouse_id=WAREHOUSE_ID,
-    statement=create_table_sql,
-    wait_timeout="50s"
-)
+result = execute_sql(w, WAREHOUSE_ID, create_table_sql, label="create_table", wait_timeout="50s")
 print("   ✓ Table created")
 
 # Step 2: Generate monthly snapshots with realistic behavior
@@ -178,6 +278,68 @@ balance_evolution AS (
             )
         END as evolved_balance
     FROM account_with_closure
+),
+with_features AS (
+    SELECT
+        *,
+        GREATEST(0, evolved_balance) AS evolved_balance_pos,
+        -- Deterministic pseudo-random in [0, 1) based on (account_id, effective_date)
+        (cast(conv(substring(md5(concat(account_id, '|txn|', cast(effective_date as string))), 1, 8), 16, 10) as double) / 4294967296.0) AS txn_u,
+        CAST(
+            CASE
+                WHEN closure_date IS NOT NULL AND effective_date >= closure_date THEN 0
+                ELSE
+                    GREATEST(
+                        0,
+                        CAST(
+                            (
+                                -- base activity by relationship category
+                                CASE relationship_category
+                                    WHEN 'Strategic' THEN 60
+                                    WHEN 'Tactical' THEN 35
+                                    ELSE 15
+                                END
+                                -- product effect
+                                * CASE product_type
+                                    WHEN 'Checking' THEN 1.2
+                                    WHEN 'NOW' THEN 1.0
+                                    WHEN 'Savings' THEN 0.8
+                                    WHEN 'MMDA' THEN 0.6
+                                    ELSE 1.0
+                                END
+                                -- random variation (±35%)
+                                * (0.65 + 0.70 * (cast(conv(substring(md5(concat(account_id, '|txnvar|', cast(effective_date as string))), 1, 8), 16, 10) as double) / 4294967296.0))
+                            ) AS INT
+                        )
+                    )
+            END AS INT
+        ) AS transaction_count_30d,
+        -- Approximate 30d/90d averages from monthly snapshots via rolling windows.
+        CAST(
+            AVG(GREATEST(0, evolved_balance)) OVER (
+                PARTITION BY account_id
+                ORDER BY effective_date
+                ROWS BETWEEN 1 PRECEDING AND CURRENT ROW
+            ) AS DECIMAL(18,2)
+        ) AS average_balance_30d,
+        CAST(
+            AVG(GREATEST(0, evolved_balance)) OVER (
+                PARTITION BY account_id
+                ORDER BY effective_date
+                ROWS BETWEEN 3 PRECEDING AND CURRENT ROW
+            ) AS DECIMAL(18,2)
+        ) AS average_balance_90d
+    FROM balance_evolution
+),
+with_status AS (
+    SELECT
+        *,
+        CASE
+            WHEN closure_date IS NOT NULL AND effective_date >= closure_date THEN 'Closed'
+            WHEN transaction_count_30d <= 2 THEN 'Dormant'
+            ELSE 'Active'
+        END AS account_status
+    FROM with_features
 )
 SELECT
     account_id,
@@ -186,8 +348,12 @@ SELECT
     customer_segment,
     account_open_date,
     effective_date,
-    CAST(GREATEST(0, evolved_balance) AS DECIMAL(18,2)) as current_balance,
+    CAST(evolved_balance_pos AS DECIMAL(18,2)) as current_balance,
+    average_balance_30d,
+    average_balance_90d,
     stated_rate,
+    transaction_count_30d,
+    account_status,
     CASE
         WHEN effective_date = date_trunc('month', current_date()) THEN TRUE
         ELSE FALSE
@@ -198,16 +364,19 @@ SELECT
     END as is_closed,
     closure_date,
     CAST(months_since_open AS DECIMAL(10,2)) as months_since_open
-FROM balance_evolution
-WHERE evolved_balance >= 0  -- Filter out any negative balances
+FROM with_status
+WHERE evolved_balance_pos >= 0  -- Filter out any negative balances
 ORDER BY account_id, effective_date
 """
 
 print("   Executing SQL (generating 36 months × 402,000 accounts)...")
-result = w.statement_execution.execute_statement(
-    warehouse_id=WAREHOUSE_ID,
-    statement=generate_history_sql,
-    wait_timeout="50s"
+result = execute_sql(
+    w,
+    WAREHOUSE_ID,
+    generate_history_sql,
+    label="generate_history",
+    wait_timeout="50s",
+    max_wait_s=3600.0,
 )
 print("   ✓ Historical data generated")
 
@@ -227,11 +396,7 @@ SELECT
 FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
 """
 
-result = w.statement_execution.execute_statement(
-    warehouse_id=WAREHOUSE_ID,
-    statement=verify_sql,
-    wait_timeout="50s"
-)
+result = execute_sql(w, WAREHOUSE_ID, verify_sql, label="verify", wait_timeout="50s")
 
 if result.result and result.result.data_array:
     row = result.result.data_array[0]
@@ -273,11 +438,7 @@ GROUP BY 1
 ORDER BY 1
 """
 
-result = w.statement_execution.execute_statement(
-    warehouse_id=WAREHOUSE_ID,
-    statement=closure_sql,
-    wait_timeout="50s"
-)
+result = execute_sql(w, WAREHOUSE_ID, closure_sql, label="closure_rates", wait_timeout="50s")
 
 if result.result and result.result.data_array:
     print("   Category        | Total  | Closed | Rate")
