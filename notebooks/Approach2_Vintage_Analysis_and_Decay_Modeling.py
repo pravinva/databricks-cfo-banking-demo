@@ -638,6 +638,8 @@ decay_components AS (
 )
 SELECT
     b.*,
+    -- Derived for backwards-compatible feature sets
+    CAST(b.account_age_months / 12.0 AS DOUBLE) AS account_age_years,
 
     -- APPROACH 2: Vintage Analysis Features
     c12.cohort_balance_survival as cohort_12m_survival,
@@ -653,7 +655,7 @@ SELECT
 
     -- APPROACH 2: Cohort Risk Flags
     CASE
-        WHEN b.account_age_years < 1 THEN 1 ELSE 0
+        WHEN b.account_age_months < 12 THEN 1 ELSE 0
     END as new_account_flag,  -- Higher risk in first year
 
     CASE
