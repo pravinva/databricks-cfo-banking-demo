@@ -260,6 +260,14 @@ import mlflow.xgboost
 
 # Load Approach 2 training data
 training_df = spark.table("cfo_banking_demo.ml_models.deposit_beta_training_phase2")
+required_cols = {"market_fed_funds_rate", "rate_regime"}
+missing_cols = sorted(required_cols - set(training_df.columns))
+if missing_cols:
+    raise RuntimeError(
+        "Missing required columns in cfo_banking_demo.ml_models.deposit_beta_training_phase2: "
+        + ", ".join(missing_cols)
+        + ". Re-run Approach 2 Step 3.1 to recreate the table after pulling latest repo changes."
+    )
 training_pdf = training_df.toPandas()
 
 # Define features (same as Approach 2)
