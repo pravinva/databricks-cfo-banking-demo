@@ -47,11 +47,19 @@ base_df = spark.sql(
         stated_rate,
         transaction_count_30d,
         account_status,
-        CAST(effective_date AS DATE) AS effective_date,
-        CAST(beta AS DOUBLE) AS beta
+        CAST(effective_date AS DATE) AS effective_date
       FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
       WHERE account_open_date IS NOT NULL
         AND effective_date IS NOT NULL
+    ),
+    current_betas AS (
+      -- `deposit_accounts_historical` may not carry the synthetic beta column.
+      -- Use current portfolio betas as the target label for training.
+      SELECT
+        account_id,
+        CAST(beta AS DOUBLE) AS beta
+      FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+      WHERE is_current = TRUE
         AND beta IS NOT NULL
     ),
     dates AS (
@@ -68,10 +76,13 @@ base_df = spark.sql(
     )
     SELECT
       dep.*,
+      b.beta,
       y.rate_2y,
       y.rate_5y,
       y.rate_10y
     FROM deposits dep
+    INNER JOIN current_betas b
+      ON dep.account_id = b.account_id
     LEFT JOIN yc_map m
       ON dep.effective_date = m.effective_date
     LEFT JOIN cfo_banking_demo.silver_treasury.yield_curves y
