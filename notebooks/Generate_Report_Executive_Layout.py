@@ -27,6 +27,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import pandas as pd
+import os
 
 # COMMAND ----------
 
@@ -639,13 +640,23 @@ print("✓ Executive Dashboard layout generated")
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 html_filename = f"treasury_report_executive_{timestamp}.html"
 
-# Option 1: Save to DBFS (if volumes not available)
-dbfs_path = f"/dbfs/tmp/{html_filename}"
-with open(dbfs_path, 'w', encoding='utf-8') as f:
+# Preferred: write to Unity Catalog Volume (more reliable than DBFS FUSE)
+# Volume: cfo_banking_demo.gold_finance.reports
+volume_dir = "/Volumes/cfo_banking_demo/gold_finance/reports"
+os.makedirs(volume_dir, exist_ok=True)
+volume_path = f"{volume_dir}/{html_filename}"
+
+with open(volume_path, "w", encoding="utf-8") as f:
     f.write(html_report)
 
-print(f"✓ Report saved to: {dbfs_path}")
-print(f"✓ Download from: /tmp/{html_filename}")
+print(f"✓ Report saved to: {volume_path}")
+
+try:
+    workspace_url = spark.conf.get("spark.databricks.workspaceUrl")
+    report_url = f"https://{workspace_url}/explore/data/volumes/cfo_banking_demo/gold_finance/reports/{html_filename}"
+    print(f"✓ Open in UI: {report_url}")
+except Exception:
+    pass
 
 # COMMAND ----------
 
@@ -658,7 +669,7 @@ print(f"✓ Download from: /tmp/{html_filename}")
 # MAGIC from weasyprint import HTML
 # MAGIC
 # MAGIC pdf_filename = f"treasury_report_executive_{timestamp}.pdf"
-# MAGIC pdf_path = f"/dbfs/tmp/{pdf_filename}"
+# MAGIC pdf_path = f"/Volumes/cfo_banking_demo/gold_finance/reports/{pdf_filename}"
 # MAGIC
 # MAGIC HTML(string=html_report).write_pdf(pdf_path)
 # MAGIC print(f"✓ PDF saved to: {pdf_path}")
