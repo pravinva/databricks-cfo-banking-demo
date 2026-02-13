@@ -3,9 +3,9 @@ FastAPI Backend for CFO Platform
 Serves React static files and provides API endpoints with MLflow tracing
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from databricks.sdk import WorkspaceClient
@@ -13,9 +13,14 @@ import mlflow
 import sys
 import os
 from pathlib import Path
+import re
+from typing import Optional
 
 # Add outputs directory to path for importing agent tools
 sys.path.insert(0, str(Path(__file__).parent.parent / "outputs"))
+
+# Files API is "public preview" and may require enabling experimental client features.
+os.environ.setdefault("DATABRICKS_ENABLE_EXPERIMENTAL_FILES_API_CLIENT", "true")
 
 # Get warehouse ID from environment or use default
 WAREHOUSE_ID = os.getenv("DATABRICKS_WAREHOUSE_ID", "4b9b953939869799")
@@ -105,6 +110,159 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# =============================================================================
+# REPORTS (Executive ALCO PDF/HTML)
+# =============================================================================
+
+REPORTS_VOLUME_DIR = os.getenv(
+    "CFO_EXEC_REPORTS_VOLUME_DIR",
+    "/Volumes/cfo_banking_demo/gold_finance/reports",
+)
+
+EXEC_REPORT_JOB_ID = os.getenv("CFO_EXEC_REPORT_JOB_ID")  # optional (for "run now")
+
+_EXEC_REPORT_RE = re.compile(r"^treasury_report_executive_(\d{8}_\d{6})\.(pdf|html)$")
+
+
+def _list_volume_files(w: WorkspaceClient, dir_path: str) -> list[dict]:
+    """
+    Return a list of file dicts: {path, name, timestamp, ext}.
+    Uses the Databricks Files API via SDK.
+    """
+    out: list[dict] = []
+    # databricks-sdk pinned in this repo may not expose list_directory(), so use raw REST:
+    # GET /api/2.0/fs/directories{directory_path}
+    page_token: Optional[str] = None
+    while True:
+        query = {"page_size": 1000}
+        if page_token:
+            query["page_token"] = page_token
+
+        resp = w.api_client.do("GET", f"/api/2.0/fs/directories{dir_path}", query=query)
+        items = resp.get("contents") or resp.get("items") or []
+        for it in items:
+            if it.get("is_directory") or it.get("is_dir"):
+                continue
+            p = it.get("path")
+            if not p:
+                continue
+            name = p.rsplit("/", 1)[-1]
+            m = _EXEC_REPORT_RE.match(name)
+            if not m:
+                continue
+            ts, ext = m.group(1), m.group(2)
+            out.append({"path": p, "name": name, "timestamp": ts, "ext": ext})
+
+        page_token = resp.get("next_page_token")
+        if not page_token:
+            break
+    return out
+
+
+def _pick_latest(files: list[dict], ext: str) -> Optional[dict]:
+    candidates = [f for f in files if f.get("ext") == ext]
+    if not candidates:
+        return None
+    # Timestamp format YYYYMMDD_HHMMSS sorts lexicographically.
+    return sorted(candidates, key=lambda x: x.get("timestamp", ""), reverse=True)[0]
+
+
+def _download_file(w: WorkspaceClient, path: str) -> bytes:
+    """
+    Download file content from Databricks Files API.
+    """
+    dl = w.files.download(path)
+    # Different SDK versions expose the body differently; handle common shapes.
+    if hasattr(dl, "contents"):
+        return dl.contents.read()
+    if hasattr(dl, "read"):
+        return dl.read()
+    if hasattr(dl, "data"):
+        return dl.data
+    raise RuntimeError("Unsupported download response shape from Databricks SDK")
+
+
+@app.get("/api/reports/executive/latest")
+async def get_latest_executive_report():
+    """
+    Returns the latest executive report artifacts in the UC Volume:
+    - latest_pdf_path
+    - latest_html_path
+    """
+    try:
+        w = WorkspaceClient()
+        files = _list_volume_files(w, REPORTS_VOLUME_DIR)
+        latest_pdf = _pick_latest(files, "pdf")
+        latest_html = _pick_latest(files, "html")
+        latest_ts = None
+        if latest_pdf and latest_pdf.get("timestamp"):
+            latest_ts = latest_pdf["timestamp"]
+        elif latest_html and latest_html.get("timestamp"):
+            latest_ts = latest_html["timestamp"]
+
+        return {
+            "success": True,
+            "volume_dir": REPORTS_VOLUME_DIR,
+            "latest_timestamp": latest_ts,
+            "latest_pdf_path": latest_pdf["path"] if latest_pdf else None,
+            "latest_html_path": latest_html["path"] if latest_html else None,
+        }
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/reports/executive/download")
+async def download_latest_executive_report(
+    format: str = Query(default="pdf", pattern="^(pdf|html)$"),
+):
+    """
+    Downloads the latest executive report as a browser attachment.
+    """
+    try:
+        w = WorkspaceClient()
+        files = _list_volume_files(w, REPORTS_VOLUME_DIR)
+        latest = _pick_latest(files, format)
+        if not latest:
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": f"No executive report '{format}' found in {REPORTS_VOLUME_DIR}",
+                },
+                status_code=404,
+            )
+
+        content = _download_file(w, latest["path"])
+        media_type = "application/pdf" if format == "pdf" else "text/html; charset=utf-8"
+        headers = {"Content-Disposition": f'attachment; filename="{latest["name"]}"'}
+        return StreamingResponse(iter([content]), media_type=media_type, headers=headers)
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/reports/executive/run")
+async def run_executive_report_now():
+    """
+    Triggers a Databricks Job run (if CFO_EXEC_REPORT_JOB_ID is configured).
+    """
+    if not EXEC_REPORT_JOB_ID:
+        return JSONResponse(
+            {
+                "success": False,
+                "error": "CFO_EXEC_REPORT_JOB_ID not set on backend. Configure it to enable 'run now'.",
+            },
+            status_code=400,
+        )
+
+    try:
+        w = WorkspaceClient()
+        run = w.jobs.run_now(job_id=int(EXEC_REPORT_JOB_ID))
+        # SDK typically returns run_id; provide URL if possible
+        host = os.getenv("DATABRICKS_HOST")
+        run_url = f"{host}/#job/{EXEC_REPORT_JOB_ID}/run/{run.run_id}" if host and getattr(run, "run_id", None) else None
+        return {"success": True, "job_id": int(EXEC_REPORT_JOB_ID), "run_id": getattr(run, "run_id", None), "run_url": run_url}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 # Models
 class ChatRequest(BaseModel):

@@ -87,6 +87,8 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true)
   const [depositBetaMetrics, setDepositBetaMetrics] = useState<any>(null)
   const [ppnrLatest, setPpnrLatest] = useState<any>(null)
+  const [latestExecutiveReport, setLatestExecutiveReport] = useState<any>(null)
+  const [executiveReportLoading, setExecutiveReportLoading] = useState<boolean>(false)
   const [currentTime, setCurrentTime] = useState<string>('')
   const [selectedDepositAccountId, setSelectedDepositAccountId] = useState<string | null>(null)
   const { state, navigateTo } = useDrillDown()
@@ -145,6 +147,79 @@ function DashboardContent() {
     fetchTreasuryKpis()
   }, [])
 
+  useEffect(() => {
+    const fetchLatestReport = async () => {
+      try {
+        const res = await apiFetch('/api/reports/executive/latest')
+        const json = await res.json()
+        if (json?.success) setLatestExecutiveReport(json)
+      } catch (e) {
+        // fail soft
+        console.warn('Failed to fetch latest executive report:', e)
+      }
+    }
+    fetchLatestReport()
+  }, [])
+
+  const downloadLatestExecutiveReport = async (format: 'pdf' | 'html') => {
+    setExecutiveReportLoading(true)
+    try {
+      const res = await apiFetch(`/api/reports/executive/download?format=${format}`)
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || `HTTP ${res.status}`)
+      }
+      const blob = await res.blob()
+      const cd = res.headers.get('content-disposition') || ''
+      const match = /filename="([^"]+)"/.exec(cd)
+      const filename = match?.[1] || `treasury_report_executive_latest.${format}`
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Failed to download executive report:', e)
+      alert(`Failed to download report: ${String((e as any)?.message || e)}`)
+    } finally {
+      setExecutiveReportLoading(false)
+    }
+  }
+
+  const runExecutiveReportNow = async () => {
+    setExecutiveReportLoading(true)
+    try {
+      const res = await apiFetch('/api/reports/executive/run', { method: 'POST' })
+      const json = await res.json()
+      if (!json?.success) {
+        throw new Error(json?.error || 'Failed to trigger report job')
+      }
+      // Refresh latest after a short delay (job may still be running; this is best-effort)
+      setTimeout(async () => {
+        try {
+          const latestRes = await apiFetch('/api/reports/executive/latest')
+          const latestJson = await latestRes.json()
+          if (latestJson?.success) setLatestExecutiveReport(latestJson)
+        } catch {
+          // ignore
+        }
+      }, 4000)
+      if (json?.run_url) {
+        window.open(json.run_url, '_blank', 'noopener,noreferrer')
+      } else {
+        alert(`Triggered report job run_id=${json?.run_id ?? 'unknown'}`)
+      }
+    } catch (e) {
+      console.error('Failed to run executive report:', e)
+      alert(`Failed to run report: ${String((e as any)?.message || e)}`)
+    } finally {
+      setExecutiveReportLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-bloomberg-bg">
       {/* Header - Bloomberg Terminal Style */}
@@ -161,6 +236,32 @@ function DashboardContent() {
             </div>
 
             <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <button
+                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-text font-mono text-xs hover:border-bloomberg-orange/70 transition-colors disabled:opacity-50"
+                  onClick={() => downloadLatestExecutiveReport('pdf')}
+                  disabled={executiveReportLoading}
+                  title={latestExecutiveReport?.latest_timestamp ? `Latest: ${latestExecutiveReport.latest_timestamp}` : 'Download latest PDF'}
+                >
+                  {executiveReportLoading ? 'WORKING…' : 'DOWNLOAD ALCO PDF'}
+                </button>
+                <button
+                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-text font-mono text-xs hover:border-bloomberg-orange/70 transition-colors disabled:opacity-50"
+                  onClick={() => downloadLatestExecutiveReport('html')}
+                  disabled={executiveReportLoading}
+                  title="Download latest HTML"
+                >
+                  HTML
+                </button>
+                <button
+                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-text font-mono text-xs hover:border-bloomberg-orange/70 transition-colors disabled:opacity-50"
+                  onClick={runExecutiveReportNow}
+                  disabled={executiveReportLoading}
+                  title="Trigger the scheduled notebook/job now"
+                >
+                  RUN REPORT NOW
+                </button>
+              </div>
               <div className="flex items-center gap-3 text-xs font-mono text-bloomberg-text-dim">
                 <span>{currentTime || '--:--:--'}</span>
                 <div className="h-2 w-2 rounded-full bg-bloomberg-green animate-pulse bloomberg-glow-green" />

@@ -136,6 +136,36 @@ WHERE effective_date >= add_months(date_trunc('month', current_date()), -6)
 GROUP BY effective_date
 ORDER BY effective_date;
 
+-- ============================================================================
+-- QUERY 2D: Total Balance Trend (Monthly vs Prior Year) (Seasonality)
+-- ============================================================================
+-- Executive seasonality view: show monthly total balances for last 12 months
+-- and compare to the same month prior year.
+WITH monthly AS (
+  SELECT
+    date_trunc('month', effective_date) AS month,
+    SUM(current_balance) / 1e9 AS total_balance_b
+  FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
+  WHERE effective_date >= add_months(date_trunc('month', current_date()), -24)
+  GROUP BY date_trunc('month', effective_date)
+),
+with_yoy AS (
+  SELECT
+    month,
+    total_balance_b,
+    LAG(total_balance_b, 12) OVER (ORDER BY month) AS prior_year_balance_b
+  FROM monthly
+)
+SELECT
+  month,
+  total_balance_b,
+  prior_year_balance_b,
+  (total_balance_b - prior_year_balance_b) AS yoy_delta_b,
+  ROUND((total_balance_b - prior_year_balance_b) / NULLIF(prior_year_balance_b, 0) * 100, 2) AS yoy_pct
+FROM with_yoy
+WHERE month >= add_months(date_trunc('month', current_date()), -12)
+ORDER BY month;
+
 
 -- ============================================================================
 -- QUERY 3: Beta Distribution by Product Type (Horizontal Bar Chart)
@@ -292,6 +322,7 @@ RIGHT (50% width):
 
 ADD (below second row or as a third-row 2-column section):
 - Line chart from Query 2C: "Total Deposit Balance (Last 6 Months)" (Y = $B)
+- Line chart from Query 2D: "Total Deposit Balance (Monthly vs Prior Year)" (two-series seasonality)
 - Donut chart from Query 2B: "Deposit Mix by Product Type" (show % labels)
 
 THIRD ROW (Full Width):

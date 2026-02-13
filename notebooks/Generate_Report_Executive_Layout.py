@@ -660,17 +660,20 @@ except Exception:
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Convert to PDF (Optional)
-# MAGIC
-# MAGIC Use WeasyPrint to generate PDF from HTML:
-# MAGIC
-# MAGIC ```python
-# MAGIC from weasyprint import HTML
-# MAGIC
-# MAGIC pdf_filename = f"treasury_report_executive_{timestamp}.pdf"
-# MAGIC pdf_path = f"/Volumes/cfo_banking_demo/gold_finance/reports/{pdf_filename}"
-# MAGIC
-# MAGIC HTML(string=html_report).write_pdf(pdf_path)
-# MAGIC print(f"✓ PDF saved to: {pdf_path}")
-# MAGIC ```
+from weasyprint import HTML
+
+pdf_filename = f"treasury_report_executive_{timestamp}.pdf"
+pdf_path = f"{volume_dir}/{pdf_filename}"
+
+try:
+    HTML(string=html_report).write_pdf(pdf_path)
+    print(f"✓ PDF saved to: {pdf_path}")
+    try:
+        workspace_url = spark.conf.get("spark.databricks.workspaceUrl")
+        pdf_url = f"https://{workspace_url}/explore/data/volumes/cfo_banking_demo/gold_finance/reports/{pdf_filename}"
+        print(f"✓ Open PDF in UI: {pdf_url}")
+    except Exception:
+        pass
+except Exception as e:
+    # Keep the run successful if PDF conversion fails; HTML is still saved.
+    print(f"⚠️ PDF generation failed (HTML still available): {e}")
