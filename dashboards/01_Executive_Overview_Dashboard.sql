@@ -11,6 +11,7 @@
 SELECT
   'Total Deposits' as metric_name,
   SUM(current_balance) / 1e9 as value_billions,
+  '$B' as unit,
   '↑' as trend_direction,
   '+2.3%' as trend_change,
   'MoM Growth' as trend_label,
@@ -19,43 +20,72 @@ FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
 WHERE is_current = TRUE;
 
 -- Card 2: Weighted Average Beta
+-- Prefer scored betas (predicted_beta). Fallback to static beta if an account has no prediction.
+WITH scored AS (
+  SELECT
+    d.account_id,
+    d.current_balance,
+    COALESCE(p.predicted_beta, d.beta) AS beta_used
+  FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
+  LEFT JOIN cfo_banking_demo.ml_models.deposit_beta_predictions p
+    ON d.account_id = p.account_id
+  WHERE d.is_current = TRUE
+)
 SELECT
   'Portfolio Beta' as metric_name,
   ROUND(
-    SUM(current_balance * beta) / NULLIF(SUM(current_balance), 0),
+    SUM(current_balance * beta_used) / NULLIF(SUM(current_balance), 0),
     3
   ) as value,
+  'beta' as unit,
   '↓' as trend_direction,
   '-0.02' as trend_change,
   'vs Last Month' as trend_label,
   '#0891B2' as color  -- Teal
-FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
-WHERE is_current = TRUE
-  AND beta IS NOT NULL;
+FROM scored
+WHERE beta_used IS NOT NULL;
 
 -- Card 3: At-Risk Deposits (Below Market Pricing)
+-- Compute "at-risk" as deposits priced meaningfully below a short-rate benchmark.
+-- We use the latest 2Y rate as a proxy for a market benchmark in this demo.
+WITH yc AS (
+  SELECT rate_2y
+  FROM cfo_banking_demo.silver_treasury.yield_curves
+  WHERE date = (SELECT MAX(date) FROM cfo_banking_demo.silver_treasury.yield_curves)
+),
+base AS (
+  SELECT
+    d.account_id,
+    d.current_balance,
+    d.stated_rate,
+    (d.stated_rate - yc.rate_2y) AS rate_gap
+  FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
+  CROSS JOIN yc
+  WHERE d.is_current = TRUE
+)
 SELECT
   'At-Risk Deposits' as metric_name,
-  SUM(CASE WHEN is_below_market_rate = TRUE THEN current_balance ELSE 0 END) / 1e9 as value_billions,
+  SUM(CASE WHEN rate_gap < -0.002 THEN current_balance ELSE 0 END) / 1e9 as value_billions,
+  '$B' as unit,
   '⚠' as trend_direction,
   '+12.5%' as trend_change,
   'QoQ Increase' as trend_label,
   '#D97706' as color  -- Warning Gold
-FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
-WHERE is_current = TRUE;
+FROM base;
 
 -- Card 4: 3-Year Runoff Projection
+-- NOTE: deposit_runoff_forecasts is segmented by relationship_category + product_type.
+-- For a portfolio KPI, aggregate across all rows at the horizon.
 SELECT
   '3Y Runoff Forecast' as metric_name,
-  -(total_current_balance - projected_balance_36m) / 1e9 as value_billions,
+  SUM(current_balance_billions - projected_balance_billions) as value_billions,
+  '$B' as unit,
   '↓' as trend_direction,
   '-41.5%' as trend_change,
   'Projected Decline' as trend_label,
   '#DC2626' as color  -- Danger Red
 FROM cfo_banking_demo.ml_models.deposit_runoff_forecasts
-WHERE months_ahead = 36
-ORDER BY forecast_date DESC
-LIMIT 1;
+WHERE months_ahead = 36;
 
 
 -- ============================================================================
@@ -82,25 +112,59 @@ WHERE d.is_current = TRUE
 GROUP BY c.relationship_category
 ORDER BY balance_billions DESC;
 
+-- ============================================================================
+-- QUERY 2B: Portfolio Composition by Product Type (Pie/Donut Chart)
+-- ============================================================================
+SELECT
+  product_type,
+  SUM(current_balance) / 1e9 as balance_billions,
+  COUNT(DISTINCT account_id) as account_count,
+  ROUND(SUM(current_balance) / SUM(SUM(current_balance)) OVER () * 100, 1) as pct_of_total
+FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+WHERE is_current = TRUE
+GROUP BY product_type
+ORDER BY balance_billions DESC;
+
+-- ============================================================================
+-- QUERY 2C: Total Balance Trend (Last 6 Months) (Line Chart)
+-- ============================================================================
+SELECT
+  effective_date,
+  SUM(current_balance) / 1e9 AS total_balance_billions
+FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_historical
+WHERE effective_date >= add_months(date_trunc('month', current_date()), -6)
+GROUP BY effective_date
+ORDER BY effective_date;
+
 
 -- ============================================================================
 -- QUERY 3: Beta Distribution by Product Type (Horizontal Bar Chart)
 -- ============================================================================
+-- Use scored betas when available (predicted_beta).
+WITH scored AS (
+  SELECT
+    d.product_type,
+    d.current_balance,
+    COALESCE(p.predicted_beta, d.beta) AS beta_used
+  FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
+  LEFT JOIN cfo_banking_demo.ml_models.deposit_beta_predictions p
+    ON d.account_id = p.account_id
+  WHERE d.is_current = TRUE
+)
 SELECT
   product_type,
-  ROUND(AVG(beta), 3) as avg_beta,
-  ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY beta), 3) as p25_beta,
-  ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY beta), 3) as p75_beta,
+  ROUND(AVG(beta_used), 3) as avg_beta,
+  ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY beta_used), 3) as p25_beta,
+  ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY beta_used), 3) as p75_beta,
   COUNT(*) as account_count,
   SUM(current_balance) / 1e9 as balance_billions,
   CASE
-    WHEN AVG(beta) > 0.60 THEN '#DC2626'  -- High sensitivity (red)
-    WHEN AVG(beta) > 0.40 THEN '#D97706'  -- Medium sensitivity (amber)
+    WHEN AVG(beta_used) > 0.60 THEN '#DC2626'  -- High sensitivity (red)
+    WHEN AVG(beta_used) > 0.40 THEN '#D97706'  -- Medium sensitivity (amber)
     ELSE '#059669'                         -- Low sensitivity (green)
   END as risk_color
-FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
-WHERE is_current = TRUE
-  AND beta IS NOT NULL
+FROM scored
+WHERE beta_used IS NOT NULL
 GROUP BY product_type
 ORDER BY avg_beta DESC;
 
@@ -112,10 +176,11 @@ WITH forecast_detail AS (
   SELECT
     months_ahead,
     relationship_category,
-    projected_balance / 1e9 as balance_billions,
-    (total_current_balance - projected_balance) / 1e9 as runoff_billions
+    SUM(projected_balance_billions) as balance_billions,
+    SUM(current_balance_billions - projected_balance_billions) as runoff_billions
   FROM cfo_banking_demo.ml_models.deposit_runoff_forecasts
   WHERE months_ahead IN (0, 6, 12, 18, 24, 30, 36)
+  GROUP BY months_ahead, relationship_category
 )
 SELECT
   months_ahead,
@@ -135,44 +200,51 @@ ORDER BY months_ahead, relationship_category;
 -- ============================================================================
 -- QUERY 5: Rate Shock Scenario Comparison (Tornado Chart / Horizontal Bar)
 -- ============================================================================
--- Note: This will be computed in Phase 3, using placeholder calculation
-WITH current_portfolio AS (
-  SELECT
-    SUM(current_balance * beta) / 1e9 as total_sensitivity
-  FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
-  WHERE is_current = TRUE
-    AND beta IS NOT NULL
-)
+-- Use Approach 3 outputs if present.
 SELECT
   scenario_name,
   rate_shock_bps,
-  ROUND(sensitivity * rate_shock_bps / 100.0, 1) as nii_impact_millions,
+  ROUND(delta_nii_millions, 1) as nii_impact_millions,
+  ROUND(stressed_avg_beta, 3) as stressed_avg_beta,
   CASE
     WHEN scenario_name = 'Baseline' THEN '#64748B'          -- Gray
     WHEN scenario_name = 'Adverse' THEN '#D97706'           -- Amber
     WHEN scenario_name = 'Severely Adverse' THEN '#DC2626'  -- Red
     WHEN scenario_name = 'Custom Stress' THEN '#991B1B'     -- Dark Red
   END as scenario_color
-FROM (
-  SELECT 'Baseline' as scenario_name, 0 as rate_shock_bps, total_sensitivity as sensitivity FROM current_portfolio
-  UNION ALL
-  SELECT 'Adverse' as scenario_name, 100 as rate_shock_bps, total_sensitivity as sensitivity FROM current_portfolio
-  UNION ALL
-  SELECT 'Severely Adverse' as scenario_name, 200 as rate_shock_bps, total_sensitivity as sensitivity FROM current_portfolio
-  UNION ALL
-  SELECT 'Custom Stress' as scenario_name, 300 as rate_shock_bps, total_sensitivity as sensitivity FROM current_portfolio
-)
+FROM cfo_banking_demo.ml_models.stress_test_results
 ORDER BY rate_shock_bps;
 
 
 -- ============================================================================
 -- QUERY 6: Top 10 At-Risk Accounts (Table with Risk Indicators)
 -- ============================================================================
+WITH yc AS (
+  SELECT rate_2y AS market_benchmark_rate
+  FROM cfo_banking_demo.silver_treasury.yield_curves
+  WHERE date = (SELECT MAX(date) FROM cfo_banking_demo.silver_treasury.yield_curves)
+),
+scored AS (
+  SELECT
+    d.account_id,
+    d.product_type,
+    d.account_open_date,
+    d.current_balance,
+    d.stated_rate,
+    (d.stated_rate - yc.market_benchmark_rate) AS rate_gap,
+    yc.market_benchmark_rate,
+    COALESCE(p.predicted_beta, d.beta) AS beta_used
+  FROM cfo_banking_demo.bronze_core_banking.deposit_accounts d
+  CROSS JOIN yc
+  LEFT JOIN cfo_banking_demo.ml_models.deposit_beta_predictions p
+    ON d.account_id = p.account_id
+  WHERE d.is_current = TRUE
+)
 SELECT
   account_id,
   product_type,
   current_balance / 1e6 as balance_millions,
-  ROUND(beta, 3) as beta,
+  ROUND(beta_used, 3) as beta,
   ROUND(stated_rate * 100, 2) as our_rate_pct,
   ROUND(market_benchmark_rate * 100, 2) as market_rate_pct,
   ROUND((stated_rate - market_benchmark_rate) * 100, 2) as rate_gap_bps,
@@ -182,9 +254,8 @@ SELECT
     ELSE '🟢 Low Risk'
   END as risk_level,
   DATEDIFF(CURRENT_DATE(), account_open_date) / 365.25 as account_age_years
-FROM cfo_banking_demo.ml_models.deposit_beta_training_enhanced
-WHERE is_current = TRUE
-  AND is_below_market_rate = TRUE
+FROM scored
+WHERE rate_gap < -0.002
 ORDER BY current_balance DESC
 LIMIT 10;
 
@@ -219,6 +290,10 @@ RIGHT (50% width):
 - X-axis: Beta (0.0 to 1.0)
 - Show balance_billions as secondary value
 
+ADD (below second row or as a third-row 2-column section):
+- Line chart from Query 2C: "Total Deposit Balance (Last 6 Months)" (Y = $B)
+- Donut chart from Query 2B: "Deposit Mix by Product Type" (show % labels)
+
 THIRD ROW (Full Width):
 - Stacked area chart from Query 4 (Runoff Forecast)
 - Title: "3-Year Deposit Runoff Projection"
@@ -233,6 +308,7 @@ LEFT (40% width):
 - Title: "NII Impact by Stress Scenario"
 - Use scenario_color for bars
 - Show positive/negative divergence from baseline
+ - Include stressed_avg_beta as a label/tooltip (macro-cycle sensitivity)
 
 RIGHT (60% width):
 - Table from Query 6 (Top At-Risk Accounts)

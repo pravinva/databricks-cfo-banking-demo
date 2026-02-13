@@ -33,6 +33,14 @@ the training data spans multiple `effective_date` values joined to the correspon
 """
 
 # Build a date-aligned deposits × yield curves base set (as-of join by effective_date).
+#
+# Key ideas:
+# - We train on *history* (`deposit_accounts_historical`) so each account contributes multiple rows
+#   across time, producing multiple observed rate environments.
+# - We use *current* portfolio betas (`deposit_accounts`) as the training label. This keeps the demo
+#   simple: historical snapshots don't need to store synthetic beta labels.
+# - We "as-of" join each `effective_date` to the most recent yield curve date <= `effective_date`.
+#   This avoids leaking future rate info into the past rows.
 base_df = spark.sql(
     """
     WITH deposits AS (
@@ -53,8 +61,14 @@ base_df = spark.sql(
         AND effective_date IS NOT NULL
     ),
     current_betas AS (
-      -- `deposit_accounts_historical` may not carry the synthetic beta column.
-      -- Use current portfolio betas as the target label for training.
+      -- Label source:
+      -- `deposit_accounts_historical` is a time series of balances/rates/txn activity, but in many
+      -- environments it does NOT include a `beta` label. The canonical demo label lives on the
+      -- *current* deposit portfolio table.
+      --
+      -- Trade-off (acceptable for demo):
+      -- - This makes the label time-invariant per account_id, even though features vary over time.
+      -- - It still produces a useful supervised learning problem for "static beta" approximation.
       SELECT
         account_id,
         CAST(beta AS DOUBLE) AS beta
@@ -118,6 +132,7 @@ training_df = (
         .alias("segment_encoded"),
         # Account features
         # Cast explicitly to keep Delta schema stable across runs.
+        # (Delta will otherwise infer slightly different numeric types depending on upstream sources.)
         (F.datediff(F.col("effective_date"), F.to_date(F.col("account_open_date"))) / F.lit(30.0))
         .cast("double")
         .alias("account_age_months"),
@@ -125,6 +140,8 @@ training_df = (
         F.when(F.col("account_status") == "Closed", 1).otherwise(0).alias("churned"),
         F.when(F.col("account_status") == "Dormant", 1).otherwise(0).alias("dormant"),
         # Volatility / gaps
+        # Balance volatility: relative deviation of snapshot balance vs trailing average.
+        # In this synthetic demo, it acts as a proxy for "unstable balances" (higher runoff risk).
         F.when(
             F.col("average_balance_30d").isNotNull() & (F.col("average_balance_30d") > 0),
             F.abs(F.col("current_balance") - F.col("average_balance_30d")) / F.col("average_balance_30d"),
@@ -132,6 +149,8 @@ training_df = (
         .otherwise(0.0)
         .alias("balance_volatility_30d"),
         # Market rates
+        # Yield curve data may be missing for some dates; coalesce to typical values to keep
+        # training schema consistent and avoid null propagation in downstream features.
         F.coalesce(F.col("rate_2y"), F.lit(0.036)).alias("current_market_rate"),
         F.coalesce(F.col("rate_5y"), F.lit(0.038)).alias("market_rate_5y"),
         F.coalesce(F.col("rate_10y"), F.lit(0.043)).alias("market_rate_10y"),
@@ -144,6 +163,7 @@ training_df = (
             / 1_000_000.0
         ).alias("rate_spread_x_balance"),
         # Balance transforms
+        # Log/bucketed balance transforms help tree models capture diminishing marginal effects.
         F.log(F.col("current_balance") + F.lit(1.0)).alias("log_balance"),
         (F.col("current_balance") / 1_000_000.0).alias("balance_millions"),
         F.when(
@@ -184,15 +204,22 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import mlflow.xgboost
 
-# WARNING: pulling the full training table to the driver can crash the cluster.
-# Also, DecimalType -> pandas conversion is slow. Keep the pandas training loop,
-# but only materialize a manageable, recent, primitive-typed slice.
+# WARNING (driver stability):
+# This notebook uses scikit-learn + pandas for the XGBoost training loop, which requires collecting
+# data to the driver. If you call `.toPandas()` on the full training table, it's easy to crash the
+# driver (OOM) and/or spend a long time converting Spark DecimalType columns.
+#
+# So we intentionally:
+# - filter to a recent time window (keeps the sample representative, reduces rows)
+# - sample + hard-limit the number of rows (avoids unpredictable driver memory use)
+# - cast numeric columns to `double` (faster Spark->pandas conversion vs DecimalType)
 _TRAIN_WINDOW_MONTHS = 12
 _TRAIN_SAMPLE_FRACTION = 0.05
 _MAX_TRAIN_ROWS = 300_000
 
 training_sdf = (
     spark.table("cfo_banking_demo.ml_models.deposit_beta_training_data")
+    # Keep recent history to reduce row count and align to recent rate environment.
     .filter(F.col("effective_date") >= F.add_months(F.current_date(), -_TRAIN_WINDOW_MONTHS))
     .select(
         "product_type_encoded",
@@ -224,10 +251,12 @@ training_sdf = (
 )
 
 training_sdf = (
+    # Sampling happens before the hard limit so we don't bias toward early partitions.
     training_sdf.sample(withReplacement=False, fraction=_TRAIN_SAMPLE_FRACTION, seed=42)
     .limit(_MAX_TRAIN_ROWS)
 )
 
+# This is the only point where we collect to the driver.
 training_pdf = training_sdf.toPandas()
 
 feature_cols = [
