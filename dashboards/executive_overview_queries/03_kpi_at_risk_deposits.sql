@@ -16,6 +16,7 @@ base AS (
 )
 SELECT
   'At-Risk Deposits' as metric_name,
+  SUM(CASE WHEN rate_gap < -0.002 THEN current_balance ELSE 0 END) / 1e9 as value_billions,
   SUM(CASE WHEN rate_gap < -0.002 THEN current_balance ELSE 0 END) / 1e9 as value,
   '$B' as unit,
   CONCAT(

@@ -6,6 +6,7 @@ WITH m AS (
 )
 SELECT
   'Total Deposits' AS metric_name,
+  value_billions AS value_billions,
   value_billions AS value,
   '$B' AS unit,
   CONCAT('$', CAST(ROUND(value_billions, 1) AS STRING), 'B') AS value_display,
