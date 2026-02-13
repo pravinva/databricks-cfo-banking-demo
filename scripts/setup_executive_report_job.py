@@ -4,8 +4,8 @@ twice daily and writes HTML + PDF to the UC Volume.
 
 Usage example:
   python scripts/setup_executive_report_job.py \
-    --notebook-path "/Repos/you@databricks.com/databricks-cfo-banking-demo/notebooks/Generate_Report_Executive_Layout" \
-    --existing-cluster-id "0123-456789-abcde" \
+    --notebook-path "/Workspace/Users/you@databricks.com/databricks-cfo-banking-demo/notebooks/Generate_Report_Executive_Layout" \
+    --serverless \
     --timezone "UTC"
 
 By default this schedules at 09:00 and 21:00 (twice daily) in the provided timezone.
@@ -28,8 +28,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--notebook-path", required=True, help="Workspace notebook path to run")
     p.add_argument(
         "--existing-cluster-id",
-        required=True,
-        help="Cluster ID to run the notebook on (existing cluster).",
+        required=False,
+        help="Cluster ID to run the notebook on (classic jobs compute). Not needed for --serverless.",
+    )
+    p.add_argument(
+        "--serverless",
+        action="store_true",
+        help="Run on Serverless compute for workflows (recommended).",
     )
     p.add_argument("--timezone", default="UTC", help="Schedule timezone (Quartz)")
     p.add_argument(
@@ -50,18 +55,24 @@ def main() -> None:
     args = parse_args()
     w = WorkspaceClient()
 
+    if not args.serverless and not args.existing_cluster_id:
+        raise SystemExit("ERROR: --existing-cluster-id is required unless you pass --serverless")
+
+    task = {
+        "task_key": "generate_executive_report",
+        "notebook_task": {
+            "notebook_path": args.notebook_path,
+        },
+        # Allow the notebook's %pip to run
+        "timeout_seconds": 3600,
+    }
+    if not args.serverless:
+        task["existing_cluster_id"] = args.existing_cluster_id
+
     job_settings = {
         "name": args.job_name,
         "tasks": [
-            {
-                "task_key": "generate_executive_report",
-                "existing_cluster_id": args.existing_cluster_id,
-                "notebook_task": {
-                    "notebook_path": args.notebook_path,
-                },
-                # Allow the notebook's %pip to run
-                "timeout_seconds": 3600,
-            }
+            task
         ],
         "schedule": {
             "quartz_cron_expression": args.cron,
@@ -73,12 +84,16 @@ def main() -> None:
     }
 
     if args.job_id is not None:
-        w.jobs.reset(job_id=args.job_id, new_settings=job_settings)
+        w.api_client.do(
+            "POST",
+            "/api/2.2/jobs/reset",
+            body={"job_id": args.job_id, "new_settings": job_settings},
+        )
         print(f"Updated job_id={args.job_id}")
         job_id = args.job_id
     else:
-        created = w.jobs.create(**job_settings)
-        job_id = created.job_id
+        created = w.api_client.do("POST", "/api/2.2/jobs/create", body=job_settings)
+        job_id = created.get("job_id")
         print(f"Created job_id={job_id}")
 
     host = os.getenv("DATABRICKS_HOST")

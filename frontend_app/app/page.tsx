@@ -89,6 +89,10 @@ function DashboardContent() {
   const [ppnrLatest, setPpnrLatest] = useState<any>(null)
   const [latestExecutiveReport, setLatestExecutiveReport] = useState<any>(null)
   const [executiveReportLoading, setExecutiveReportLoading] = useState<boolean>(false)
+  const [executiveReportStatusText, setExecutiveReportStatusText] = useState<string>('')
+  const [executiveReportStatusTone, setExecutiveReportStatusTone] = useState<
+    'idle' | 'generating' | 'done' | 'failed'
+  >('idle')
   const [currentTime, setCurrentTime] = useState<string>('')
   const [selectedDepositAccountId, setSelectedDepositAccountId] = useState<string | null>(null)
   const { state, navigateTo } = useDrillDown()
@@ -191,30 +195,153 @@ function DashboardContent() {
 
   const runExecutiveReportNow = async () => {
     setExecutiveReportLoading(true)
+    setExecutiveReportStatusText('Generating PDF report…')
+    setExecutiveReportStatusTone('generating')
     try {
-      const res = await apiFetch('/api/reports/executive/run', { method: 'POST' })
-      const json = await res.json()
-      if (!json?.success) {
-        throw new Error(json?.error || 'Failed to trigger report job')
+      const startPdfPath = latestExecutiveReport?.latest_pdf_path || null
+      const startHtmlPath = latestExecutiveReport?.latest_html_path || null
+
+      const storageKey = 'CFO_EXEC_REPORT_JOB_ID'
+      const savedJobIdRaw =
+        typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null
+      const savedJobId = savedJobIdRaw && /^\d+$/.test(savedJobIdRaw) ? Number(savedJobIdRaw) : null
+
+      const trigger = async (jobId?: number) => {
+        return apiFetch('/api/reports/executive/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jobId ? { job_id: jobId } : {}),
+        })
       }
-      // Refresh latest after a short delay (job may still be running; this is best-effort)
-      setTimeout(async () => {
+
+      // Prefer backend auto-discovery (by job name / notebook path). Only fall back to explicit job id if needed.
+      let res = await trigger()
+      let json: any = null
+      try {
+        json = await res.json()
+      } catch {
+        // ignore parse errors
+      }
+
+      if (!res.ok || !json?.success) {
+        const errMsg = String(json?.error || `HTTP ${res.status}`)
+        if (errMsg.includes('CFO_EXEC_REPORT_JOB_ID not set')) {
+          // Try a previously saved job id first (if present).
+          if (savedJobId != null) {
+            res = await trigger(savedJobId)
+            json = await res.json()
+          }
+
+          if (json?.success) {
+            // ok
+          } else {
+          const input = window.prompt(
+            'Enter the Databricks Job ID for the Executive report (used for RUN REPORT NOW):',
+            savedJobIdRaw || '',
+          )
+          if (!input) throw new Error(errMsg)
+          const trimmed = input.trim()
+          if (!/^\d+$/.test(trimmed)) throw new Error('Job ID must be a number')
+          window.localStorage.setItem(storageKey, trimmed)
+
+          res = await trigger(Number(trimmed))
+          json = await res.json()
+          }
+        } else if (errMsg.toLowerCase().includes('does not exist') && savedJobIdRaw) {
+          // If user saved an invalid job id earlier, clear it and retry discovery once.
+          window.localStorage.removeItem(storageKey)
+          res = await trigger()
+          json = await res.json()
+        }
+      }
+
+      if (!json?.success) throw new Error(json?.error || 'Failed to trigger report job')
+
+      const runId: number | null = typeof json?.run_id === 'number' ? json.run_id : null
+      const runUrl: string | null = typeof json?.run_url === 'string' ? json.run_url : null
+
+      if (runUrl) {
+        // Optional: open the job run in a new tab for debugging/visibility.
+        window.open(runUrl, '_blank', 'noopener,noreferrer')
+      }
+
+      const startedAt = Date.now()
+      const pollMs = 5000
+      const timeoutMs = 7 * 60 * 1000
+      let lastLifeCycle: string | null = null
+      let lastResult: string | null = null
+
+      while (Date.now() - startedAt < timeoutMs) {
+        // 1) Poll job run status (best effort)
+        if (runId != null) {
+          try {
+            const statusRes = await apiFetch(`/api/reports/executive/run_status?run_id=${runId}`)
+            const statusJson = await statusRes.json()
+            const s = statusJson?.status
+            if (statusJson?.success && s) {
+              lastLifeCycle = String(s.life_cycle_state || '')
+              lastResult = s.result_state != null ? String(s.result_state) : null
+              if (lastLifeCycle) {
+                setExecutiveReportStatusText(
+                  lastLifeCycle === 'TERMINATED'
+                    ? 'Finalizing report artifacts…'
+                    : `Generating PDF report… (${lastLifeCycle})`,
+                )
+                setExecutiveReportStatusTone('generating')
+              }
+              if (lastLifeCycle === 'TERMINATED' && lastResult && lastResult !== 'SUCCESS') {
+                throw new Error(`Report job failed: ${lastResult}${s.state_message ? ` (${s.state_message})` : ''}`)
+              }
+            }
+          } catch (e) {
+            // If status polling fails, keep going and rely on artifact polling.
+            console.warn('Failed to poll report run status:', e)
+          }
+        }
+
+        // 2) Poll latest artifacts and stop when we see a NEW file
         try {
           const latestRes = await apiFetch('/api/reports/executive/latest')
           const latestJson = await latestRes.json()
-          if (latestJson?.success) setLatestExecutiveReport(latestJson)
-        } catch {
-          // ignore
+          if (latestJson?.success) {
+            setLatestExecutiveReport(latestJson)
+
+            const pdfPath = latestJson?.latest_pdf_path || null
+            const htmlPath = latestJson?.latest_html_path || null
+            const pdfChanged = pdfPath && pdfPath !== startPdfPath
+            const htmlChanged = htmlPath && htmlPath !== startHtmlPath
+
+            if (pdfChanged) {
+              setExecutiveReportStatusText('Done. Latest PDF is ready to download.')
+              setExecutiveReportStatusTone('done')
+              break
+            }
+
+            if (lastLifeCycle === 'TERMINATED' && htmlChanged) {
+              // Notebook is coded to allow SUCCESS even if PDF conversion fails.
+              setExecutiveReportStatusText('Done. HTML is ready (PDF not generated for this run).')
+              setExecutiveReportStatusTone('done')
+              break
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to poll latest executive report artifacts:', e)
         }
-      }, 4000)
-      if (json?.run_url) {
-        window.open(json.run_url, '_blank', 'noopener,noreferrer')
-      } else {
-        alert(`Triggered report job run_id=${json?.run_id ?? 'unknown'}`)
+
+        await new Promise((r) => setTimeout(r, pollMs))
+      }
+
+      if (Date.now() - startedAt >= timeoutMs) {
+        setExecutiveReportStatusText(
+          'Still generating… you can keep waiting, or open the job run to check progress.',
+        )
+        setExecutiveReportStatusTone('generating')
       }
     } catch (e) {
       console.error('Failed to run executive report:', e)
       alert(`Failed to run report: ${String((e as any)?.message || e)}`)
+      setExecutiveReportStatusText('Failed to generate report. See console for details.')
+      setExecutiveReportStatusTone('failed')
     } finally {
       setExecutiveReportLoading(false)
     }
@@ -238,7 +365,7 @@ function DashboardContent() {
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
                 <button
-                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-text font-mono text-xs hover:border-bloomberg-orange/70 transition-colors disabled:opacity-50"
+                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-green font-mono text-xs transition-colors disabled:opacity-50 hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
                   onClick={() => downloadLatestExecutiveReport('pdf')}
                   disabled={executiveReportLoading}
                   title={latestExecutiveReport?.latest_timestamp ? `Latest: ${latestExecutiveReport.latest_timestamp}` : 'Download latest PDF'}
@@ -246,7 +373,7 @@ function DashboardContent() {
                   {executiveReportLoading ? 'WORKING…' : 'DOWNLOAD ALCO PDF'}
                 </button>
                 <button
-                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-text font-mono text-xs hover:border-bloomberg-orange/70 transition-colors disabled:opacity-50"
+                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-green font-mono text-xs transition-colors disabled:opacity-50 hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
                   onClick={() => downloadLatestExecutiveReport('html')}
                   disabled={executiveReportLoading}
                   title="Download latest HTML"
@@ -254,13 +381,29 @@ function DashboardContent() {
                   HTML
                 </button>
                 <button
-                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-text font-mono text-xs hover:border-bloomberg-orange/70 transition-colors disabled:opacity-50"
+                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-orange font-mono text-xs transition-colors disabled:opacity-50 hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
                   onClick={runExecutiveReportNow}
                   disabled={executiveReportLoading}
                   title="Trigger the scheduled notebook/job now"
                 >
                   RUN REPORT NOW
                 </button>
+                {executiveReportStatusText ? (
+                  <div
+                    className={[
+                      'ml-2 text-[11px] font-mono max-w-[360px] truncate',
+                      executiveReportStatusTone === 'generating'
+                        ? 'text-bloomberg-orange'
+                        : executiveReportStatusTone === 'done'
+                          ? 'text-bloomberg-green'
+                          : executiveReportStatusTone === 'failed'
+                            ? 'text-bloomberg-orange'
+                            : 'text-bloomberg-text-dim',
+                    ].join(' ')}
+                  >
+                    {executiveReportStatusText}
+                  </div>
+                ) : null}
               </div>
               <div className="flex items-center gap-3 text-xs font-mono text-bloomberg-text-dim">
                 <span>{currentTime || '--:--:--'}</span>

@@ -3,7 +3,7 @@ FastAPI Backend for CFO Platform
 Serves React static files and provides API endpoints with MLflow tracing
 """
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -121,8 +121,93 @@ REPORTS_VOLUME_DIR = os.getenv(
 )
 
 EXEC_REPORT_JOB_ID = os.getenv("CFO_EXEC_REPORT_JOB_ID")  # optional (for "run now")
+EXEC_REPORT_JOB_NAME = os.getenv(
+    "CFO_EXEC_REPORT_JOB_NAME",
+    "CFO Demo - Executive Treasury Report (ALCO PDF)",
+)
+# Used for auto-discovery when job id isn't configured.
+EXEC_REPORT_NOTEBOOK_PATH_SUFFIX = os.getenv(
+    "CFO_EXEC_REPORT_NOTEBOOK_PATH_SUFFIX",
+    "Generate_Report_Executive_Layout",
+)
 
 _EXEC_REPORT_RE = re.compile(r"^treasury_report_executive_(\d{8}_\d{6})\.(pdf|html)$")
+
+
+class ExecutiveReportRunRequest(BaseModel):
+    job_id: Optional[int] = None
+
+
+def _discover_exec_report_job_id(w: WorkspaceClient) -> Optional[int]:
+    """
+    Best-effort discovery of the Executive report Job ID in the current workspace.
+
+    Priority:
+    - Match by configured job name (default: CFO Demo - Executive Treasury Report (ALCO PDF))
+    - Fallback: match any job whose notebook task path contains the suffix
+      (default: Generate_Report_Executive_Layout)
+    """
+    limit = 100
+    offset = 0
+    name_matches: list[int] = []
+    path_matches: list[int] = []
+
+    while True:
+        resp = w.api_client.do(
+            "GET",
+            "/api/2.1/jobs/list",
+            query={
+                "limit": limit,
+                "offset": offset,
+                # If supported, include tasks in the listing (harmless if ignored).
+                "expand_tasks": "true",
+            },
+        )
+        jobs = resp.get("jobs") or []
+
+        for job in jobs:
+            job_id = job.get("job_id")
+            if job_id is None:
+                continue
+
+            settings = job.get("settings") or {}
+            job_name = (settings.get("name") or "").strip()
+
+            if EXEC_REPORT_JOB_NAME and job_name.lower() == EXEC_REPORT_JOB_NAME.lower():
+                name_matches.append(int(job_id))
+                continue
+
+            tasks = settings.get("tasks") or []
+            for t in tasks:
+                nb_path = (t.get("notebook_task") or {}).get("notebook_path") or ""
+                if EXEC_REPORT_NOTEBOOK_PATH_SUFFIX and EXEC_REPORT_NOTEBOOK_PATH_SUFFIX in nb_path:
+                    path_matches.append(int(job_id))
+                    break
+
+        if not resp.get("has_more"):
+            break
+        offset += limit
+        if offset > 5000:
+            break
+
+    if len(name_matches) == 1:
+        return name_matches[0]
+    if len(name_matches) > 1:
+        raise RuntimeError(
+            f"Multiple jobs matched name '{EXEC_REPORT_JOB_NAME}': {sorted(set(name_matches))}. "
+            "Set CFO_EXEC_REPORT_JOB_ID explicitly."
+        )
+
+    path_matches = sorted(set(path_matches))
+    if len(path_matches) == 1:
+        return path_matches[0]
+    if len(path_matches) > 1:
+        raise RuntimeError(
+            f"Multiple jobs matched notebook path suffix '{EXEC_REPORT_NOTEBOOK_PATH_SUFFIX}': {path_matches}. "
+            "Set CFO_EXEC_REPORT_JOB_ID explicitly or set CFO_EXEC_REPORT_JOB_NAME to disambiguate."
+        )
+
+    return None
 
 
 def _list_volume_files(w: WorkspaceClient, dir_path: str) -> list[dict]:
@@ -183,6 +268,26 @@ def _download_file(w: WorkspaceClient, path: str) -> bytes:
     raise RuntimeError("Unsupported download response shape from Databricks SDK")
 
 
+def _get_job_run_status(w: WorkspaceClient, run_id: int) -> dict:
+    """
+    Return a small, UI-friendly subset of the Jobs run status.
+    Uses raw REST to avoid SDK version mismatches.
+    """
+    resp = w.api_client.do("GET", "/api/2.1/jobs/runs/get", query={"run_id": int(run_id)})
+    state = resp.get("state") or {}
+    status = resp.get("status") or {}
+    return {
+        "run_id": resp.get("run_id"),
+        "job_id": resp.get("job_id"),
+        "run_page_url": resp.get("run_page_url"),
+        "life_cycle_state": state.get("life_cycle_state") or status.get("state"),
+        "result_state": state.get("result_state"),
+        "state_message": state.get("state_message") or "",
+        "start_time": resp.get("start_time"),
+        "end_time": resp.get("end_time"),
+    }
+
+
 @app.get("/api/reports/executive/latest")
 async def get_latest_executive_report():
     """
@@ -208,6 +313,19 @@ async def get_latest_executive_report():
             "latest_pdf_path": latest_pdf["path"] if latest_pdf else None,
             "latest_html_path": latest_html["path"] if latest_html else None,
         }
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/reports/executive/run_status")
+async def get_executive_report_run_status(run_id: int = Query(..., ge=1)):
+    """
+    Return Jobs run status for a given run_id.
+    """
+    try:
+        w = WorkspaceClient()
+        status = _get_job_run_status(w, run_id)
+        return {"success": True, "status": status}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
@@ -241,26 +359,61 @@ async def download_latest_executive_report(
 
 
 @app.post("/api/reports/executive/run")
-async def run_executive_report_now():
+async def run_executive_report_now(
+    job_id: Optional[int] = Query(default=None),
+    payload: Optional[ExecutiveReportRunRequest] = Body(default=None),
+):
     """
-    Triggers a Databricks Job run (if CFO_EXEC_REPORT_JOB_ID is configured).
+    Triggers a Databricks Job run.
+
+    Job id can be provided via:
+    - query param: ?job_id=123
+    - JSON body: {"job_id": 123}
+    - env var: CFO_EXEC_REPORT_JOB_ID
     """
-    if not EXEC_REPORT_JOB_ID:
+    resolved_job_id: Optional[int] = job_id or (payload.job_id if payload else None)
+    if not resolved_job_id and EXEC_REPORT_JOB_ID:
+        try:
+            resolved_job_id = int(EXEC_REPORT_JOB_ID)
+        except Exception:
+            resolved_job_id = None
+
+    if not resolved_job_id:
+        try:
+            w = WorkspaceClient()
+            resolved_job_id = _discover_exec_report_job_id(w)
+        except Exception as e:
+            return JSONResponse(
+                {"success": False, "error": f"Failed to discover Executive report job: {e}"},
+                status_code=500,
+            )
+
+    if not resolved_job_id:
         return JSONResponse(
             {
                 "success": False,
                 "error": "CFO_EXEC_REPORT_JOB_ID not set on backend. Configure it to enable 'run now'.",
+                "hint": "Set env var CFO_EXEC_REPORT_JOB_ID, or create the job (see scripts/setup_executive_report_job.py), or POST /api/reports/executive/run with JSON body {'job_id': <int>} (or ?job_id=<int>).",
             },
             status_code=400,
         )
 
     try:
         w = WorkspaceClient()
-        run = w.jobs.run_now(job_id=int(EXEC_REPORT_JOB_ID))
+        run = w.jobs.run_now(job_id=int(resolved_job_id))
         # SDK typically returns run_id; provide URL if possible
         host = os.getenv("DATABRICKS_HOST")
-        run_url = f"{host}/#job/{EXEC_REPORT_JOB_ID}/run/{run.run_id}" if host and getattr(run, "run_id", None) else None
-        return {"success": True, "job_id": int(EXEC_REPORT_JOB_ID), "run_id": getattr(run, "run_id", None), "run_url": run_url}
+        run_url = (
+            f"{host}/#job/{resolved_job_id}/run/{run.run_id}"
+            if host and getattr(run, "run_id", None)
+            else None
+        )
+        return {
+            "success": True,
+            "job_id": int(resolved_job_id),
+            "run_id": getattr(run, "run_id", None),
+            "run_url": run_url,
+        }
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
