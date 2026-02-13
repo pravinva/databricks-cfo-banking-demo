@@ -20,6 +20,7 @@ Create "Executive Deposit Portfolio Overview" dashboard with this layout:
 TOP ROW (4 Large KPI Cards):
 - Use KPI queries (4 separate cards)
 - Large number (32pt), metric name (18pt), trend arrow + change below
+- For KPI value display, prefer the `value_display` field (e.g. `$31.0B`) if present; otherwise use `value` + `unit`.
 - Use the provided color field (if present) for card accent
 - Add subtle gradient background to each card
 
