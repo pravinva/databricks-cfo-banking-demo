@@ -43,6 +43,13 @@ For the MVP, **a 100 bps move in the 2Y rate changes quarterly deposit interest 
 \( \Delta IE_{qtr,100bps} = (\sum balance \times predicted\_beta)\times 0.01 / 4 \),
 and we apply that directly to baseline NII (asset repricing is not modeled in MVP).
 
+## Next Step: Use Full NII Repricing (Recommended)
+
+Once you run `notebooks/NII_Repricing_Engine_2Y.py` (or `scripts/setup_nii_repricing_2y.py`), the scenario planning engine can source scenario NII directly from:
+- `cfo_banking_demo.gold_finance.nii_projection_quarterly`
+
+This upgrades the scenario layer from “deposit-only NII sensitivity” to a **full assets + liabilities repricing view**.
+
 ## Why this is the right MVP shape
 
 - Uses the **existing** PPNR baseline you already generate (`ml_models.ppnr_forecasts`)

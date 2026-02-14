@@ -145,6 +145,43 @@ This document provides a comprehensive guide to all production notebooks in the 
 
 ---
 
+### **Full NII Repricing (2Y Driver)**
+**File**: `NII_Repricing_Engine_2Y.py`
+
+**Purpose**: Full asset + liability repricing to generate quarterly NII under the same 2Y scenario paths used by PPNR scenario planning.
+
+**What It Does**:
+- Takes latest **deposit** and **loan** snapshots (`effective_date`)
+- Applies repricing rules with **lags/caps/floors**
+- Writes `gold_finance.nii_projection_quarterly` for scenario consumption
+
+**Output Tables**:
+- `cfo_banking_demo.gold_finance.deposit_repricing_assumptions`
+- `cfo_banking_demo.gold_finance.loan_repricing_assumptions`
+- `cfo_banking_demo.gold_finance.nii_projection_quarterly`
+
+**Runtime**: ~2-5 minutes (SQL-heavy; scales with account counts)
+
+---
+
+### **PPNR Scenario Planning (ML-Driven NonII/NonIE)**
+**File**: `PPNR_Scenario_ML_Inference_2Y.py`
+
+**Purpose**: Use the registered UC models to generate scenario-specific **Non-Interest Income** and **Non-Interest Expense** projections under the same 2Y rate paths.
+
+**What It Does**:
+- Loads `non_interest_income_model@champion` and `non_interest_expense_model@champion`
+- Generates 27 months of scenario-driven features (seasonality + 2Y path)
+- Predicts monthly NonII/NonIE and aggregates to quarterly PPNR using `nii_projection_quarterly` for NII
+
+**Output Tables**:
+- `cfo_banking_demo.gold_finance.ppnr_ml_projection_monthly`
+- `cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml`
+
+**Runtime**: ~1-3 minutes
+
+---
+
 ## 🔄 **Batch Inference & Scoring**
 
 ### **Batch Inference: Deposit Beta Model**

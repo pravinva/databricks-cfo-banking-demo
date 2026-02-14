@@ -34,11 +34,16 @@
 # MAGIC - `cfo_banking_demo.ml_models.ppnr_forecasts` (monthly PPNR forecast series)
 # MAGIC - `cfo_banking_demo.ml_models.deposit_beta_predictions` (account-level predicted_beta + balances)
 # MAGIC - `cfo_banking_demo.silver_treasury.yield_curves` (daily rates incl. `rate_2y`)
+# MAGIC - If `USE_FULL_NII_REPRICING=True`: `cfo_banking_demo.gold_finance.nii_projection_quarterly`
 
 # COMMAND ----------
 
 CATALOG = "cfo_banking_demo"
 SCHEMA = "gold_finance"
+
+# If True, scenario NII is sourced from the full repricing engine:
+#   cfo_banking_demo.gold_finance.nii_projection_quarterly
+USE_FULL_NII_REPRICING = True
 
 # COMMAND ----------
 
@@ -231,6 +236,15 @@ ORDER BY quarter_start
 
 baseline_qtr_df.createOrReplaceTempView("baseline_ppnr_quarterly")
 
+# If using full NII repricing, validate the required table exists up-front.
+if USE_FULL_NII_REPRICING:
+    nii_tbl = f"{CATALOG}.{SCHEMA}.nii_projection_quarterly"
+    if not spark.catalog.tableExists(nii_tbl):
+        raise RuntimeError(
+            f"USE_FULL_NII_REPRICING=True but missing {nii_tbl}. "
+            "Run notebooks/NII_Repricing_Engine_2Y.py (or scripts/setup_nii_repricing_2y.py) first."
+        )
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -247,10 +261,11 @@ WITH base_quarters AS (
 ),
 latest_rates AS (
   SELECT
-    MAX(date) AS as_of_date,
-    FIRST(rate_2y, TRUE) AS latest_rate_2y
+    date AS as_of_date,
+    rate_2y AS latest_rate_2y
   FROM {CATALOG}.silver_treasury.yield_curves
-  QUALIFY ROW_NUMBER() OVER (ORDER BY date DESC) = 1
+  ORDER BY date DESC
+  LIMIT 1
 ),
 scenarios AS (
   SELECT scenario_id FROM {CATALOG}.{SCHEMA}.ppnr_scenario_catalog
@@ -283,74 +298,122 @@ CROSS JOIN latest_rates r
 
 spark.sql(f"TRUNCATE TABLE {CATALOG}.{SCHEMA}.ppnr_projection_quarterly")
 
-spark.sql(f"""
-WITH baseline AS (
-  SELECT * FROM baseline_ppnr_quarterly
-),
-assumptions AS (
-  SELECT *
-  FROM {CATALOG}.{SCHEMA}.ppnr_sensitivity_assumptions
-  WHERE assumption_set = 'default_2y'
-  ORDER BY as_of_date DESC
-  LIMIT 1
-),
-drivers AS (
-  SELECT d.*
-  FROM {CATALOG}.{SCHEMA}.ppnr_scenario_drivers_quarterly d
-),
-baseline_rate AS (
-  SELECT
-    MAX(CASE WHEN scenario_id = 'baseline' THEN rate_2y_pct END) AS baseline_rate_2y_pct
-  FROM drivers
-)
-INSERT INTO {CATALOG}.{SCHEMA}.ppnr_projection_quarterly
-SELECT
-  d.scenario_id,
-  b.quarter_start,
-
-  d.rate_2y_pct,
-  (d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 AS rate_2y_delta_bps,
-  d.fee_income_multiplier,
-  d.expense_multiplier,
-
-  b.baseline_nii_usd,
-  b.baseline_non_interest_income_usd,
-  b.baseline_non_interest_expense_usd,
-  b.baseline_ppnr_usd,
-
-  -- Scenario NII: apply deposit-driven interest expense sensitivity
-  (b.baseline_nii_usd
-    - (a.delta_deposit_interest_expense_qtr_100bps_usd * ((d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 / 100.0))
-  ) AS scenario_nii_usd,
-
-  -- Scenario NonII / NonIE: multipliers (MVP)
-  (b.baseline_non_interest_income_usd * d.fee_income_multiplier) AS scenario_non_interest_income_usd,
-  (b.baseline_non_interest_expense_usd * d.expense_multiplier) AS scenario_non_interest_expense_usd,
-
-  -- Scenario PPNR identity
-  (
-    (b.baseline_nii_usd
-      - (a.delta_deposit_interest_expense_qtr_100bps_usd * ((d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 / 100.0))
+if USE_FULL_NII_REPRICING:
+    spark.sql(f"""
+    WITH baseline AS (
+      SELECT * FROM baseline_ppnr_quarterly
+    ),
+    drivers AS (
+      SELECT d.*
+      FROM {CATALOG}.{SCHEMA}.ppnr_scenario_drivers_quarterly d
+    ),
+    baseline_rate AS (
+      SELECT
+        MAX(CASE WHEN scenario_id = 'baseline' THEN rate_2y_pct END) AS baseline_rate_2y_pct
+      FROM drivers
+    ),
+    nii_repricing AS (
+      SELECT scenario_id, quarter_start, nii_usd
+      FROM {CATALOG}.{SCHEMA}.nii_projection_quarterly
+    ),
+    nii_baseline AS (
+      SELECT quarter_start, nii_usd
+      FROM nii_repricing
+      WHERE scenario_id = 'baseline'
     )
-    + (b.baseline_non_interest_income_usd * d.fee_income_multiplier)
-    - (b.baseline_non_interest_expense_usd * d.expense_multiplier)
-  ) AS scenario_ppnr_usd,
+    INSERT INTO {CATALOG}.{SCHEMA}.ppnr_projection_quarterly
+    SELECT
+      d.scenario_id,
+      b.quarter_start,
+      d.rate_2y_pct,
+      (d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 AS rate_2y_delta_bps,
+      d.fee_income_multiplier,
+      d.expense_multiplier,
 
-  (
-    (
+      nb.nii_usd AS baseline_nii_usd,
+      b.baseline_non_interest_income_usd,
+      b.baseline_non_interest_expense_usd,
+      (nb.nii_usd + b.baseline_non_interest_income_usd - b.baseline_non_interest_expense_usd) AS baseline_ppnr_usd,
+
+      ns.nii_usd AS scenario_nii_usd,
+      (b.baseline_non_interest_income_usd * d.fee_income_multiplier) AS scenario_non_interest_income_usd,
+      (b.baseline_non_interest_expense_usd * d.expense_multiplier) AS scenario_non_interest_expense_usd,
+      (ns.nii_usd + (b.baseline_non_interest_income_usd * d.fee_income_multiplier) - (b.baseline_non_interest_expense_usd * d.expense_multiplier)) AS scenario_ppnr_usd,
+
+      (
+        (ns.nii_usd + (b.baseline_non_interest_income_usd * d.fee_income_multiplier) - (b.baseline_non_interest_expense_usd * d.expense_multiplier))
+        - (nb.nii_usd + b.baseline_non_interest_income_usd - b.baseline_non_interest_expense_usd)
+      ) AS delta_ppnr_usd
+    FROM baseline b
+    JOIN drivers d
+      ON b.quarter_start = d.quarter_start
+    CROSS JOIN baseline_rate br
+    JOIN nii_repricing ns
+      ON ns.scenario_id = d.scenario_id
+     AND ns.quarter_start = b.quarter_start
+    JOIN nii_baseline nb
+      ON nb.quarter_start = b.quarter_start
+    """)
+else:
+    spark.sql(f"""
+    WITH baseline AS (
+      SELECT * FROM baseline_ppnr_quarterly
+    ),
+    assumptions AS (
+      SELECT *
+      FROM {CATALOG}.{SCHEMA}.ppnr_sensitivity_assumptions
+      WHERE assumption_set = 'default_2y'
+      ORDER BY as_of_date DESC
+      LIMIT 1
+    ),
+    drivers AS (
+      SELECT d.*
+      FROM {CATALOG}.{SCHEMA}.ppnr_scenario_drivers_quarterly d
+    ),
+    baseline_rate AS (
+      SELECT
+        MAX(CASE WHEN scenario_id = 'baseline' THEN rate_2y_pct END) AS baseline_rate_2y_pct
+      FROM drivers
+    )
+    INSERT INTO {CATALOG}.{SCHEMA}.ppnr_projection_quarterly
+    SELECT
+      d.scenario_id,
+      b.quarter_start,
+      d.rate_2y_pct,
+      (d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 AS rate_2y_delta_bps,
+      d.fee_income_multiplier,
+      d.expense_multiplier,
+      b.baseline_nii_usd,
+      b.baseline_non_interest_income_usd,
+      b.baseline_non_interest_expense_usd,
+      b.baseline_ppnr_usd,
       (b.baseline_nii_usd
         - (a.delta_deposit_interest_expense_qtr_100bps_usd * ((d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 / 100.0))
-      )
-      + (b.baseline_non_interest_income_usd * d.fee_income_multiplier)
-      - (b.baseline_non_interest_expense_usd * d.expense_multiplier)
-    ) - b.baseline_ppnr_usd
-  ) AS delta_ppnr_usd
-FROM baseline b
-JOIN drivers d
-  ON b.quarter_start = d.quarter_start
-CROSS JOIN assumptions a
-CROSS JOIN baseline_rate br
-""")
+      ) AS scenario_nii_usd,
+      (b.baseline_non_interest_income_usd * d.fee_income_multiplier) AS scenario_non_interest_income_usd,
+      (b.baseline_non_interest_expense_usd * d.expense_multiplier) AS scenario_non_interest_expense_usd,
+      (
+        (b.baseline_nii_usd
+          - (a.delta_deposit_interest_expense_qtr_100bps_usd * ((d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 / 100.0))
+        )
+        + (b.baseline_non_interest_income_usd * d.fee_income_multiplier)
+        - (b.baseline_non_interest_expense_usd * d.expense_multiplier)
+      ) AS scenario_ppnr_usd,
+      (
+        (
+          (b.baseline_nii_usd
+            - (a.delta_deposit_interest_expense_qtr_100bps_usd * ((d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 / 100.0))
+          )
+          + (b.baseline_non_interest_income_usd * d.fee_income_multiplier)
+          - (b.baseline_non_interest_expense_usd * d.expense_multiplier)
+        ) - b.baseline_ppnr_usd
+      ) AS delta_ppnr_usd
+    FROM baseline b
+    JOIN drivers d
+      ON b.quarter_start = d.quarter_start
+    CROSS JOIN assumptions a
+    CROSS JOIN baseline_rate br
+    """)
 
 # COMMAND ----------
 

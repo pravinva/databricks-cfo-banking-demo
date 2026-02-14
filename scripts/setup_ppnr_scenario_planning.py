@@ -46,7 +46,7 @@ def _wait_execute_sql(w: WorkspaceClient, warehouse_id: str, statement: str, tim
         return
 
 
-def _statements(catalog: str, schema: str) -> Iterable[str]:
+def _statements(catalog: str, schema: str, use_full_nii_repricing: bool) -> Iterable[str]:
     qname = lambda t: f"{catalog}.{schema}.{t}"
 
     yield f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}"
@@ -189,7 +189,88 @@ JOIN scenario_shocks ss
 """.strip()
 
     yield f"TRUNCATE TABLE {qname('ppnr_projection_quarterly')}"
-    yield f"""
+    if use_full_nii_repricing:
+        yield f"""
+WITH anchor_row AS (
+  SELECT
+    TO_DATE(month) AS anchor_month,
+    COALESCE(net_interest_income, 0) AS net_interest_income,
+    COALESCE(non_interest_income, 0) AS non_interest_income,
+    COALESCE(non_interest_expense, 0) AS non_interest_expense,
+    COALESCE(ppnr, 0) AS ppnr
+  FROM {catalog}.ml_models.ppnr_forecasts
+  ORDER BY TO_DATE(month) DESC
+  LIMIT 1
+),
+months AS (
+  SELECT
+    -- Start at quarter boundary so 27 months = exactly 9 quarters
+    ADD_MONTHS(DATE_TRUNC('quarter', (SELECT anchor_month FROM anchor_row)), i) AS month,
+    (SELECT net_interest_income FROM anchor_row) AS net_interest_income,
+    (SELECT non_interest_income FROM anchor_row) AS non_interest_income,
+    (SELECT non_interest_expense FROM anchor_row) AS non_interest_expense,
+    (SELECT ppnr FROM anchor_row) AS ppnr
+  FROM (SELECT EXPLODE(SEQUENCE(0, 26)) AS i)
+),
+baseline AS (
+  SELECT
+    DATE_TRUNC('quarter', month) AS quarter_start,
+    SUM(net_interest_income) AS baseline_nii_usd,
+    SUM(non_interest_income) AS baseline_non_interest_income_usd,
+    SUM(non_interest_expense) AS baseline_non_interest_expense_usd,
+    SUM(ppnr) AS baseline_ppnr_usd
+  FROM months
+  GROUP BY DATE_TRUNC('quarter', month)
+),
+drivers AS (
+  SELECT * FROM {qname('ppnr_scenario_drivers_quarterly')}
+),
+baseline_rate AS (
+  SELECT
+    MAX(CASE WHEN scenario_id = 'baseline' THEN rate_2y_pct END) AS baseline_rate_2y_pct
+  FROM drivers
+),
+nii_repricing AS (
+  SELECT scenario_id, quarter_start, nii_usd
+  FROM {qname('nii_projection_quarterly')}
+),
+nii_baseline AS (
+  SELECT quarter_start, nii_usd
+  FROM nii_repricing
+  WHERE scenario_id = 'baseline'
+)
+INSERT INTO {qname('ppnr_projection_quarterly')}
+SELECT
+  d.scenario_id,
+  b.quarter_start,
+  d.rate_2y_pct,
+  (d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 AS rate_2y_delta_bps,
+  d.fee_income_multiplier,
+  d.expense_multiplier,
+  nb.nii_usd AS baseline_nii_usd,
+  b.baseline_non_interest_income_usd,
+  b.baseline_non_interest_expense_usd,
+  (nb.nii_usd + b.baseline_non_interest_income_usd - b.baseline_non_interest_expense_usd) AS baseline_ppnr_usd,
+  ns.nii_usd AS scenario_nii_usd,
+  (b.baseline_non_interest_income_usd * d.fee_income_multiplier) AS scenario_non_interest_income_usd,
+  (b.baseline_non_interest_expense_usd * d.expense_multiplier) AS scenario_non_interest_expense_usd,
+  (ns.nii_usd + (b.baseline_non_interest_income_usd * d.fee_income_multiplier) - (b.baseline_non_interest_expense_usd * d.expense_multiplier)) AS scenario_ppnr_usd,
+  (
+    (ns.nii_usd + (b.baseline_non_interest_income_usd * d.fee_income_multiplier) - (b.baseline_non_interest_expense_usd * d.expense_multiplier))
+    - (nb.nii_usd + b.baseline_non_interest_income_usd - b.baseline_non_interest_expense_usd)
+  ) AS delta_ppnr_usd
+FROM baseline b
+JOIN drivers d
+  ON b.quarter_start = d.quarter_start
+CROSS JOIN baseline_rate br
+JOIN nii_repricing ns
+  ON ns.scenario_id = d.scenario_id
+ AND ns.quarter_start = b.quarter_start
+JOIN nii_baseline nb
+  ON nb.quarter_start = b.quarter_start
+""".strip()
+    else:
+        yield f"""
 WITH anchor_row AS (
   SELECT
     TO_DATE(month) AS anchor_month,
@@ -282,6 +363,11 @@ def main() -> None:
     p.add_argument("--warehouse-id", required=False, default=os.getenv("DATABRICKS_WAREHOUSE_ID"))
     p.add_argument("--catalog", default="cfo_banking_demo")
     p.add_argument("--schema", default="gold_finance")
+    p.add_argument(
+        "--use-full-nii-repricing",
+        action="store_true",
+        help="Use gold_finance.nii_projection_quarterly for scenario NII (requires running setup_nii_repricing_2y.py).",
+    )
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
 
@@ -289,7 +375,7 @@ def main() -> None:
         raise SystemExit("Missing --warehouse-id (or set DATABRICKS_WAREHOUSE_ID)")
 
     w = WorkspaceClient()
-    stmts = list(_statements(args.catalog, args.schema))
+    stmts = list(_statements(args.catalog, args.schema, args.use_full_nii_repricing))
 
     if args.dry_run:
         print("\n\n".join(stmts))
