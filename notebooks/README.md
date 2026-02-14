@@ -124,6 +124,27 @@ This document provides a comprehensive guide to all production notebooks in the 
 
 ---
 
+### **PPNR Scenario Planning (2Y Driver)**
+**File**: `PPNR_Scenario_Planning_Engine.py`
+
+**Purpose**: A scenario planning layer that lets treasury users define “what-if” paths and generate quarterly PPNR deltas.
+
+**What It Does**:
+- Aggregates existing `ml_models.ppnr_forecasts` (monthly) to **quarterly** baseline PPNR
+- Defines scenario inputs per quarter (macro driver = `rate_2y_pct`)
+- Applies an auditable first-cut sensitivity to translate **2Y shocks → quarterly NII deltas**
+- Writes scenario outputs to `gold_finance.ppnr_projection_quarterly`
+
+**Output Tables**:
+- `cfo_banking_demo.gold_finance.ppnr_scenario_catalog`
+- `cfo_banking_demo.gold_finance.ppnr_scenario_drivers_quarterly`
+- `cfo_banking_demo.gold_finance.ppnr_sensitivity_assumptions`
+- `cfo_banking_demo.gold_finance.ppnr_projection_quarterly`
+
+**Runtime**: ~1-3 minutes (SQL-only)
+
+---
+
 ## 🔄 **Batch Inference & Scoring**
 
 ### **Batch Inference: Deposit Beta Model**
