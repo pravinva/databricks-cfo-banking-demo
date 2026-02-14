@@ -67,7 +67,12 @@ USING DELTA
 CREATE OR REPLACE TABLE {qname('ppnr_scenario_drivers_quarterly')} (
   scenario_id STRING,
   quarter_start DATE,
+  fed_funds_pct DOUBLE,
+  sofr_pct DOUBLE,
+  prime_pct DOUBLE,
   rate_2y_pct DOUBLE,
+  rate_10y_pct DOUBLE,
+  curve_slope DOUBLE,
   fee_income_multiplier DOUBLE,
   expense_multiplier DOUBLE
 )
@@ -165,7 +170,9 @@ base_quarters AS (
   FROM months
 ),
 latest_rate AS (
-  SELECT rate_2y AS latest_rate_2y
+  SELECT rate_2y AS latest_rate_2y,
+         rate_10y AS latest_rate_10y,
+         fed_funds_rate AS latest_fed_funds
   FROM {catalog}.silver_treasury.yield_curves
   ORDER BY date DESC
   LIMIT 1
@@ -179,7 +186,12 @@ INSERT INTO {qname('ppnr_scenario_drivers_quarterly')}
 SELECT
   ss.scenario_id,
   q.quarter_start,
+  (r.latest_fed_funds + (ss.shock_bps / 100.0)) AS fed_funds_pct,
+  ((r.latest_fed_funds + (ss.shock_bps / 100.0)) - 0.05) AS sofr_pct,
+  ((r.latest_fed_funds + (ss.shock_bps / 100.0)) + 3.00) AS prime_pct,
   (r.latest_rate_2y + (ss.shock_bps / 100.0)) AS rate_2y_pct,
+  (r.latest_rate_10y + (ss.shock_bps / 100.0)) AS rate_10y_pct,
+  ((r.latest_rate_10y + (ss.shock_bps / 100.0)) - (r.latest_rate_2y + (ss.shock_bps / 100.0))) AS curve_slope,
   1.0 AS fee_income_multiplier,
   1.0 AS expense_multiplier
 FROM base_quarters q

@@ -1,11 +1,17 @@
 # PPNR Scenario Planning (2Y Driver)
 
-## Decision: Macro Driver
+## Decision: Primary Macro Driver (and curve context)
 
-We standardize scenario planning on the **2Y U.S. Treasury rate** (`silver_treasury.yield_curves.rate_2y`) as the single primary macro driver for:
+We standardize scenario planning on the **2Y U.S. Treasury rate** (`silver_treasury.yield_curves.rate_2y`) as the primary pricing-cycle macro driver for:
 - Scenario definitions (rate path / shock)
 - PPNR scenario deltas (via an auditable NII sensitivity)
 - Cross-artifact alignment (deposit beta, stress tests, PPNR views)
+
+To support a more realistic repricing view (loans indexed to Prime/SOFR), the scenario driver grid now carries a small **curve driver set** per quarter:
+- `fed_funds_pct` (from `yield_curves.fed_funds_rate`)
+- `sofr_pct` (derived from fed funds with an explicit spread assumption)
+- `prime_pct` (derived from fed funds with an explicit spread assumption)
+- `rate_2y_pct`, `rate_10y_pct`, `curve_slope`
 
 ## What to Create (MVP)
 

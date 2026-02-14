@@ -45,6 +45,11 @@ SCHEMA = "gold_finance"
 #   cfo_banking_demo.gold_finance.nii_projection_quarterly
 USE_FULL_NII_REPRICING = True
 
+# Curve/index assumptions (used when building scenario driver grid)
+# These are explicit demo assumptions; move to UC tables if you want governance.
+SOFR_SPREAD_OVER_FF_PCT = -0.05   # SOFR ~ FedFunds - 5bps (approx)
+PRIME_SPREAD_OVER_FF_PCT = 3.00   # Prime ~ FedFunds + 300bps (approx)
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -71,8 +76,13 @@ CREATE OR REPLACE TABLE {CATALOG}.{SCHEMA}.ppnr_scenario_drivers_quarterly (
   scenario_id STRING,
   quarter_start DATE,
 
-  -- Macro driver: 2Y rate path (in percent, e.g., 3.53)
+  -- Curve drivers (percent, e.g., 3.53)
+  fed_funds_pct DOUBLE,
+  sofr_pct DOUBLE,
+  prime_pct DOUBLE,
   rate_2y_pct DOUBLE,
+  rate_10y_pct DOUBLE,
+  curve_slope DOUBLE, -- 10Y - 2Y
 
   -- Simple planning levers (multipliers; 1.0 = baseline)
   fee_income_multiplier DOUBLE,
@@ -262,7 +272,9 @@ WITH base_quarters AS (
 latest_rates AS (
   SELECT
     date AS as_of_date,
-    rate_2y AS latest_rate_2y
+    rate_2y AS latest_rate_2y,
+    rate_10y AS latest_rate_10y,
+    fed_funds_rate AS latest_fed_funds
   FROM {CATALOG}.silver_treasury.yield_curves
   ORDER BY date DESC
   LIMIT 1
@@ -279,7 +291,12 @@ INSERT INTO {CATALOG}.{SCHEMA}.ppnr_scenario_drivers_quarterly
 SELECT
   s.scenario_id,
   q.quarter_start,
+  (r.latest_fed_funds + (ss.shock_bps / 100.0)) AS fed_funds_pct,
+  ((r.latest_fed_funds + (ss.shock_bps / 100.0)) + {SOFR_SPREAD_OVER_FF_PCT}) AS sofr_pct,
+  ((r.latest_fed_funds + (ss.shock_bps / 100.0)) + {PRIME_SPREAD_OVER_FF_PCT}) AS prime_pct,
   (r.latest_rate_2y + (ss.shock_bps / 100.0)) AS rate_2y_pct,
+  (r.latest_rate_10y + (ss.shock_bps / 100.0)) AS rate_10y_pct,
+  ((r.latest_rate_10y + (ss.shock_bps / 100.0)) - (r.latest_rate_2y + (ss.shock_bps / 100.0))) AS curve_slope,
   1.0 AS fee_income_multiplier,
   1.0 AS expense_multiplier
 FROM scenarios s

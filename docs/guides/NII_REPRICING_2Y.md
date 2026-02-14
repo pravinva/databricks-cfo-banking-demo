@@ -23,9 +23,13 @@ In `cfo_banking_demo.gold_finance`:
 
 ## Repricing assumptions (MVP)
 
-- **Balances**: held constant at the latest `effective_date` snapshot.
-- **Deposits**: `stated_rate` shifts by `predicted_beta × Δ(2Y)` with product-specific lags/caps/floors.
-- **Loans**: `interest_rate` shifts by `pass_through × Δ(2Y)` based on `rate_type` with lags/caps/floors.
+- **Balances (volume dynamics)**:
+  - Deposits: projected balances come from `ml_models.deposit_runoff_forecasts` (sampled at quarter horizons)
+  - Loans: projected balances use a simple linear amortization to `maturity_date` (no new origination in MVP)
+- **Deposits**: product-level `beta × Δ(driver)` with product-specific lags/caps/floors (default driver = `rate_2y_pct`).
+- **Loans**:
+  - Prime/SOFR/FedFunds indexed: rate = index + margin (from `rate_margin`)
+  - ARM: base rate reprices vs `rate_2y_pct` with lag/pass-through
 - **Quarterly interest**: computed as \(\text{balance} \times \text{rate} / 100 / 4\).
 
 ## How to run
