@@ -19,6 +19,7 @@
 # COMMAND ----------
 
 import math
+import decimal
 from datetime import date
 
 import mlflow
@@ -60,6 +61,86 @@ mlflow.set_registry_uri("databricks-uc")
 
 nii_model = mlflow.xgboost.load_model(f"models:/{CATALOG}.models.non_interest_income_model@champion")
 nie_model = mlflow.xgboost.load_model(f"models:/{CATALOG}.models.non_interest_expense_model@champion")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Step 2b: Feature coercion helpers (avoid XGBoost dtype errors)
+
+# COMMAND ----------
+
+def _model_feature_names(model) -> list[str] | None:
+    """
+    Return feature names expected by the model, if available.
+
+    We rely on these names to:
+    - drop non-feature columns like timestamps
+    - keep column ordering stable for XGBoost inference
+    """
+    names = None
+    # sklearn API
+    if hasattr(model, "feature_names_in_"):
+        try:
+            names = list(getattr(model, "feature_names_in_"))
+        except Exception:
+            names = None
+    if names:
+        return names
+    # xgboost booster
+    try:
+        booster = model.get_booster()
+        if booster is not None and booster.feature_names:
+            return list(booster.feature_names)
+    except Exception:
+        pass
+    return None
+
+
+def _normalize_scalar(v):
+    if isinstance(v, decimal.Decimal):
+        return float(v)
+    return v
+
+
+def _coerce_numeric_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert Decimal/object columns to numeric floats when possible.
+    """
+    out = df.copy()
+    for c in out.columns:
+        if pd.api.types.is_datetime64_any_dtype(out[c]):
+            # datetime columns are not valid XGBoost inputs; caller should drop them via feature selection
+            continue
+        if out[c].dtype == "object":
+            out[c] = out[c].map(_normalize_scalar)
+            out[c] = pd.to_numeric(out[c], errors="coerce")
+    return out
+
+
+def _build_X(feat_dict: dict, model) -> pd.DataFrame:
+    """
+    Build a clean, numeric feature frame for the given model.
+    - Select only model feature columns if available.
+    - Coerce object/Decimal columns to float.
+    - Fill NaNs with 0.
+    """
+    df = pd.DataFrame([{k: _normalize_scalar(v) for k, v in feat_dict.items()}])
+    names = _model_feature_names(model)
+    if names:
+        # Ensure every expected feature exists.
+        for n in names:
+            if n not in df.columns:
+                df[n] = 0.0
+        df = df[names]
+    else:
+        # Fall back: drop obvious non-features and keep numeric-only.
+        drop = {"month"}
+        df = df.drop(columns=[c for c in drop if c in df.columns], errors="ignore")
+        df = _coerce_numeric_frame(df)
+        df = df.select_dtypes(include=["number", "bool"])
+
+    df = _coerce_numeric_frame(df).fillna(0.0)
+    return df
 
 # COMMAND ----------
 
@@ -155,8 +236,10 @@ for scenario_id in scenario_ids:
         nie_feat.pop("target_operating_expense", None)
 
         # Predict
-        nii_pred = float(nii_model.predict(pd.DataFrame([nii_feat]))[0])
-        nie_pred = float(nie_model.predict(pd.DataFrame([nie_feat]))[0])
+        nii_X = _build_X(nii_feat, nii_model)
+        nie_X = _build_X(nie_feat, nie_model)
+        nii_pred = float(nii_model.predict(nii_X)[0])
+        nie_pred = float(nie_model.predict(nie_X)[0])
 
         rows_out.append(
             {
