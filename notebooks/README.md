@@ -124,6 +124,31 @@ This document provides a comprehensive guide to all production notebooks in the 
 
 ---
 
+## 🧭 **Scenario Planning Runbook (2Y Driver)**
+
+Use this sequence to produce a complete “2Y what-if → PPNR” output set.
+
+**Step 0 (one-time if models missing)**:
+- Run `Train_PPNR_Models.py` to register:
+  - `cfo_banking_demo.models.non_interest_income_model@champion`
+  - `cfo_banking_demo.models.non_interest_expense_model@champion`
+
+**Step 1 (create scenario grid + baseline PPNR)**:
+- Run `PPNR_Scenario_Planning_Engine.py`
+  - Produces: `gold_finance.ppnr_scenario_drivers_quarterly`, `gold_finance.ppnr_projection_quarterly`
+
+**Step 2 (full NII repricing under the same 2Y paths)**:
+- Run `NII_Repricing_Engine_2Y.py`
+  - Produces: `gold_finance.nii_projection_quarterly`
+
+**Step 3 (rebuild PPNR using repriced NII)**:
+- Re-run `PPNR_Scenario_Planning_Engine.py`
+  - Confirms `ppnr_projection_quarterly.scenario_nii_usd` aligns to `nii_projection_quarterly.nii_usd`
+
+**Step 4 (ML-driven NonII/NonIE scenario output)**:
+- Run `PPNR_Scenario_ML_Inference_2Y.py`
+  - Produces: `gold_finance.ppnr_ml_projection_monthly`, `gold_finance.ppnr_projection_quarterly_ml`
+
 ### **PPNR Scenario Planning (2Y Driver)**
 **File**: `PPNR_Scenario_Planning_Engine.py`
 
