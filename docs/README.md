@@ -34,6 +34,9 @@ Complete documentation for the Databricks Treasury Modeling Demo focused on depo
 - **[UPDATE_NOTEBOOKS.md](guides/UPDATE_NOTEBOOKS.md)** - Notebook naming/renames and alignment notes
 - **[UC_VOLUMES_MIGRATION.md](guides/UC_VOLUMES_MIGRATION.md)** - UC volumes migration notes
 - **[DEPOSIT_MODELING_PPNR_MODELER_PLAYBOOK.md](guides/DEPOSIT_MODELING_PPNR_MODELER_PLAYBOOK.md)** - Modeler playbook + approach selection guidance
+- **[PPNR_SCENARIO_PLANNING_2Y.md](guides/PPNR_SCENARIO_PLANNING_2Y.md)** - Scenario planning layer (curve drivers + integration notes)
+- **[NII_REPRICING_2Y.md](guides/NII_REPRICING_2Y.md)** - Full NII repricing engine (curve + volume dynamics)
+- **[PPNR_ML_SCENARIO_INFERENCE_2Y.md](guides/PPNR_ML_SCENARIO_INFERENCE_2Y.md)** - ML-driven NonII/NonIE scenario inference
 
 ---
 

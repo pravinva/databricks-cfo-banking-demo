@@ -517,8 +517,8 @@ function DashboardContent() {
             </Tabs>
 
             {/* Market + PPNR Scenario Snapshot */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <Card>
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+              <Card className="xl:col-span-4">
                 <CardHeader>
                   <div className="flex items-center">
                     <h3
@@ -534,11 +534,11 @@ function DashboardContent() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <YieldCurveChart height={220} />
+                  <YieldCurveChart height={180} />
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="xl:col-span-8">
                 <CardHeader>
                   <div className="flex items-center">
                     <h3
@@ -550,7 +550,7 @@ function DashboardContent() {
                     <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml (fallback to ppnr_projection_quarterly / ml_models.ppnr_forecasts) via /api/data/ppnr-scenario-summary" />
                   </div>
                   <p className="text-sm font-mono" style={{ color: '#999999' }}>
-                    Q1 vs Q9 outlook by scenario
+                    Q1 vs Q9 outlook and attribution by scenario
                   </p>
                 </CardHeader>
                 <CardContent>

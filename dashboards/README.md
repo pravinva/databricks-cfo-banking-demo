@@ -25,6 +25,11 @@ This folder contains **7 professional executive dashboards** designed for comple
 
 **Refresh Frequency:** Daily (8am)
 
+**Includes (Portfolio Suite page)**:
+- PPNR Scenario Planning (new page in the Lakeview dashboard) using:
+  - `cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml`
+  - `cfo_banking_demo.gold_finance.nii_projection_quarterly`
+
 ---
 
 ### **Dashboard 2: ALM & Treasury Operations**

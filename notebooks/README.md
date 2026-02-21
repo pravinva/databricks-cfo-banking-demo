@@ -124,9 +124,12 @@ This document provides a comprehensive guide to all production notebooks in the 
 
 ---
 
-## 🧭 **Scenario Planning Runbook (2Y Driver)**
+## 🧭 **Scenario Planning Runbook (Curve + Volume + ML)**
 
-Use this sequence to produce a complete “2Y what-if → PPNR” output set.
+Use this sequence to produce a complete “what-if → PPNR” output set:
+- **Scenario driver grid (curve)**: Fed Funds + SOFR/Prime proxies + 2Y/10Y + slope
+- **Volume dynamics**: deposit runoff + loan amortization to maturity (MVP)
+- **ML layer**: Non-Interest Income / Expense driven by UC-registered models (optional)
 
 **Step 0 (one-time if models missing)**:
 - Run `Train_PPNR_Models.py` to register:
@@ -137,7 +140,7 @@ Use this sequence to produce a complete “2Y what-if → PPNR” output set.
 - Run `PPNR_Scenario_Planning_Engine.py`
   - Produces: `gold_finance.ppnr_scenario_drivers_quarterly`, `gold_finance.ppnr_projection_quarterly`
 
-**Step 2 (full NII repricing under the same 2Y paths)**:
+**Step 2 (full NII repricing under the same scenario curve paths)**:
 - Run `NII_Repricing_Engine_2Y.py`
   - Produces: `gold_finance.nii_projection_quarterly`
 
@@ -156,8 +159,8 @@ Use this sequence to produce a complete “2Y what-if → PPNR” output set.
 
 **What It Does**:
 - Aggregates existing `ml_models.ppnr_forecasts` (monthly) to **quarterly** baseline PPNR
-- Defines scenario inputs per quarter (macro driver = `rate_2y_pct`)
-- Applies an auditable first-cut sensitivity to translate **2Y shocks → quarterly NII deltas**
+- Defines scenario inputs per quarter (driver grid includes `fed_funds_pct`, `sofr_pct`, `prime_pct`, `rate_2y_pct`, `rate_10y_pct`, `curve_slope`)
+- Rebuilds PPNR using repriced NII when `NII_Repricing_Engine_2Y.py` has been run
 - Writes scenario outputs to `gold_finance.ppnr_projection_quarterly`
 
 **Output Tables**:
@@ -173,11 +176,14 @@ Use this sequence to produce a complete “2Y what-if → PPNR” output set.
 ### **Full NII Repricing (2Y Driver)**
 **File**: `NII_Repricing_Engine_2Y.py`
 
-**Purpose**: Full asset + liability repricing to generate quarterly NII under the same 2Y scenario paths used by PPNR scenario planning.
+**Purpose**: Full repricing to generate quarterly NII under the same scenario curve paths used by PPNR scenario planning.
 
 **What It Does**:
-- Takes latest **deposit** and **loan** snapshots (`effective_date`)
-- Applies repricing rules with **lags/caps/floors**
+- Uses scenario curve drivers (`fed_funds_pct`, `sofr_pct`, `prime_pct`, `rate_2y_pct`, `rate_10y_pct`, slope)
+- Adds **volume dynamics**:
+  - Deposits from `ml_models.deposit_runoff_forecasts`
+  - Loans amortize to `maturity_date` (MVP)
+- Applies repricing rules with **lags/caps/floors** from UC assumption tables
 - Writes `gold_finance.nii_projection_quarterly` for scenario consumption
 
 **Output Tables**:

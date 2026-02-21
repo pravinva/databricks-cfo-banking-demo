@@ -47,6 +47,17 @@ This directory contains development, diagnostic, and utility scripts used during
 - `create_endpoint_simple.py` - Creates simple ML model serving endpoint
 - `create_serving_endpoint.py` - Creates full-featured model serving endpoint with autoscaling
 
+## 📈 Dashboards Automation (Lakeview / AI-BI)
+
+**Purpose**: Programmatically update AI/BI dashboards (Lakeview) via REST API.
+
+- `add_ppnr_scenario_page_to_portfolio_suite.py`
+  - Adds a new **PPNR Scenario Planning** page into the existing **CFO Deposit Portfolio Suite** dashboard (`01f0fea1adbb1e97a3142da3a87f7cb8`)
+  - Injects datasets + v3 widgets and republishes with embedded credentials
+
+- `update_ppnr_scenario_page_no_loans.py`
+  - Ensures the Scenario Planning page contains **no loan references** (titles/queries) and republishes
+
 ## Usage Notes
 
 - These scripts were primarily used during development and may have dependencies on specific Databricks workspace configurations or external APIs (Alpha Vantage)
