@@ -83,6 +83,10 @@ function DepositPortfolioBreakdown() {
 }
 
 function DashboardContent() {
+  const publishedDashboardUrl =
+    'https://e2-demo-field-eng.cloud.databricks.com/dashboardsv3/01f108f1192218ecb07e67641bdc54ed/published?o=1444828305810485'
+  const genieRoomUrl =
+    'https://e2-demo-field-eng.cloud.databricks.com/genie/rooms/01f101adda151c09835a99254d4c308c?o=1444828305810485'
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [depositBetaMetrics, setDepositBetaMetrics] = useState<any>(null)
@@ -371,6 +375,24 @@ function DashboardContent() {
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
+                <a
+                  href={publishedDashboardUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-orange font-mono text-xs transition-colors hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
+                  title="Open published Databricks dashboard"
+                >
+                  AI/BI DASHBOARD
+                </a>
+                <a
+                  href={genieRoomUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-orange font-mono text-xs transition-colors hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
+                  title="Open Genie room in Databricks"
+                >
+                  GENIE ROOM
+                </a>
                 <button
                   className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-green font-mono text-xs transition-colors disabled:opacity-50 hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
                   onClick={() => downloadLatestExecutiveReport('pdf')}

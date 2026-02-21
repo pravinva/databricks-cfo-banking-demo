@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 from typing import Optional
+import time
 
 # Add outputs directory to path for importing agent tools
 sys.path.insert(0, str(Path(__file__).parent.parent / "outputs"))
@@ -130,12 +131,18 @@ EXEC_REPORT_NOTEBOOK_PATH_SUFFIX = os.getenv(
     "CFO_EXEC_REPORT_NOTEBOOK_PATH_SUFFIX",
     "Generate_Report_Executive_Layout",
 )
+GENIE_SPACE_ID = os.getenv("CFO_GENIE_SPACE_ID", "01f101adda151c09835a99254d4c308c")
 
 _EXEC_REPORT_RE = re.compile(r"^treasury_report_executive_(\d{8}_\d{6})\.(pdf|html)$")
 
 
 class ExecutiveReportRunRequest(BaseModel):
     job_id: Optional[int] = None
+
+
+class GenieChatRequest(BaseModel):
+    content: str
+    conversation_id: Optional[str] = None
 
 
 def _discover_exec_report_job_id(w: WorkspaceClient) -> Optional[int]:
@@ -288,6 +295,32 @@ def _get_job_run_status(w: WorkspaceClient, run_id: int) -> dict:
     }
 
 
+def _genie_extract_text(message: dict) -> str:
+    attachments = message.get("attachments") or []
+    chunks: list[str] = []
+    for att in attachments:
+        if not isinstance(att, dict):
+            continue
+        text_val = att.get("text")
+        if isinstance(text_val, str) and text_val.strip():
+            chunks.append(text_val.strip())
+        elif isinstance(text_val, dict):
+            content = text_val.get("content")
+            if isinstance(content, str) and content.strip():
+                chunks.append(content.strip())
+            elif isinstance(content, list):
+                joined = "".join([str(x) for x in content if x is not None]).strip()
+                if joined:
+                    chunks.append(joined)
+        elif isinstance(text_val, list):
+            joined = "".join([str(x) for x in text_val if x is not None]).strip()
+            if joined:
+                chunks.append(joined)
+    if chunks:
+        return "\n\n".join(chunks)
+    return ""
+
+
 @app.get("/api/reports/executive/latest")
 async def get_latest_executive_report():
     """
@@ -413,6 +446,103 @@ async def run_executive_report_now(
             "job_id": int(resolved_job_id),
             "run_id": getattr(run, "run_id", None),
             "run_url": run_url,
+        }
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/genie/chat")
+async def genie_chat(payload: GenieChatRequest):
+    """
+    Proxy endpoint for Databricks Genie conversational API.
+
+    Starts or continues a conversation in the configured Genie space and polls
+    until completion so the frontend can render a single assistant message.
+    """
+    content = (payload.content or "").strip()
+    if not content:
+        return JSONResponse({"success": False, "error": "content is required"}, status_code=400)
+
+    try:
+        w = WorkspaceClient()
+        conversation_id = payload.conversation_id
+        message_obj: dict
+
+        if conversation_id:
+            create_resp = w.api_client.do(
+                "POST",
+                f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/conversations/{conversation_id}/messages",
+                body={"content": content},
+            )
+            message_obj = create_resp if isinstance(create_resp, dict) else {}
+        else:
+            start_resp = w.api_client.do(
+                "POST",
+                f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/start-conversation",
+                body={"content": content},
+            )
+            if not isinstance(start_resp, dict):
+                start_resp = {}
+            conv = start_resp.get("conversation") or {}
+            conversation_id = conv.get("conversation_id") or conv.get("id")
+            message_obj = start_resp.get("message") or {}
+
+        message_id = message_obj.get("message_id") or message_obj.get("id")
+        if not conversation_id or not message_id:
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": "Could not initialize Genie conversation/message.",
+                    "raw": message_obj,
+                },
+                status_code=500,
+            )
+
+        terminal_states = {"COMPLETED", "FAILED", "CANCELLED", "QUERY_RESULT_EXPIRED"}
+        status = str(message_obj.get("status") or "SUBMITTED")
+        final_message = message_obj
+        start_ts = time.time()
+        timeout_s = 90
+        poll_s = 1.5
+
+        while status not in terminal_states and (time.time() - start_ts) < timeout_s:
+            time.sleep(poll_s)
+            current = w.api_client.do(
+                "GET",
+                f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/conversations/{conversation_id}/messages/{message_id}",
+            )
+            if isinstance(current, dict):
+                final_message = current
+                status = str(current.get("status") or status)
+
+        if status != "COMPLETED":
+            return JSONResponse(
+                {
+                    "success": False,
+                    "conversation_id": conversation_id,
+                    "message_id": message_id,
+                    "status": status,
+                    "error": (final_message.get("error") or {}).get("message")
+                    if isinstance(final_message.get("error"), dict)
+                    else final_message.get("error")
+                    or f"Genie message did not complete successfully (status={status})",
+                    "raw": final_message,
+                },
+                status_code=500,
+            )
+
+        response_text = _genie_extract_text(final_message)
+        if not response_text:
+            response_text = "Genie completed your request. Query and result attachments are available."
+
+        return {
+            "success": True,
+            "space_id": GENIE_SPACE_ID,
+            "conversation_id": conversation_id,
+            "message_id": message_id,
+            "status": status,
+            "response": response_text,
+            "raw": final_message,
         }
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)

@@ -18,7 +18,7 @@ export default function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [sessionId, setSessionId] = useState<string>('demo_session')
+  const [conversationId, setConversationId] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -29,20 +29,14 @@ export default function AIAssistant() {
 
   useEffect(() => {
     try {
-      const key = 'treasury_assistant_session_id'
+      const key = 'treasury_genie_conversation_id'
       const existing = window.localStorage.getItem(key)
       if (existing) {
-        setSessionId(existing)
+        setConversationId(existing)
         return
       }
-      const newId =
-        (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-          ? (crypto as any).randomUUID()
-          : `sess_${Date.now()}_${Math.random().toString(16).slice(2)}`
-      window.localStorage.setItem(key, newId)
-      setSessionId(newId)
     } catch {
-      // Ignore; will fall back to default session id
+      // Ignore local storage issues and start a fresh conversation.
     }
   }, [])
 
@@ -60,20 +54,32 @@ export default function AIAssistant() {
     setLoading(true)
 
     try {
-      const response = await apiFetch('/api/chat', {
+      const response = await apiFetch('/api/genie/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: input,
-          session_id: sessionId
+          content: input,
+          conversation_id: conversationId || undefined,
         })
       })
 
       const data = await response.json()
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || `HTTP ${response.status}`)
+      }
+
+      if (data?.conversation_id) {
+        setConversationId(data.conversation_id)
+        try {
+          window.localStorage.setItem('treasury_genie_conversation_id', data.conversation_id)
+        } catch {
+          // Ignore storage failures.
+        }
+      }
 
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.response,
+        content: data.response || 'No response text returned by Genie.',
         timestamp: new Date()
       }
 
@@ -82,7 +88,7 @@ export default function AIAssistant() {
       console.error('Error:', error)
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: `Genie request failed: ${String((error as any)?.message || error)}`,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
@@ -115,7 +121,7 @@ export default function AIAssistant() {
                 <div>
                   <h1 className="text-2xl font-semibold text-slate-900">AI Assistant</h1>
                   <p className="text-sm text-slate-600 mt-1">
-                    Powered by Claude Sonnet 4.5 with MLflow tracing
+                    Powered by Databricks Genie conversation API
                   </p>
                 </div>
               </div>
