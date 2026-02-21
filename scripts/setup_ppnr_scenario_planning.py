@@ -117,7 +117,8 @@ INSERT INTO {qname('ppnr_scenario_catalog')}
 VALUES
   ('baseline', 'Baseline (2Y unchanged)', 'baseline', 'No 2Y shock; multipliers = 1.0', current_timestamp(), current_user()),
   ('rate_hike_100', '+100 bps 2Y shock', 'custom', '2Y +100bps constant; multipliers = 1.0', current_timestamp(), current_user()),
-  ('rate_cut_100',  '-100 bps 2Y shock', 'custom', '2Y -100bps constant; multipliers = 1.0', current_timestamp(), current_user())
+  ('rate_cut_100',  '-100 bps 2Y shock', 'custom', '2Y -100bps constant; multipliers = 1.0', current_timestamp(), current_user()),
+  ('market_shock', 'Market shock (non-rate)', 'stress', 'Equity down, spreads wider, USD stronger, elevated runoff', current_timestamp(), current_user())
 """.strip()
 
     yield f"TRUNCATE TABLE {qname('ppnr_sensitivity_assumptions')}"
