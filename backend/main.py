@@ -1381,6 +1381,200 @@ async def get_ppnr_forecasts(limit: int = 24):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+
+@app.get("/api/data/ppnr-scenario-summary")
+async def get_ppnr_scenario_summary(limit_quarters: int = 9):
+    """
+    Return compact PPNR scenario summary for treasury UI cards/tables.
+    Tries new scenario tables first, then falls back to legacy monthly forecasts.
+    """
+    if not agent_tools:
+        return JSONResponse({"error": "Agent tools not available"}, status_code=503)
+
+    def _to_float(v):
+        try:
+            return float(v) if v is not None else 0.0
+        except Exception:
+            return 0.0
+
+    scenario_queries = [
+        (
+            "cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml",
+            f"""
+            SELECT
+                scenario_id,
+                quarter_start,
+                rate_2y_delta_bps,
+                equity_shock_pct,
+                credit_spread_shock_bps,
+                fx_shock_pct,
+                liquidity_runoff_shock_pct,
+                COALESCE(delta_ppnr_rate_usd, 0.0) AS delta_ppnr_rate_usd,
+                COALESCE(delta_ppnr_market_usd, 0.0) AS delta_ppnr_market_usd,
+                COALESCE(delta_ppnr_liquidity_usd, 0.0) AS delta_ppnr_liquidity_usd,
+                ppnr_usd,
+                delta_ppnr_usd
+            FROM cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml
+            ORDER BY scenario_id, quarter_start
+            """,
+        ),
+        (
+            "cfo_banking_demo.gold_finance.ppnr_projection_quarterly",
+            f"""
+            SELECT
+                scenario_id,
+                quarter_start,
+                rate_2y_delta_bps,
+                equity_shock_pct,
+                credit_spread_shock_bps,
+                fx_shock_pct,
+                liquidity_runoff_shock_pct,
+                COALESCE(delta_ppnr_rate_usd, 0.0) AS delta_ppnr_rate_usd,
+                COALESCE(delta_ppnr_market_usd, 0.0) AS delta_ppnr_market_usd,
+                COALESCE(delta_ppnr_liquidity_usd, 0.0) AS delta_ppnr_liquidity_usd,
+                scenario_ppnr_usd AS ppnr_usd,
+                delta_ppnr_usd
+            FROM cfo_banking_demo.gold_finance.ppnr_projection_quarterly
+            ORDER BY scenario_id, quarter_start
+            """,
+        ),
+    ]
+
+    chosen_source = None
+    raw_rows = []
+
+    for source, query in scenario_queries:
+        try:
+            result = agent_tools.query_unity_catalog(query)
+            if result.get("success") and result.get("data"):
+                chosen_source = source
+                raw_rows = result["data"]
+                break
+        except Exception:
+            continue
+
+    # Legacy fallback if no quarterly scenario table is available.
+    if not raw_rows:
+        try:
+            result = agent_tools.query_unity_catalog(
+                """
+                SELECT
+                    COALESCE(scenario, 'Baseline') AS scenario_id,
+                    DATE_TRUNC('quarter', CAST(month AS DATE)) AS quarter_start,
+                    0.0 AS rate_2y_delta_bps,
+                    0.0 AS equity_shock_pct,
+                    0.0 AS credit_spread_shock_bps,
+                    0.0 AS fx_shock_pct,
+                    0.0 AS liquidity_runoff_shock_pct,
+                    0.0 AS delta_ppnr_rate_usd,
+                    0.0 AS delta_ppnr_market_usd,
+                    0.0 AS delta_ppnr_liquidity_usd,
+                    SUM(ppnr) AS ppnr_usd,
+                    0.0 AS delta_ppnr_usd
+                FROM cfo_banking_demo.ml_models.ppnr_forecasts
+                GROUP BY COALESCE(scenario, 'Baseline'), DATE_TRUNC('quarter', CAST(month AS DATE))
+                ORDER BY scenario_id, quarter_start
+                """
+            )
+            if result.get("success") and result.get("data"):
+                chosen_source = "cfo_banking_demo.ml_models.ppnr_forecasts"
+                raw_rows = result["data"]
+        except Exception:
+            raw_rows = []
+
+    if not raw_rows:
+        return JSONResponse({"error": "No PPNR scenario data found"}, status_code=404)
+
+    def _label(s: str) -> str:
+        k = str(s or "").strip().lower()
+        mapping = {
+            "baseline": "Baseline",
+            "adverse": "Adverse",
+            "severely_adverse": "Severely Adverse",
+            "rate_hike_100": "Adverse (+100 bps)",
+            "rate_hike_200": "Severely Adverse (+200 bps)",
+            "rate_hike_300": "Severely Adverse (+300 bps)",
+            "rate_cut_100": "Rate Cut (-100 bps)",
+            "market_shock": "Market Shock (Non-Rate)",
+        }
+        return mapping.get(k, str(s).replace("_", " ").title())
+
+    def _rank(label: str) -> int:
+        s = (label or "").lower()
+        if s == "baseline":
+            return 10
+        if s.startswith("adverse"):
+            return 20
+        if s.startswith("severely adverse"):
+            return 30
+        if s.startswith("market shock"):
+            return 35
+        if s.startswith("rate cut"):
+            return 40
+        return 90
+
+    grouped = {}
+    for row in raw_rows:
+        scenario_id = str(row[0]) if len(row) > 0 else "baseline"
+        quarter_start = str(row[1]) if len(row) > 1 else ""
+        rate_delta = _to_float(row[2]) if len(row) > 2 else 0.0
+        equity_shock_pct = _to_float(row[3]) if len(row) > 3 else 0.0
+        credit_spread_shock_bps = _to_float(row[4]) if len(row) > 4 else 0.0
+        fx_shock_pct = _to_float(row[5]) if len(row) > 5 else 0.0
+        liquidity_runoff_shock_pct = _to_float(row[6]) if len(row) > 6 else 0.0
+        delta_rate = _to_float(row[7]) if len(row) > 7 else 0.0
+        delta_market = _to_float(row[8]) if len(row) > 8 else 0.0
+        delta_liquidity = _to_float(row[9]) if len(row) > 9 else 0.0
+        ppnr_usd = _to_float(row[10]) if len(row) > 10 else 0.0
+        delta_ppnr = _to_float(row[11]) if len(row) > 11 else 0.0
+        grouped.setdefault(scenario_id, []).append(
+            {
+                "quarter_start": quarter_start,
+                "rate_2y_delta_bps": rate_delta,
+                "equity_shock_pct": equity_shock_pct,
+                "credit_spread_shock_bps": credit_spread_shock_bps,
+                "fx_shock_pct": fx_shock_pct,
+                "liquidity_runoff_shock_pct": liquidity_runoff_shock_pct,
+                "delta_ppnr_rate_usd": delta_rate,
+                "delta_ppnr_market_usd": delta_market,
+                "delta_ppnr_liquidity_usd": delta_liquidity,
+                "ppnr_usd": ppnr_usd,
+                "delta_ppnr_usd": delta_ppnr,
+            }
+        )
+
+    data = []
+    for scenario_id, series in grouped.items():
+        series = sorted(series, key=lambda x: x["quarter_start"])[: max(1, int(limit_quarters))]
+        vals = [x["ppnr_usd"] for x in series]
+        q9 = vals[8] if len(vals) > 8 else vals[-1]
+        q9_delta = series[8]["delta_ppnr_usd"] if len(series) > 8 else series[-1]["delta_ppnr_usd"]
+        scenario_label = _label(scenario_id)
+        data.append(
+            {
+                "scenario_id": scenario_id,
+                "scenario": scenario_label,
+                "scenario_rank": _rank(scenario_label),
+                "rate_2y_delta_bps": series[0]["rate_2y_delta_bps"] if series else 0.0,
+                "equity_shock_pct": series[0]["equity_shock_pct"] if series else 0.0,
+                "credit_spread_shock_bps": series[0]["credit_spread_shock_bps"] if series else 0.0,
+                "fx_shock_pct": series[0]["fx_shock_pct"] if series else 0.0,
+                "liquidity_runoff_shock_pct": series[0]["liquidity_runoff_shock_pct"] if series else 0.0,
+                "q1_ppnr_usd": vals[0] if vals else 0.0,
+                "q4_ppnr_usd": vals[3] if len(vals) > 3 else (vals[-1] if vals else 0.0),
+                "q9_ppnr_usd": q9,
+                "q9_delta_ppnr_usd": q9_delta,
+                "q9_delta_rate_usd": series[8]["delta_ppnr_rate_usd"] if len(series) > 8 else series[-1]["delta_ppnr_rate_usd"],
+                "q9_delta_market_usd": series[8]["delta_ppnr_market_usd"] if len(series) > 8 else series[-1]["delta_ppnr_market_usd"],
+                "q9_delta_liquidity_usd": series[8]["delta_ppnr_liquidity_usd"] if len(series) > 8 else series[-1]["delta_ppnr_liquidity_usd"],
+                "cumulative_9q_ppnr_usd": sum(vals),
+                "quarters": len(vals),
+            }
+        )
+
+    data = sorted(data, key=lambda x: (x["scenario_rank"], x["scenario"]))
+    return {"success": True, "source": chosen_source, "data": data}
+
 @app.get("/api/data/component-decay-metrics")
 async def get_component_decay_metrics():
     """Phase 2: Component decay metrics (λ and g) by segment"""

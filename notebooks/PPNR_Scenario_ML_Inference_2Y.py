@@ -156,7 +156,15 @@ def _build_X(feat_dict: dict, model) -> pd.DataFrame:
 
 drivers_pdf = (
     spark.table(SCENARIO_DRIVERS)
-    .select("scenario_id", "quarter_start", "rate_2y_pct")
+    .select(
+        "scenario_id",
+        "quarter_start",
+        "rate_2y_pct",
+        "equity_shock_pct",
+        "credit_spread_shock_bps",
+        "fx_shock_pct",
+        "liquidity_runoff_shock_pct",
+    )
     .orderBy("scenario_id", "quarter_start")
     .toPandas()
 )
@@ -191,6 +199,14 @@ def scenario_rate_for_month(scenario_id: str, month_ts: pd.Timestamp) -> float:
         raise RuntimeError(f"Missing driver for scenario_id={scenario_id}, quarter_start={qtr_start} in {SCENARIO_DRIVERS}")
     return float(row.iloc[0]["rate_2y_pct"])
 
+
+def scenario_driver_row_for_month(scenario_id: str, month_ts: pd.Timestamp):
+    qtr_start = pd.Timestamp(month_ts.to_period("Q").start_time).date()
+    row = drivers_pdf[(drivers_pdf["scenario_id"] == scenario_id) & (drivers_pdf["quarter_start"] == qtr_start)]
+    if row.empty:
+        raise RuntimeError(f"Missing driver for scenario_id={scenario_id}, quarter_start={qtr_start} in {SCENARIO_DRIVERS}")
+    return row.iloc[0]
+
 scenario_ids = sorted(drivers_pdf["scenario_id"].unique().tolist())
 
 rows_out: list[dict] = []
@@ -205,6 +221,11 @@ for scenario_id in scenario_ids:
         m = int(m_ts.month)
         sin_m, cos_m = month_sin_cos(m)
         q = quarter_num(m_ts)
+        driver_row = scenario_driver_row_for_month(scenario_id, m_ts)
+        equity_shock_pct = float(driver_row.get("equity_shock_pct") or 0.0)
+        credit_spread_shock_bps = float(driver_row.get("credit_spread_shock_bps") or 0.0)
+        fx_shock_pct = float(driver_row.get("fx_shock_pct") or 0.0)
+        liquidity_runoff_shock_pct = float(driver_row.get("liquidity_runoff_shock_pct") or 0.0)
 
         # Build Non-Interest Income features
         nii_feat = dict(nii_last_row)
@@ -213,6 +234,10 @@ for scenario_id in scenario_ids:
         nii_feat["month_sin"] = sin_m
         nii_feat["month_cos"] = cos_m
         nii_feat["avg_2y_rate"] = scenario_rate_for_month(scenario_id, m_ts)
+        nii_feat["equity_shock_pct"] = equity_shock_pct
+        nii_feat["credit_spread_shock_bps"] = credit_spread_shock_bps
+        nii_feat["fx_shock_pct"] = fx_shock_pct
+        nii_feat["liquidity_runoff_shock_pct"] = liquidity_runoff_shock_pct
         # Keep 10Y constant; update slope deterministically
         if "avg_10y_rate" in nii_feat and "yield_curve_slope" in nii_feat:
             try:
@@ -231,6 +256,10 @@ for scenario_id in scenario_ids:
         nie_feat["quarter"] = q
         nie_feat["month_sin"] = sin_m
         nie_feat["month_cos"] = cos_m
+        nie_feat["equity_shock_pct"] = equity_shock_pct
+        nie_feat["credit_spread_shock_bps"] = credit_spread_shock_bps
+        nie_feat["fx_shock_pct"] = fx_shock_pct
+        nie_feat["liquidity_runoff_shock_pct"] = liquidity_runoff_shock_pct
         nie_feat["prior_month_expense"] = prior_expense
         nie_feat["prior_month_accounts"] = prior_accounts
         nie_feat.pop("target_operating_expense", None)
@@ -246,6 +275,10 @@ for scenario_id in scenario_ids:
                 "scenario_id": scenario_id,
                 "month": m_ts.date(),
                 "rate_2y_pct": float(nii_feat["avg_2y_rate"]),
+                "equity_shock_pct": equity_shock_pct,
+                "credit_spread_shock_bps": credit_spread_shock_bps,
+                "fx_shock_pct": fx_shock_pct,
+                "liquidity_runoff_shock_pct": liquidity_runoff_shock_pct,
                 "predicted_non_interest_income_usd": nii_pred,
                 "predicted_non_interest_expense_usd": nie_pred,
             }
@@ -271,6 +304,10 @@ CREATE OR REPLACE TABLE {OUT_MONTHLY} (
   scenario_id STRING,
   month DATE,
   rate_2y_pct DOUBLE,
+  equity_shock_pct DOUBLE,
+  credit_spread_shock_bps DOUBLE,
+  fx_shock_pct DOUBLE,
+  liquidity_runoff_shock_pct DOUBLE,
   predicted_non_interest_income_usd DOUBLE,
   predicted_non_interest_expense_usd DOUBLE
 )
@@ -286,6 +323,10 @@ CREATE OR REPLACE TABLE {OUT_QTR} (
   quarter_start DATE,
   rate_2y_pct DOUBLE,
   rate_2y_delta_bps DOUBLE,
+  equity_shock_pct DOUBLE,
+  credit_spread_shock_bps DOUBLE,
+  fx_shock_pct DOUBLE,
+  liquidity_runoff_shock_pct DOUBLE,
   nii_usd DOUBLE,
   non_interest_income_usd DOUBLE,
   non_interest_expense_usd DOUBLE,
@@ -303,6 +344,10 @@ WITH ml_qtr AS (
     scenario_id,
     DATE_TRUNC('quarter', month) AS quarter_start,
     MAX(rate_2y_pct) AS rate_2y_pct,
+    MAX(equity_shock_pct) AS equity_shock_pct,
+    MAX(credit_spread_shock_bps) AS credit_spread_shock_bps,
+    MAX(fx_shock_pct) AS fx_shock_pct,
+    MAX(liquidity_runoff_shock_pct) AS liquidity_runoff_shock_pct,
     SUM(predicted_non_interest_income_usd) AS non_interest_income_usd,
     SUM(predicted_non_interest_expense_usd) AS non_interest_expense_usd
   FROM {OUT_MONTHLY}
@@ -347,6 +392,10 @@ SELECT
   n.quarter_start,
   n.rate_2y_pct,
   n.rate_2y_delta_bps,
+  m.equity_shock_pct,
+  m.credit_spread_shock_bps,
+  m.fx_shock_pct,
+  m.liquidity_runoff_shock_pct,
   n.nii_usd,
   m.non_interest_income_usd,
   m.non_interest_expense_usd,

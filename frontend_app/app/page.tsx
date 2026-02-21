@@ -87,6 +87,7 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true)
   const [depositBetaMetrics, setDepositBetaMetrics] = useState<any>(null)
   const [ppnrLatest, setPpnrLatest] = useState<any>(null)
+  const [ppnrScenarioSummary, setPpnrScenarioSummary] = useState<any[]>([])
   const [latestExecutiveReport, setLatestExecutiveReport] = useState<any>(null)
   const [executiveReportLoading, setExecutiveReportLoading] = useState<boolean>(false)
   const [executiveReportStatusText, setExecutiveReportStatusText] = useState<string>('')
@@ -130,9 +131,10 @@ function DashboardContent() {
   useEffect(() => {
     const fetchTreasuryKpis = async () => {
       try {
-        const [betaRes, ppnrRes] = await Promise.all([
+        const [betaRes, ppnrRes, ppnrScenarioRes] = await Promise.all([
           apiFetch('/api/data/deposit-beta-metrics'),
           apiFetch('/api/data/ppnr-forecasts'),
+          apiFetch('/api/data/ppnr-scenario-summary'),
         ])
 
         const betaJson = await betaRes.json()
@@ -141,6 +143,11 @@ function DashboardContent() {
         const ppnrJson = await ppnrRes.json()
         if (ppnrJson?.success && Array.isArray(ppnrJson?.data) && ppnrJson.data.length > 0) {
           setPpnrLatest(ppnrJson.data[ppnrJson.data.length - 1])
+        }
+
+        const ppnrScenarioJson = await ppnrScenarioRes.json()
+        if (ppnrScenarioJson?.success && Array.isArray(ppnrScenarioJson?.data)) {
+          setPpnrScenarioSummary(ppnrScenarioJson.data)
         }
       } catch (e) {
         // KPI cards should fail soft (dashboard tabs still render)
@@ -509,8 +516,8 @@ function DashboardContent() {
               </TabsContent>
             </Tabs>
 
-            {/* Market Data (used by deposit + PPNR models) */}
-            <div className="grid grid-cols-1 gap-6">
+            {/* Market + PPNR Scenario Snapshot */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
                   <div className="flex items-center">
@@ -523,11 +530,121 @@ function DashboardContent() {
                     <DataSourceTooltip source="Alpha Vantage API → agent_tools.get_current_treasury_yields() → U.S. Department of Treasury daily rates" />
                   </div>
                   <p className="text-sm font-mono" style={{ color: '#999999' }}>
-                    Live market data
+                    Live market data (compact view)
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <YieldCurveChart />
+                  <YieldCurveChart height={220} />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center">
+                    <h3
+                      className="text-lg font-bold leading-none tracking-wider font-mono uppercase"
+                      style={{ color: '#ff8c00 !important' }}
+                    >
+                      PPNR SCENARIO SNAPSHOT (ALCO)
+                    </h3>
+                    <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml (fallback to ppnr_projection_quarterly / ml_models.ppnr_forecasts) via /api/data/ppnr-scenario-summary" />
+                  </div>
+                  <p className="text-sm font-mono" style={{ color: '#999999' }}>
+                    Q1 vs Q9 outlook by scenario
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {ppnrScenarioSummary.length === 0 ? (
+                    <div className="text-sm text-bloomberg-text-dim font-mono">
+                      No PPNR scenario data available yet. Run scenario planning notebooks.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-3">
+                        {ppnrScenarioSummary.slice(0, 3).map((row: any, idx: number) => (
+                          <div key={idx} className="p-3 border-2 border-bloomberg-border bg-black/20">
+                            <div className="text-xs text-bloomberg-text-dim font-mono uppercase tracking-wider">{row.scenario}</div>
+                            <div className="text-lg font-bold text-bloomberg-text font-mono mt-1">
+                              ${(Number(row.q9_ppnr_usd || 0) / 1e9).toFixed(2)}B
+                            </div>
+                            <div className="text-xs font-mono mt-1 text-bloomberg-text-dim">Q9 PPNR</div>
+                            <div
+                              className={`text-xs font-mono mt-1 ${Number(row.q9_delta_ppnr_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}
+                            >
+                              {Number(row.q9_delta_ppnr_usd || 0) >= 0 ? '+' : ''}
+                              ${(Number(row.q9_delta_ppnr_usd || 0) / 1e6).toFixed(0)}M vs baseline
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs font-mono">
+                          <thead>
+                            <tr className="text-bloomberg-text-dim border-b border-bloomberg-border">
+                              <th className="text-left py-2">Scenario</th>
+                              <th className="text-right py-2">2Y Shock</th>
+                              <th className="text-right py-2">Equity</th>
+                              <th className="text-right py-2">Credit</th>
+                              <th className="text-right py-2">FX</th>
+                              <th className="text-right py-2">Runoff</th>
+                              <th className="text-right py-2">Q1 PPNR</th>
+                              <th className="text-right py-2">Q9 PPNR</th>
+                              <th className="text-right py-2">Q9 Δ Rate</th>
+                              <th className="text-right py-2">Q9 Δ Market</th>
+                              <th className="text-right py-2">Q9 Δ Liquidity</th>
+                              <th className="text-right py-2">9Q Cumulative</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ppnrScenarioSummary.map((row: any, idx: number) => (
+                              <tr key={idx} className="border-b border-bloomberg-border/40">
+                                <td className="py-2 text-bloomberg-text">{row.scenario}</td>
+                                <td className="py-2 text-right text-bloomberg-text-dim">
+                                  {Number(row.rate_2y_delta_bps || 0) >= 0 ? '+' : ''}
+                                  {Number(row.rate_2y_delta_bps || 0).toFixed(0)} bps
+                                </td>
+                                <td className="py-2 text-right text-bloomberg-text-dim">
+                                  {Number(row.equity_shock_pct || 0) >= 0 ? '+' : ''}
+                                  {(Number(row.equity_shock_pct || 0) * 100).toFixed(1)}%
+                                </td>
+                                <td className="py-2 text-right text-bloomberg-text-dim">
+                                  {Number(row.credit_spread_shock_bps || 0) >= 0 ? '+' : ''}
+                                  {Number(row.credit_spread_shock_bps || 0).toFixed(0)} bps
+                                </td>
+                                <td className="py-2 text-right text-bloomberg-text-dim">
+                                  {Number(row.fx_shock_pct || 0) >= 0 ? '+' : ''}
+                                  {(Number(row.fx_shock_pct || 0) * 100).toFixed(1)}%
+                                </td>
+                                <td className="py-2 text-right text-bloomberg-text-dim">
+                                  {Number(row.liquidity_runoff_shock_pct || 0) >= 0 ? '+' : ''}
+                                  {(Number(row.liquidity_runoff_shock_pct || 0) * 100).toFixed(1)}%
+                                </td>
+                                <td className="py-2 text-right text-bloomberg-text">
+                                  ${(Number(row.q1_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                </td>
+                                <td className="py-2 text-right text-bloomberg-text">
+                                  ${(Number(row.q9_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                </td>
+                                <td className={`py-2 text-right ${Number(row.q9_delta_rate_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                  {Number(row.q9_delta_rate_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_rate_usd || 0) / 1e6).toFixed(0)}M
+                                </td>
+                                <td className={`py-2 text-right ${Number(row.q9_delta_market_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                  {Number(row.q9_delta_market_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_market_usd || 0) / 1e6).toFixed(0)}M
+                                </td>
+                                <td className={`py-2 text-right ${Number(row.q9_delta_liquidity_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                  {Number(row.q9_delta_liquidity_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_liquidity_usd || 0) / 1e6).toFixed(0)}M
+                                </td>
+                                <td className="py-2 text-right text-bloomberg-text">
+                                  ${(Number(row.cumulative_9q_ppnr_usd || 0) / 1e9).toFixed(1)}B
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

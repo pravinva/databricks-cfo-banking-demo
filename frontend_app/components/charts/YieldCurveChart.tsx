@@ -10,7 +10,7 @@ interface YieldData {
   order: number
 }
 
-export default function YieldCurveChart() {
+export default function YieldCurveChart({ height = 300 }: { height?: number }) {
   const [data, setData] = useState<YieldData[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -43,14 +43,14 @@ export default function YieldCurveChart() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[300px]">
+      <div className="flex items-center justify-center" style={{ height }}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bloomberg-orange"></div>
       </div>
     )
   }
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="yieldGradient" x1="0" y1="0" x2="0" y2="1">

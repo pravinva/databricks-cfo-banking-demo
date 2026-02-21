@@ -21,12 +21,16 @@ function toNumber(v: unknown): number {
 
 export default function PpnrDashboard() {
   const [rows, setRows] = useState<PpnrRow[]>([])
+  const [scenarioRows, setScenarioRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await apiFetch('/api/data/ppnr-forecasts?limit=24')
+        const [res, scenarioRes] = await Promise.all([
+          apiFetch('/api/data/ppnr-forecasts?limit=24'),
+          apiFetch('/api/data/ppnr-scenario-summary'),
+        ])
         const json = await res.json()
         if (json?.success) {
           const normalized: PpnrRow[] = (json.data || []).map((r: any) => ({
@@ -37,6 +41,10 @@ export default function PpnrDashboard() {
             ppnr: toNumber(r.ppnr),
           }))
           setRows(normalized)
+        }
+        const scenarioJson = await scenarioRes.json()
+        if (scenarioJson?.success && Array.isArray(scenarioJson?.data)) {
+          setScenarioRows(scenarioJson.data)
         }
       } finally {
         setLoading(false)
@@ -147,6 +155,51 @@ export default function PpnrDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
+        <CardHeader>
+          <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
+            SCENARIO ATTRIBUTION (Q9)
+          </CardTitle>
+          <p className="text-xs text-bloomberg-text-dim font-mono">Rate + Market + Liquidity components</p>
+        </CardHeader>
+        <CardContent>
+          {scenarioRows.length === 0 ? (
+            <div className="text-xs text-bloomberg-text-dim font-mono">Run scenario planning notebooks to populate this section.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="text-bloomberg-text-dim border-b border-bloomberg-border">
+                    <th className="text-left py-2">Scenario</th>
+                    <th className="text-right py-2">Q9 PPNR</th>
+                    <th className="text-right py-2">Δ Rate</th>
+                    <th className="text-right py-2">Δ Market</th>
+                    <th className="text-right py-2">Δ Liquidity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scenarioRows.map((r, i) => (
+                    <tr key={i} className="border-b border-bloomberg-border/40">
+                      <td className="py-2 text-bloomberg-text">{r.scenario}</td>
+                      <td className="py-2 text-right text-bloomberg-text">${(toNumber(r.q9_ppnr_usd) / 1e6).toFixed(0)}M</td>
+                      <td className={`py-2 text-right ${toNumber(r.q9_delta_rate_usd) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                        {toNumber(r.q9_delta_rate_usd) >= 0 ? '+' : ''}${(toNumber(r.q9_delta_rate_usd) / 1e6).toFixed(0)}M
+                      </td>
+                      <td className={`py-2 text-right ${toNumber(r.q9_delta_market_usd) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                        {toNumber(r.q9_delta_market_usd) >= 0 ? '+' : ''}${(toNumber(r.q9_delta_market_usd) / 1e6).toFixed(0)}M
+                      </td>
+                      <td className={`py-2 text-right ${toNumber(r.q9_delta_liquidity_usd) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                        {toNumber(r.q9_delta_liquidity_usd) >= 0 ? '+' : ''}${(toNumber(r.q9_delta_liquidity_usd) / 1e6).toFixed(0)}M
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

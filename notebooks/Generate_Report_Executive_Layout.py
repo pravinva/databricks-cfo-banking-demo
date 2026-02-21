@@ -43,13 +43,119 @@ except:
     has_predictions = False
     print("⚠️ No beta predictions found")
 
-try:
-    ppnr_df = spark.table("cfo_banking_demo.ml_models.ppnr_forecasts")
-    ppnr_pdf = ppnr_df.toPandas()
-    has_ppnr = True
-except:
-    has_ppnr = False
-    print("⚠️ No PPNR data found")
+def _scenario_label(raw: str) -> str:
+    s = (raw or "").strip().lower()
+    mapping = {
+        "baseline": "Baseline",
+        "adverse": "Adverse",
+        "severely_adverse": "Severely Adverse",
+        "severe": "Severely Adverse",
+        "extreme": "Severely Adverse",
+        "rate_hike_100": "Adverse (+100 bps)",
+        "rate_hike_200": "Severely Adverse (+200 bps)",
+        "rate_hike_300": "Severely Adverse (+300 bps)",
+        "rate_cut_100": "Rate Cut (-100 bps)",
+    }
+    return mapping.get(s, (raw or "Scenario").replace("_", " ").title())
+
+
+def _scenario_rank(label: str) -> int:
+    s = (label or "").strip().lower()
+    if s == "baseline":
+        return 10
+    if s.startswith("adverse"):
+        return 20
+    if s.startswith("severely adverse"):
+        return 30
+    if s.startswith("rate cut"):
+        return 40
+    return 90
+
+
+def _load_ppnr_exec_frame() -> tuple[pd.DataFrame, str]:
+    """
+    Load the most relevant PPNR scenario table and normalize columns.
+    Priority:
+      1) gold_finance.ppnr_projection_quarterly_ml
+      2) gold_finance.ppnr_projection_quarterly
+      3) ml_models.ppnr_forecasts (legacy fallback)
+    """
+    table_ml = "cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml"
+    table_rule = "cfo_banking_demo.gold_finance.ppnr_projection_quarterly"
+    table_legacy = "cfo_banking_demo.ml_models.ppnr_forecasts"
+
+    if spark.catalog.tableExists(table_ml):
+        df = spark.table(table_ml).toPandas()
+        if len(df) > 0:
+            out = pd.DataFrame(
+                {
+                    "scenario": df.get("scenario_id", pd.Series(dtype=str)).astype(str),
+                    "quarter_start": pd.to_datetime(df.get("quarter_start"), errors="coerce"),
+                    "nii_usd": pd.to_numeric(df.get("nii_usd"), errors="coerce"),
+                    "nonii_usd": pd.to_numeric(df.get("non_interest_income_usd"), errors="coerce"),
+                    "nonie_usd": pd.to_numeric(df.get("non_interest_expense_usd"), errors="coerce"),
+                    "ppnr_usd": pd.to_numeric(df.get("ppnr_usd"), errors="coerce"),
+                    "delta_ppnr_usd": pd.to_numeric(df.get("delta_ppnr_usd"), errors="coerce"),
+                }
+            )
+            return out.dropna(subset=["quarter_start"]), table_ml
+
+    if spark.catalog.tableExists(table_rule):
+        df = spark.table(table_rule).toPandas()
+        if len(df) > 0:
+            out = pd.DataFrame(
+                {
+                    "scenario": df.get("scenario_id", pd.Series(dtype=str)).astype(str),
+                    "quarter_start": pd.to_datetime(df.get("quarter_start"), errors="coerce"),
+                    "nii_usd": pd.to_numeric(df.get("scenario_nii_usd"), errors="coerce"),
+                    "nonii_usd": pd.to_numeric(df.get("scenario_non_interest_income_usd"), errors="coerce"),
+                    "nonie_usd": pd.to_numeric(df.get("scenario_non_interest_expense_usd"), errors="coerce"),
+                    "ppnr_usd": pd.to_numeric(df.get("scenario_ppnr_usd"), errors="coerce"),
+                    "delta_ppnr_usd": pd.to_numeric(df.get("delta_ppnr_usd"), errors="coerce"),
+                }
+            )
+            return out.dropna(subset=["quarter_start"]), table_rule
+
+    # Legacy fallback: monthly history/forecast table.
+    if spark.catalog.tableExists(table_legacy):
+        df = spark.table(table_legacy).toPandas()
+        if len(df) > 0 and "month" in df.columns:
+            work = df.copy()
+            work["month"] = pd.to_datetime(work["month"], errors="coerce")
+            work["quarter_start"] = work["month"].dt.to_period("Q").dt.start_time
+            if "scenario" not in work.columns:
+                work["scenario"] = "Baseline"
+            out = (
+                work.groupby(["scenario", "quarter_start"], as_index=False)
+                .agg(
+                    {
+                        "net_interest_income": "sum",
+                        "non_interest_income": "sum",
+                        "non_interest_expense": "sum",
+                        "ppnr": "sum",
+                    }
+                )
+                .rename(
+                    columns={
+                        "net_interest_income": "nii_usd",
+                        "non_interest_income": "nonii_usd",
+                        "non_interest_expense": "nonie_usd",
+                        "ppnr": "ppnr_usd",
+                    }
+                )
+            )
+            out["delta_ppnr_usd"] = 0.0
+            return out.dropna(subset=["quarter_start"]), table_legacy
+
+    return pd.DataFrame(), ""
+
+
+ppnr_exec_pdf, ppnr_source_table = _load_ppnr_exec_frame()
+has_ppnr = len(ppnr_exec_pdf) > 0
+if not has_ppnr:
+    print("⚠️ No PPNR scenario data found in projection or legacy forecast tables")
+else:
+    print(f"✓ Using PPNR source: {ppnr_source_table}")
 
 # COMMAND ----------
 
@@ -63,32 +169,82 @@ if has_predictions:
 else:
     portfolio_beta = (deposits_pdf['current_balance'] * deposits_pdf['beta']).sum() / total_deposits
 
-# PPNR metrics
-# Note: `ml_models.ppnr_forecasts` schema is monthly and does not include scenario columns in this demo.
+# PPNR metrics and scenario rows for template.
+current_ppnr = 0.0
+efficiency_ratio = 0.0
+current_nii = 0.0
+current_nonii = 0.0
+current_nonie = 0.0
+ppnr_scenario_rows = []
+ppnr_fee_income_notes = []
+
 if has_ppnr:
-    ppnr_pdf = ppnr_pdf.copy()
-    # Ensure numeric types for ratio math
-    for c in ["net_interest_income", "non_interest_income", "non_interest_expense", "ppnr"]:
-        if c in ppnr_pdf.columns:
-            ppnr_pdf[c] = pd.to_numeric(ppnr_pdf[c], errors="coerce")
+    ppnr_exec_pdf = ppnr_exec_pdf.copy()
+    ppnr_exec_pdf["scenario"] = ppnr_exec_pdf["scenario"].astype(str)
+    ppnr_exec_pdf["scenario_label"] = ppnr_exec_pdf["scenario"].map(_scenario_label)
+    ppnr_exec_pdf["scenario_rank"] = ppnr_exec_pdf["scenario_label"].map(_scenario_rank)
+    ppnr_exec_pdf = ppnr_exec_pdf.sort_values(["scenario_rank", "scenario_label", "quarter_start"])
 
-    if "month" in ppnr_pdf.columns and len(ppnr_pdf) > 0:
-        latest_month = ppnr_pdf["month"].max()
-        current_ppnr_data = ppnr_pdf[ppnr_pdf["month"] == latest_month]
-    else:
-        current_ppnr_data = ppnr_pdf.iloc[0:0]
+    baseline_candidates = ppnr_exec_pdf[ppnr_exec_pdf["scenario_label"] == "Baseline"]
+    if len(baseline_candidates) == 0:
+        baseline_candidates = ppnr_exec_pdf
+    current_row = baseline_candidates.sort_values("quarter_start").iloc[0]
 
-    if len(current_ppnr_data) > 0:
-        row = current_ppnr_data.iloc[0]
-        current_ppnr = float(row.get("ppnr") or 0.0)
-        denom = float((row.get("net_interest_income") or 0.0) + (row.get("non_interest_income") or 0.0))
-        efficiency_ratio = (float(row.get("non_interest_expense") or 0.0) / denom * 100.0) if denom else 0.0
-    else:
-        current_ppnr = 0.0
-        efficiency_ratio = 0.0
-else:
-    current_ppnr = 0.0
-    efficiency_ratio = 0.0
+    current_ppnr = float(current_row.get("ppnr_usd") or 0.0)
+    current_nii = float(current_row.get("nii_usd") or 0.0)
+    current_nonii = float(current_row.get("nonii_usd") or 0.0)
+    current_nonie = float(current_row.get("nonie_usd") or 0.0)
+    denom = current_nii + current_nonii
+    efficiency_ratio = (current_nonie / denom * 100.0) if denom else 0.0
+
+    scenario_labels = (
+        ppnr_exec_pdf[["scenario_label", "scenario_rank"]]
+        .drop_duplicates()
+        .sort_values(["scenario_rank", "scenario_label"])["scenario_label"]
+        .tolist()
+    )
+
+    for scenario_label in scenario_labels:
+        s_df = ppnr_exec_pdf[ppnr_exec_pdf["scenario_label"] == scenario_label].sort_values("quarter_start")
+        if len(s_df) == 0:
+            continue
+        vals = s_df["ppnr_usd"].tolist()
+
+        def _pick(ix: int) -> float:
+            return float(vals[ix]) if len(vals) > ix else float(vals[-1])
+
+        ppnr_scenario_rows.append(
+            {
+                "name": scenario_label,
+                "q1_m": f"{_pick(0) / 1e6:.0f}",
+                "q2_m": f"{_pick(1) / 1e6:.0f}",
+                "q3_m": f"{_pick(2) / 1e6:.0f}",
+                "q4_m": f"{_pick(3) / 1e6:.0f}",
+                "q9_m": f"{_pick(8) / 1e6:.0f}",
+                "cum_9q_b": f"{(sum(vals) / 1e9):.1f}",
+                "cum_is_positive": sum(vals) >= 0,
+            }
+        )
+
+    baseline_nonii = None
+    for r in ppnr_scenario_rows:
+        if r["name"] == "Baseline":
+            baseline_nonii = current_nonii
+            break
+    if baseline_nonii is None:
+        baseline_nonii = current_nonii
+
+    for scenario_label in scenario_labels:
+        if scenario_label == "Baseline":
+            continue
+        s_df = ppnr_exec_pdf[ppnr_exec_pdf["scenario_label"] == scenario_label].sort_values("quarter_start")
+        if len(s_df) == 0:
+            continue
+        scenario_nonii = float(s_df.iloc[0].get("nonii_usd") or 0.0)
+        pct = ((scenario_nonii - baseline_nonii) / baseline_nonii * 100.0) if baseline_nonii else 0.0
+        ppnr_fee_income_notes.append(
+            f"{scenario_label}: {'+' if pct >= 0 else ''}{pct:.1f}% vs baseline in current quarter"
+        )
 
 # COMMAND ----------
 
@@ -439,7 +595,7 @@ html_template = """
 <div class="page">
     <div class="header">
         <h1>PPNR & Fee Income Analysis</h1>
-        <div class="subtitle">9-Quarter Forecasts by Regulatory Scenario</div>
+        <div class="subtitle">9-Quarter Forecasts by ALCO Scenario</div>
         <div class="date">{{ report_date }}</div>
     </div>
 
@@ -477,44 +633,28 @@ html_template = """
                 </tr>
             </thead>
             <tbody>
+                {% for row in ppnr_scenario_rows %}
                 <tr>
-                    <td><strong>Baseline</strong></td>
-                    <td>$485M</td>
-                    <td>$492M</td>
-                    <td>$498M</td>
-                    <td>$505M</td>
-                    <td>$550M</td>
-                    <td class="positive">$4.7B</td>
+                    <td><strong>{{ row.name }}</strong></td>
+                    <td>${{ row.q1_m }}M</td>
+                    <td>${{ row.q2_m }}M</td>
+                    <td>${{ row.q3_m }}M</td>
+                    <td>${{ row.q4_m }}M</td>
+                    <td>${{ row.q9_m }}M</td>
+                    <td class="{% if row.cum_is_positive %}positive{% else %}negative{% endif %}">${{ row.cum_9q_b }}B</td>
                 </tr>
-                <tr>
-                    <td><strong>Adverse</strong></td>
-                    <td>$465M</td>
-                    <td>$458M</td>
-                    <td>$451M</td>
-                    <td>$445M</td>
-                    <td>$405M</td>
-                    <td class="positive">$4.0B</td>
-                </tr>
-                <tr>
-                    <td><strong>Severely Adverse</strong></td>
-                    <td>$445M</td>
-                    <td>$425M</td>
-                    <td>$408M</td>
-                    <td>$392M</td>
-                    <td>$310M</td>
-                    <td class="positive">$3.4B</td>
-                </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
 
     <div class="callout">
         <strong>Treasury Impact on Fee Income</strong>
-        Deposit runoff under adverse scenarios directly impacts fee income from transaction-based products:
+        Scenario-driven deposit and rate paths directly impact fee income from transaction-based products:
         <ul style="margin: 10px 0 0 20px;">
-            <li>Baseline: Non-interest income remains stable at $120M/quarter</li>
-            <li>Adverse: -8% fee income decline due to deposit outflows and reduced transaction volumes</li>
-            <li>Severely Adverse: -15% fee income decline; prioritize retention of high-transaction accounts</li>
+            {% for note in ppnr_fee_income_notes %}
+            <li>{{ note }}</li>
+            {% endfor %}
         </ul>
     </div>
 
@@ -623,9 +763,11 @@ template_data = {
     'portfolio_beta': f"{portfolio_beta:.3f}",
     'ppnr_current_m': f"{current_ppnr/1e6:.0f}" if current_ppnr > 0 else "N/A",
     'efficiency_ratio': f"{efficiency_ratio:.1f}" if efficiency_ratio > 0 else "N/A",
-    'nii_current_m': "365",  # Placeholder
-    'nonii_current_m': "120",  # Placeholder
-    'nonie_current_m': "340"  # Placeholder
+    'nii_current_m': f"{current_nii/1e6:.0f}" if current_nii > 0 else "N/A",
+    'nonii_current_m': f"{current_nonii/1e6:.0f}" if current_nonii > 0 else "N/A",
+    'nonie_current_m': f"{current_nonie/1e6:.0f}" if current_nonie > 0 else "N/A",
+    'ppnr_scenario_rows': ppnr_scenario_rows,
+    'ppnr_fee_income_notes': ppnr_fee_income_notes if len(ppnr_fee_income_notes) > 0 else ["Baseline scenario available; run scenario engines for comparative paths."],
 }
 
 # Render HTML

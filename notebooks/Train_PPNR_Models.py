@@ -101,8 +101,14 @@ market_conditions AS (
         DATE_TRUNC('month', date) as month,
         AVG(rate_10y) as avg_10y_rate,
         AVG(rate_2y) as avg_2y_rate,
+        AVG(fed_funds_rate) as avg_fed_funds_rate,
         (MAX(rate_10y) - MIN(rate_10y)) as rate_volatility,
-        AVG(rate_10y - rate_2y) as yield_curve_slope
+        AVG(rate_10y - rate_2y) as yield_curve_slope,
+        -- Proxy features for explicit non-rate shock modeling (MVP retrain path)
+        AVG(rate_10y - fed_funds_rate) * 100.0 as credit_spread_shock_bps,
+        AVG(rate_2y - rate_10y) as fx_shock_pct,
+        AVG(rate_2y - fed_funds_rate) as liquidity_runoff_shock_pct,
+        AVG(rate_10y - rate_2y) * 0.5 as equity_shock_pct
     FROM cfo_banking_demo.silver_treasury.yield_curves
     WHERE date >= DATE_SUB(CURRENT_DATE(), 730)
     GROUP BY DATE_TRUNC('month', date)
@@ -155,8 +161,13 @@ SELECT
     -- Economic features
     mc.avg_10y_rate,
     mc.avg_2y_rate,
+    mc.avg_fed_funds_rate,
     mc.rate_volatility,
     mc.yield_curve_slope,
+    mc.equity_shock_pct,
+    mc.credit_spread_shock_bps,
+    mc.fx_shock_pct,
+    mc.liquidity_runoff_shock_pct,
 
     -- Derived features
     m.checking_accounts / NULLIF(m.active_deposit_accounts, 0) as checking_account_pct,
@@ -213,8 +224,9 @@ nii_feature_cols = [
     'total_transactions_millions', 'avg_monthly_fee', 'retail_deposit_pct',
     'commercial_deposit_pct', 'active_loans', 'total_loan_balance_billions',
     'new_loans_30d', 'mortgage_balance_billions', 'digital_transactions_millions',
-    'branch_transactions_millions', 'avg_10y_rate', 'avg_2y_rate', 'rate_volatility',
-    'yield_curve_slope', 'checking_account_pct', 'digital_transaction_pct',
+    'branch_transactions_millions', 'avg_10y_rate', 'avg_2y_rate', 'avg_fed_funds_rate',
+    'rate_volatility', 'yield_curve_slope', 'equity_shock_pct', 'credit_spread_shock_bps',
+    'fx_shock_pct', 'liquidity_runoff_shock_pct', 'checking_account_pct', 'digital_transaction_pct',
     'new_loan_rate', 'month_sin', 'month_cos', 'quarter', 'prior_month_fee_income',
     'prior_month_transactions'
 ]
@@ -414,7 +426,13 @@ monthly_metrics AS (
 market_conditions AS (
     SELECT
         DATE_TRUNC('month', date) as month,
-        AVG(rate_10y) as avg_10y_rate
+        AVG(rate_10y) as avg_10y_rate,
+        AVG(rate_2y) as avg_2y_rate,
+        AVG(fed_funds_rate) as avg_fed_funds_rate,
+        AVG(rate_10y - fed_funds_rate) * 100.0 as credit_spread_shock_bps,
+        AVG(rate_2y - rate_10y) as fx_shock_pct,
+        AVG(rate_2y - fed_funds_rate) as liquidity_runoff_shock_pct,
+        AVG(rate_10y - rate_2y) * 0.5 as equity_shock_pct
     FROM cfo_banking_demo.silver_treasury.yield_curves
     WHERE date >= DATE_SUB(CURRENT_DATE(), 730)
     GROUP BY DATE_TRUNC('month', date)
@@ -467,6 +485,12 @@ SELECT
 
     -- Market conditions
     mc.avg_10y_rate,
+    mc.avg_2y_rate,
+    mc.avg_fed_funds_rate,
+    mc.equity_shock_pct,
+    mc.credit_spread_shock_bps,
+    mc.fx_shock_pct,
+    mc.liquidity_runoff_shock_pct,
 
     -- Time features (cyclical encoding to reduce overfitting)
     SIN(2 * PI() * MONTH(m.month) / 12) as month_sin,
@@ -508,7 +532,8 @@ nie_feature_cols = [
     'active_accounts', 'total_assets_billions', 'total_transactions_millions',
     'active_branches', 'digital_users', 'loan_count', 'total_loan_balance_billions',
     'delinquent_loans', 'new_accounts_30d', 'new_loans_30d', 'digital_adoption_rate',
-    'transactions_per_account', 'delinquency_rate', 'avg_10y_rate',
+    'transactions_per_account', 'delinquency_rate', 'avg_10y_rate', 'avg_2y_rate', 'avg_fed_funds_rate',
+    'equity_shock_pct', 'credit_spread_shock_bps', 'fx_shock_pct', 'liquidity_runoff_shock_pct',
     'month_sin', 'month_cos', 'quarter', 'prior_month_expense', 'prior_month_accounts'
 ]
 

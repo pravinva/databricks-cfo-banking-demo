@@ -84,6 +84,12 @@ CREATE OR REPLACE TABLE {CATALOG}.{SCHEMA}.ppnr_scenario_drivers_quarterly (
   rate_10y_pct DOUBLE,
   curve_slope DOUBLE, -- 10Y - 2Y
 
+  -- Non-rate market + liquidity shocks
+  equity_shock_pct DOUBLE,          -- e.g., -0.15 for -15%
+  credit_spread_shock_bps DOUBLE,   -- e.g., +120 bps
+  fx_shock_pct DOUBLE,              -- e.g., +0.05 for +5% USD
+  liquidity_runoff_shock_pct DOUBLE,-- e.g., +0.08 for 8% incremental runoff
+
   -- Simple planning levers (multipliers; 1.0 = baseline)
   fee_income_multiplier DOUBLE,
   expense_multiplier DOUBLE
@@ -109,6 +115,23 @@ USING DELTA
 """)
 
 spark.sql(f"""
+CREATE OR REPLACE TABLE {CATALOG}.{SCHEMA}.ppnr_market_shock_sensitivities (
+  assumption_set STRING,
+  as_of_date DATE,
+  nonii_equity_beta DOUBLE,                      -- per +1.00 equity shock
+  nonii_credit_spread_beta_per_100bps DOUBLE,   -- per +100 bps
+  nonii_fx_beta DOUBLE,                          -- per +1.00 FX shock
+  nonii_liquidity_beta DOUBLE,                   -- per +1.00 runoff shock
+  nonie_equity_beta DOUBLE,                      -- per +1.00 equity shock
+  nonie_credit_spread_beta_per_100bps DOUBLE,   -- per +100 bps
+  nonie_fx_beta DOUBLE,                          -- per +1.00 FX shock
+  nonie_liquidity_beta DOUBLE,                   -- per +1.00 runoff shock
+  notes STRING
+)
+USING DELTA
+""")
+
+spark.sql(f"""
 CREATE OR REPLACE TABLE {CATALOG}.{SCHEMA}.ppnr_projection_quarterly (
   scenario_id STRING,
   quarter_start DATE,
@@ -116,6 +139,10 @@ CREATE OR REPLACE TABLE {CATALOG}.{SCHEMA}.ppnr_projection_quarterly (
   -- Drivers (copied for dashboarding / joins)
   rate_2y_pct DOUBLE,
   rate_2y_delta_bps DOUBLE,
+  equity_shock_pct DOUBLE,
+  credit_spread_shock_bps DOUBLE,
+  fx_shock_pct DOUBLE,
+  liquidity_runoff_shock_pct DOUBLE,
   fee_income_multiplier DOUBLE,
   expense_multiplier DOUBLE,
 
@@ -132,7 +159,10 @@ CREATE OR REPLACE TABLE {CATALOG}.{SCHEMA}.ppnr_projection_quarterly (
   scenario_ppnr_usd DOUBLE,
 
   -- Deltas
-  delta_ppnr_usd DOUBLE
+  delta_ppnr_usd DOUBLE,
+  delta_ppnr_rate_usd DOUBLE,
+  delta_ppnr_market_usd DOUBLE,
+  delta_ppnr_liquidity_usd DOUBLE
 )
 USING DELTA
 """)
@@ -191,6 +221,25 @@ SELECT
   'Derived from sum(current_balance * predicted_beta) at latest prediction_timestamp. Assumes 100bps = 1% move; quarterly impact = annual/4. Asset repricing not modeled in MVP.' AS notes
 FROM exposure
 CROSS JOIN asof
+""")
+
+# Default market/liquidity shock sensitivities for MVP attribution.
+spark.sql(f"TRUNCATE TABLE {CATALOG}.{SCHEMA}.ppnr_market_shock_sensitivities")
+spark.sql(f"""
+INSERT INTO {CATALOG}.{SCHEMA}.ppnr_market_shock_sensitivities
+VALUES (
+  'default_market_v1',
+  CURRENT_DATE(),
+  0.35,   -- nonii_equity_beta
+  -0.04,  -- nonii_credit_spread_beta_per_100bps
+  -0.10,  -- nonii_fx_beta
+  -0.50,  -- nonii_liquidity_beta
+  -0.05,  -- nonie_equity_beta
+  0.03,   -- nonie_credit_spread_beta_per_100bps
+  0.06,   -- nonie_fx_beta
+  0.20,   -- nonie_liquidity_beta
+  'MVP sensitivity set for explicit market/liquidity shock attribution. Replace with calibrated elasticities when available.'
+)
 """)
 
 # COMMAND ----------
@@ -283,9 +332,10 @@ scenarios AS (
   SELECT scenario_id FROM {CATALOG}.{SCHEMA}.ppnr_scenario_catalog
 ),
 scenario_shocks AS (
-  SELECT 'baseline' AS scenario_id, 0.0 AS shock_bps UNION ALL
-  SELECT 'rate_hike_100', 100.0 UNION ALL
-  SELECT 'rate_cut_100', -100.0
+  SELECT 'baseline' AS scenario_id, 0.0 AS shock_bps, 0.00 AS equity_shock_pct,   0.0 AS credit_spread_shock_bps, 0.00 AS fx_shock_pct, 0.00 AS liquidity_runoff_shock_pct UNION ALL
+  SELECT 'rate_hike_100', 100.0,           -0.05,          40.0,                    0.01,                   0.03 UNION ALL
+  SELECT 'rate_cut_100', -100.0,           0.03,          -20.0,                   -0.01,                  -0.01 UNION ALL
+  SELECT 'market_shock', 0.0,              -0.18,         120.0,                    0.05,                   0.08
 )
 INSERT INTO {CATALOG}.{SCHEMA}.ppnr_scenario_drivers_quarterly
 SELECT
@@ -297,8 +347,12 @@ SELECT
   (r.latest_rate_2y + (ss.shock_bps / 100.0)) AS rate_2y_pct,
   (r.latest_rate_10y + (ss.shock_bps / 100.0)) AS rate_10y_pct,
   ((r.latest_rate_10y + (ss.shock_bps / 100.0)) - (r.latest_rate_2y + (ss.shock_bps / 100.0))) AS curve_slope,
+  ss.equity_shock_pct,
+  ss.credit_spread_shock_bps,
+  ss.fx_shock_pct,
+  ss.liquidity_runoff_shock_pct,
   1.0 AS fee_income_multiplier,
-  1.0 AS expense_multiplier
+  CASE WHEN s.scenario_id = 'market_shock' THEN 1.05 ELSE 1.0 END AS expense_multiplier
 FROM scenarios s
 JOIN scenario_shocks ss
   ON s.scenario_id = ss.scenario_id
@@ -324,6 +378,13 @@ if USE_FULL_NII_REPRICING:
       SELECT d.*
       FROM {CATALOG}.{SCHEMA}.ppnr_scenario_drivers_quarterly d
     ),
+    market_assumptions AS (
+      SELECT *
+      FROM {CATALOG}.{SCHEMA}.ppnr_market_shock_sensitivities
+      WHERE assumption_set = 'default_market_v1'
+      ORDER BY as_of_date DESC
+      LIMIT 1
+    ),
     baseline_rate AS (
       SELECT
         MAX(CASE WHEN scenario_id = 'baseline' THEN rate_2y_pct END) AS baseline_rate_2y_pct
@@ -344,6 +405,10 @@ if USE_FULL_NII_REPRICING:
       b.quarter_start,
       d.rate_2y_pct,
       (d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 AS rate_2y_delta_bps,
+      d.equity_shock_pct,
+      d.credit_spread_shock_bps,
+      d.fx_shock_pct,
+      d.liquidity_runoff_shock_pct,
       d.fee_income_multiplier,
       d.expense_multiplier,
 
@@ -353,18 +418,97 @@ if USE_FULL_NII_REPRICING:
       (nb.nii_usd + b.baseline_non_interest_income_usd - b.baseline_non_interest_expense_usd) AS baseline_ppnr_usd,
 
       ns.nii_usd AS scenario_nii_usd,
-      (b.baseline_non_interest_income_usd * d.fee_income_multiplier) AS scenario_non_interest_income_usd,
-      (b.baseline_non_interest_expense_usd * d.expense_multiplier) AS scenario_non_interest_expense_usd,
-      (ns.nii_usd + (b.baseline_non_interest_income_usd * d.fee_income_multiplier) - (b.baseline_non_interest_expense_usd * d.expense_multiplier)) AS scenario_ppnr_usd,
+      (
+        b.baseline_non_interest_income_usd * GREATEST(
+          0.0,
+          1.0
+          + (d.fee_income_multiplier - 1.0)
+          + (d.equity_shock_pct * ma.nonii_equity_beta)
+          + ((d.credit_spread_shock_bps / 100.0) * ma.nonii_credit_spread_beta_per_100bps)
+          + (d.fx_shock_pct * ma.nonii_fx_beta)
+          + (d.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta)
+        )
+      ) AS scenario_non_interest_income_usd,
+      (
+        b.baseline_non_interest_expense_usd * GREATEST(
+          0.0,
+          1.0
+          + (d.expense_multiplier - 1.0)
+          + (d.equity_shock_pct * ma.nonie_equity_beta)
+          + ((d.credit_spread_shock_bps / 100.0) * ma.nonie_credit_spread_beta_per_100bps)
+          + (d.fx_shock_pct * ma.nonie_fx_beta)
+          + (d.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta)
+        )
+      ) AS scenario_non_interest_expense_usd,
+      (
+        ns.nii_usd
+        + (
+          b.baseline_non_interest_income_usd * GREATEST(
+            0.0,
+            1.0
+            + (d.fee_income_multiplier - 1.0)
+            + (d.equity_shock_pct * ma.nonii_equity_beta)
+            + ((d.credit_spread_shock_bps / 100.0) * ma.nonii_credit_spread_beta_per_100bps)
+            + (d.fx_shock_pct * ma.nonii_fx_beta)
+            + (d.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta)
+          )
+        )
+        - (
+          b.baseline_non_interest_expense_usd * GREATEST(
+            0.0,
+            1.0
+            + (d.expense_multiplier - 1.0)
+            + (d.equity_shock_pct * ma.nonie_equity_beta)
+            + ((d.credit_spread_shock_bps / 100.0) * ma.nonie_credit_spread_beta_per_100bps)
+            + (d.fx_shock_pct * ma.nonie_fx_beta)
+            + (d.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta)
+          )
+        )
+      ) AS scenario_ppnr_usd,
 
       (
-        (ns.nii_usd + (b.baseline_non_interest_income_usd * d.fee_income_multiplier) - (b.baseline_non_interest_expense_usd * d.expense_multiplier))
+        (
+          ns.nii_usd
+          + (
+            b.baseline_non_interest_income_usd * GREATEST(
+              0.0,
+              1.0
+              + (d.fee_income_multiplier - 1.0)
+              + (d.equity_shock_pct * ma.nonii_equity_beta)
+              + ((d.credit_spread_shock_bps / 100.0) * ma.nonii_credit_spread_beta_per_100bps)
+              + (d.fx_shock_pct * ma.nonii_fx_beta)
+              + (d.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta)
+            )
+          )
+          - (
+            b.baseline_non_interest_expense_usd * GREATEST(
+              0.0,
+              1.0
+              + (d.expense_multiplier - 1.0)
+              + (d.equity_shock_pct * ma.nonie_equity_beta)
+              + ((d.credit_spread_shock_bps / 100.0) * ma.nonie_credit_spread_beta_per_100bps)
+              + (d.fx_shock_pct * ma.nonie_fx_beta)
+              + (d.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta)
+            )
+          )
+        )
         - (nb.nii_usd + b.baseline_non_interest_income_usd - b.baseline_non_interest_expense_usd)
       ) AS delta_ppnr_usd
+      ,
+      (ns.nii_usd - nb.nii_usd) AS delta_ppnr_rate_usd,
+      (
+        (b.baseline_non_interest_income_usd * ((d.equity_shock_pct * ma.nonii_equity_beta) + ((d.credit_spread_shock_bps / 100.0) * ma.nonii_credit_spread_beta_per_100bps) + (d.fx_shock_pct * ma.nonii_fx_beta)))
+        - (b.baseline_non_interest_expense_usd * ((d.equity_shock_pct * ma.nonie_equity_beta) + ((d.credit_spread_shock_bps / 100.0) * ma.nonie_credit_spread_beta_per_100bps) + (d.fx_shock_pct * ma.nonie_fx_beta)))
+      ) AS delta_ppnr_market_usd,
+      (
+        (b.baseline_non_interest_income_usd * (d.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta))
+        - (b.baseline_non_interest_expense_usd * (d.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta))
+      ) AS delta_ppnr_liquidity_usd
     FROM baseline b
     JOIN drivers d
       ON b.quarter_start = d.quarter_start
     CROSS JOIN baseline_rate br
+    CROSS JOIN market_assumptions ma
     JOIN nii_repricing ns
       ON ns.scenario_id = d.scenario_id
      AND ns.quarter_start = b.quarter_start
@@ -387,6 +531,13 @@ else:
       SELECT d.*
       FROM {CATALOG}.{SCHEMA}.ppnr_scenario_drivers_quarterly d
     ),
+    market_assumptions AS (
+      SELECT *
+      FROM {CATALOG}.{SCHEMA}.ppnr_market_shock_sensitivities
+      WHERE assumption_set = 'default_market_v1'
+      ORDER BY as_of_date DESC
+      LIMIT 1
+    ),
     baseline_rate AS (
       SELECT
         MAX(CASE WHEN scenario_id = 'baseline' THEN rate_2y_pct END) AS baseline_rate_2y_pct
@@ -398,6 +549,10 @@ else:
       b.quarter_start,
       d.rate_2y_pct,
       (d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 AS rate_2y_delta_bps,
+      d.equity_shock_pct,
+      d.credit_spread_shock_bps,
+      d.fx_shock_pct,
+      d.liquidity_runoff_shock_pct,
       d.fee_income_multiplier,
       d.expense_multiplier,
       b.baseline_nii_usd,
@@ -407,28 +562,101 @@ else:
       (b.baseline_nii_usd
         - (a.delta_deposit_interest_expense_qtr_100bps_usd * ((d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 / 100.0))
       ) AS scenario_nii_usd,
-      (b.baseline_non_interest_income_usd * d.fee_income_multiplier) AS scenario_non_interest_income_usd,
-      (b.baseline_non_interest_expense_usd * d.expense_multiplier) AS scenario_non_interest_expense_usd,
+      (
+        b.baseline_non_interest_income_usd * GREATEST(
+          0.0,
+          1.0
+          + (d.fee_income_multiplier - 1.0)
+          + (d.equity_shock_pct * ma.nonii_equity_beta)
+          + ((d.credit_spread_shock_bps / 100.0) * ma.nonii_credit_spread_beta_per_100bps)
+          + (d.fx_shock_pct * ma.nonii_fx_beta)
+          + (d.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta)
+        )
+      ) AS scenario_non_interest_income_usd,
+      (
+        b.baseline_non_interest_expense_usd * GREATEST(
+          0.0,
+          1.0
+          + (d.expense_multiplier - 1.0)
+          + (d.equity_shock_pct * ma.nonie_equity_beta)
+          + ((d.credit_spread_shock_bps / 100.0) * ma.nonie_credit_spread_beta_per_100bps)
+          + (d.fx_shock_pct * ma.nonie_fx_beta)
+          + (d.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta)
+        )
+      ) AS scenario_non_interest_expense_usd,
       (
         (b.baseline_nii_usd
           - (a.delta_deposit_interest_expense_qtr_100bps_usd * ((d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 / 100.0))
         )
-        + (b.baseline_non_interest_income_usd * d.fee_income_multiplier)
-        - (b.baseline_non_interest_expense_usd * d.expense_multiplier)
+        + (
+          b.baseline_non_interest_income_usd * GREATEST(
+            0.0,
+            1.0
+            + (d.fee_income_multiplier - 1.0)
+            + (d.equity_shock_pct * ma.nonii_equity_beta)
+            + ((d.credit_spread_shock_bps / 100.0) * ma.nonii_credit_spread_beta_per_100bps)
+            + (d.fx_shock_pct * ma.nonii_fx_beta)
+            + (d.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta)
+          )
+        )
+        - (
+          b.baseline_non_interest_expense_usd * GREATEST(
+            0.0,
+            1.0
+            + (d.expense_multiplier - 1.0)
+            + (d.equity_shock_pct * ma.nonie_equity_beta)
+            + ((d.credit_spread_shock_bps / 100.0) * ma.nonie_credit_spread_beta_per_100bps)
+            + (d.fx_shock_pct * ma.nonie_fx_beta)
+            + (d.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta)
+          )
+        )
       ) AS scenario_ppnr_usd,
       (
         (
           (b.baseline_nii_usd
             - (a.delta_deposit_interest_expense_qtr_100bps_usd * ((d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 / 100.0))
           )
-          + (b.baseline_non_interest_income_usd * d.fee_income_multiplier)
-          - (b.baseline_non_interest_expense_usd * d.expense_multiplier)
+          + (
+            b.baseline_non_interest_income_usd * GREATEST(
+              0.0,
+              1.0
+              + (d.fee_income_multiplier - 1.0)
+              + (d.equity_shock_pct * ma.nonii_equity_beta)
+              + ((d.credit_spread_shock_bps / 100.0) * ma.nonii_credit_spread_beta_per_100bps)
+              + (d.fx_shock_pct * ma.nonii_fx_beta)
+              + (d.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta)
+            )
+          )
+          - (
+            b.baseline_non_interest_expense_usd * GREATEST(
+              0.0,
+              1.0
+              + (d.expense_multiplier - 1.0)
+              + (d.equity_shock_pct * ma.nonie_equity_beta)
+              + ((d.credit_spread_shock_bps / 100.0) * ma.nonie_credit_spread_beta_per_100bps)
+              + (d.fx_shock_pct * ma.nonie_fx_beta)
+              + (d.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta)
+            )
+          )
         ) - b.baseline_ppnr_usd
       ) AS delta_ppnr_usd
+      ,
+      (
+        - (a.delta_deposit_interest_expense_qtr_100bps_usd * ((d.rate_2y_pct - br.baseline_rate_2y_pct) * 100.0 / 100.0))
+      ) AS delta_ppnr_rate_usd,
+      (
+        (b.baseline_non_interest_income_usd * ((d.equity_shock_pct * ma.nonii_equity_beta) + ((d.credit_spread_shock_bps / 100.0) * ma.nonii_credit_spread_beta_per_100bps) + (d.fx_shock_pct * ma.nonii_fx_beta)))
+        - (b.baseline_non_interest_expense_usd * ((d.equity_shock_pct * ma.nonie_equity_beta) + ((d.credit_spread_shock_bps / 100.0) * ma.nonie_credit_spread_beta_per_100bps) + (d.fx_shock_pct * ma.nonie_fx_beta)))
+      ) AS delta_ppnr_market_usd,
+      (
+        (b.baseline_non_interest_income_usd * (d.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta))
+        - (b.baseline_non_interest_expense_usd * (d.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta))
+      ) AS delta_ppnr_liquidity_usd
     FROM baseline b
     JOIN drivers d
       ON b.quarter_start = d.quarter_start
     CROSS JOIN assumptions a
+    CROSS JOIN market_assumptions ma
     CROSS JOIN baseline_rate br
     """)
 
