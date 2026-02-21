@@ -331,7 +331,10 @@ CREATE OR REPLACE TABLE {OUT_QTR} (
   non_interest_income_usd DOUBLE,
   non_interest_expense_usd DOUBLE,
   ppnr_usd DOUBLE,
-  delta_ppnr_usd DOUBLE
+  delta_ppnr_usd DOUBLE,
+  delta_ppnr_rate_usd DOUBLE,
+  delta_ppnr_market_usd DOUBLE,
+  delta_ppnr_liquidity_usd DOUBLE
 )
 USING DELTA
 """)
@@ -385,6 +388,25 @@ base AS (
     ) q
   ) x
   GROUP BY quarter_start
+),
+base_components AS (
+  SELECT
+    n.quarter_start,
+    n.nii_usd AS baseline_nii_usd,
+    m.non_interest_income_usd AS baseline_non_interest_income_usd,
+    m.non_interest_expense_usd AS baseline_non_interest_expense_usd
+  FROM nii_qtr n
+  JOIN ml_qtr m
+    ON n.scenario_id = m.scenario_id
+   AND n.quarter_start = m.quarter_start
+  WHERE n.scenario_id = 'baseline'
+),
+market_assumptions AS (
+  SELECT *
+  FROM {CATALOG}.{SCHEMA}.ppnr_market_shock_sensitivities
+  WHERE assumption_set = 'default_market_v1'
+  ORDER BY as_of_date DESC
+  LIMIT 1
 )
 INSERT INTO {OUT_QTR}
 SELECT
@@ -403,13 +425,31 @@ SELECT
   (
     (n.nii_usd + m.non_interest_income_usd - m.non_interest_expense_usd)
     - b.baseline_ppnr_usd
-  ) AS delta_ppnr_usd
+  ) AS delta_ppnr_usd,
+  (n.nii_usd - bc.baseline_nii_usd) AS delta_ppnr_rate_usd,
+  (
+    (
+      (m.non_interest_income_usd - bc.baseline_non_interest_income_usd)
+      - (m.non_interest_expense_usd - bc.baseline_non_interest_expense_usd)
+    )
+    - (
+      (bc.baseline_non_interest_income_usd * (m.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta))
+      - (bc.baseline_non_interest_expense_usd * (m.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta))
+    )
+  ) AS delta_ppnr_market_usd,
+  (
+    (bc.baseline_non_interest_income_usd * (m.liquidity_runoff_shock_pct * ma.nonii_liquidity_beta))
+    - (bc.baseline_non_interest_expense_usd * (m.liquidity_runoff_shock_pct * ma.nonie_liquidity_beta))
+  ) AS delta_ppnr_liquidity_usd
 FROM nii_qtr n
 JOIN ml_qtr m
   ON n.scenario_id = m.scenario_id
  AND n.quarter_start = m.quarter_start
 JOIN base b
   ON n.quarter_start = b.quarter_start
+JOIN base_components bc
+  ON n.quarter_start = bc.quarter_start
+CROSS JOIN market_assumptions ma
 """)
 
 # COMMAND ----------
@@ -427,7 +467,7 @@ ORDER BY scenario_id
 """))
 
 display(spark.sql(f"""
-SELECT quarter_start, scenario_id, rate_2y_delta_bps, ppnr_usd, delta_ppnr_usd
+SELECT quarter_start, scenario_id, rate_2y_delta_bps, ppnr_usd, delta_ppnr_usd, delta_ppnr_rate_usd, delta_ppnr_market_usd, delta_ppnr_liquidity_usd
 FROM {OUT_QTR}
 ORDER BY quarter_start, scenario_id
 LIMIT 60
