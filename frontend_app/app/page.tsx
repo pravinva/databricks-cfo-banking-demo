@@ -60,24 +60,33 @@ function DepositPortfolioBreakdown() {
     return <div className="text-sm text-slate-600">Loading...</div>
   }
 
+  const compactData = data.slice(0, 6)
+
   return (
-    <div className="space-y-3">
-      {data.map((item: any, index: number) => (
-        <div
-          key={index}
-          onClick={() => navigateTo('deposit-table', { product_type: item[0] }, `${item[0]} Deposits`)}
-          className="flex items-center justify-between p-4 border-2 border-bloomberg-border bg-bloomberg-surface hover:border-bloomberg-orange/70 transition-colors group cursor-pointer"
-        >
-          <div>
-            <div className="font-bold text-bloomberg-orange group-hover:text-bloomberg-amber transition-colors font-mono text-sm">{item[0]}</div>
-            <div className="text-xs text-bloomberg-text-dim font-mono mt-1">{Number(item[1]).toLocaleString()} accounts</div>
+    <div className="space-y-2">
+      <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+        {compactData.map((item: any, index: number) => (
+          <div
+            key={index}
+            onClick={() => navigateTo('deposit-table', { product_type: item[0] }, `${item[0]} Deposits`)}
+            className="flex items-center justify-between p-3 border border-bloomberg-border bg-bloomberg-surface hover:border-bloomberg-orange/70 transition-colors group cursor-pointer"
+          >
+            <div>
+              <div className="font-bold text-bloomberg-orange group-hover:text-bloomberg-amber transition-colors font-mono text-sm">{item[0]}</div>
+              <div className="text-xs text-bloomberg-text-dim font-mono mt-1">{Number(item[1]).toLocaleString()} accounts</div>
+            </div>
+            <div className="text-right">
+              <div className="font-bold text-bloomberg-text font-mono text-base">${Number(item[2]).toFixed(2)}B</div>
+              <div className="text-xs text-bloomberg-text-dim font-mono mt-1">{Number(item[3]).toFixed(2)}% avg rate</div>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="font-bold text-bloomberg-text font-mono text-lg">${Number(item[2]).toFixed(2)}B</div>
-            <div className="text-xs text-bloomberg-text-dim font-mono mt-1">{Number(item[3]).toFixed(2)}% avg rate</div>
-          </div>
+        ))}
+      </div>
+      {data.length > compactData.length ? (
+        <div className="text-[11px] text-bloomberg-text-dim font-mono">
+          Showing top {compactData.length} products. Open Deposits drill-down for full list.
         </div>
-      ))}
+      ) : null}
     </div>
   )
 }
@@ -402,14 +411,6 @@ function DashboardContent() {
                   {executiveReportLoading ? 'WORKING…' : 'DOWNLOAD ALCO PDF'}
                 </button>
                 <button
-                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-green font-mono text-xs transition-colors disabled:opacity-50 hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
-                  onClick={() => downloadLatestExecutiveReport('html')}
-                  disabled={executiveReportLoading}
-                  title="Download latest HTML"
-                >
-                  HTML
-                </button>
-                <button
                   className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-orange font-mono text-xs transition-colors disabled:opacity-50 hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
                   onClick={runExecutiveReportNow}
                   disabled={executiveReportLoading}
@@ -445,7 +446,7 @@ function DashboardContent() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 py-6">
         <Breadcrumbs />
 
         {state.view === 'deposit-table' ? (
@@ -456,7 +457,7 @@ function DashboardContent() {
         ) : (
           <>
             {/* KPI Cards Row */}
-            <div className="grid grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-3 gap-4 mb-6">
               <div onClick={() => navigateTo('deposit-table', {}, 'All Deposits')} className="cursor-pointer">
                 <MetricCard
                   title="Total Deposits"
@@ -490,7 +491,7 @@ function DashboardContent() {
             </div>
 
             {/* Treasury Modeling Tabs */}
-            <Tabs defaultValue="deposits" className="space-y-6 mb-8">
+            <Tabs defaultValue="ppnr" className="space-y-5 mb-6">
               <TabsList>
                 <TabsTrigger value="deposits">Deposits</TabsTrigger>
                 <TabsTrigger value="deposit-beta" className="text-bloomberg-orange">
@@ -539,8 +540,8 @@ function DashboardContent() {
             </Tabs>
 
             {/* Market + PPNR Scenario Snapshot */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-              <Card className="xl:col-span-4">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+              <Card className="xl:col-span-3">
                 <CardHeader>
                   <div className="flex items-center">
                     <h3
@@ -556,23 +557,23 @@ function DashboardContent() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <YieldCurveChart height={180} />
+                  <YieldCurveChart height={150} />
                 </CardContent>
               </Card>
 
-              <Card className="xl:col-span-8">
+              <Card className="xl:col-span-9">
                 <CardHeader>
                   <div className="flex items-center">
                     <h3
                       className="text-lg font-bold leading-none tracking-wider font-mono uppercase"
                       style={{ color: '#ff8c00 !important' }}
                     >
-                      PPNR SCENARIO SNAPSHOT (ALCO)
+                      PPNR SCENARIO PLANNING (ALCO)
                     </h3>
                     <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml (fallback to ppnr_projection_quarterly / ml_models.ppnr_forecasts) via /api/data/ppnr-scenario-summary" />
                   </div>
                   <p className="text-sm font-mono" style={{ color: '#999999' }}>
-                    Q1 vs Q9 outlook and attribution by scenario
+                    Expanded scenario view: trajectory, cumulative impact, and optional attribution detail
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -581,11 +582,14 @@ function DashboardContent() {
                       No PPNR scenario data available yet. Run scenario planning notebooks.
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-3 gap-3">
-                        {ppnrScenarioSummary.slice(0, 3).map((row: any, idx: number) => (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                        {ppnrScenarioSummary.map((row: any, idx: number) => (
                           <div key={idx} className="p-3 border-2 border-bloomberg-border bg-black/20">
                             <div className="text-xs text-bloomberg-text-dim font-mono uppercase tracking-wider">{row.scenario}</div>
+                            <div className="text-base font-bold text-bloomberg-text font-mono mt-1">
+                              Q1 ${(Number(row.q1_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                            </div>
                             <div className="text-lg font-bold text-bloomberg-text font-mono mt-1">
                               ${(Number(row.q9_ppnr_usd || 0) / 1e9).toFixed(2)}B
                             </div>
@@ -595,6 +599,9 @@ function DashboardContent() {
                             >
                               {Number(row.q9_delta_ppnr_usd || 0) >= 0 ? '+' : ''}
                               ${(Number(row.q9_delta_ppnr_usd || 0) / 1e6).toFixed(0)}M vs baseline
+                            </div>
+                            <div className="text-xs font-mono mt-1 text-bloomberg-text-dim">
+                              9Q Cum ${(Number(row.cumulative_9q_ppnr_usd || 0) / 1e9).toFixed(2)}B
                             </div>
                           </div>
                         ))}
@@ -611,10 +618,8 @@ function DashboardContent() {
                               <th className="text-right py-2">FX</th>
                               <th className="text-right py-2">Runoff</th>
                               <th className="text-right py-2">Q1 PPNR</th>
+                              <th className="text-right py-2">Q4 PPNR</th>
                               <th className="text-right py-2">Q9 PPNR</th>
-                              <th className="text-right py-2">Q9 Δ Rate</th>
-                              <th className="text-right py-2">Q9 Δ Market</th>
-                              <th className="text-right py-2">Q9 Δ Liquidity</th>
                               <th className="text-right py-2">9Q Cumulative</th>
                             </tr>
                           </thead>
@@ -646,16 +651,10 @@ function DashboardContent() {
                                   ${(Number(row.q1_ppnr_usd || 0) / 1e6).toFixed(0)}M
                                 </td>
                                 <td className="py-2 text-right text-bloomberg-text">
+                                  ${(Number(row.q4_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                </td>
+                                <td className="py-2 text-right text-bloomberg-text">
                                   ${(Number(row.q9_ppnr_usd || 0) / 1e6).toFixed(0)}M
-                                </td>
-                                <td className={`py-2 text-right ${Number(row.q9_delta_rate_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
-                                  {Number(row.q9_delta_rate_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_rate_usd || 0) / 1e6).toFixed(0)}M
-                                </td>
-                                <td className={`py-2 text-right ${Number(row.q9_delta_market_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
-                                  {Number(row.q9_delta_market_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_market_usd || 0) / 1e6).toFixed(0)}M
-                                </td>
-                                <td className={`py-2 text-right ${Number(row.q9_delta_liquidity_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
-                                  {Number(row.q9_delta_liquidity_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_liquidity_usd || 0) / 1e6).toFixed(0)}M
                                 </td>
                                 <td className="py-2 text-right text-bloomberg-text">
                                   ${(Number(row.cumulative_9q_ppnr_usd || 0) / 1e9).toFixed(1)}B
@@ -665,6 +664,44 @@ function DashboardContent() {
                           </tbody>
                         </table>
                       </div>
+
+                      <details className="border border-bloomberg-border bg-black/20 p-3">
+                        <summary className="cursor-pointer text-xs font-mono text-bloomberg-orange uppercase tracking-wider">
+                          Show Q9 attribution details (rate / market / liquidity)
+                        </summary>
+                        <div className="overflow-x-auto mt-3">
+                          <table className="w-full text-xs font-mono">
+                            <thead>
+                              <tr className="text-bloomberg-text-dim border-b border-bloomberg-border">
+                                <th className="text-left py-2">Scenario</th>
+                                <th className="text-right py-2">Q9 Δ Total</th>
+                                <th className="text-right py-2">Q9 Δ Rate</th>
+                                <th className="text-right py-2">Q9 Δ Market</th>
+                                <th className="text-right py-2">Q9 Δ Liquidity</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ppnrScenarioSummary.map((row: any, idx: number) => (
+                                <tr key={idx} className="border-b border-bloomberg-border/40">
+                                  <td className="py-2 text-bloomberg-text">{row.scenario}</td>
+                                  <td className={`py-2 text-right ${Number(row.q9_delta_ppnr_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                    {Number(row.q9_delta_ppnr_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                  </td>
+                                  <td className={`py-2 text-right ${Number(row.q9_delta_rate_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                    {Number(row.q9_delta_rate_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_rate_usd || 0) / 1e6).toFixed(0)}M
+                                  </td>
+                                  <td className={`py-2 text-right ${Number(row.q9_delta_market_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                    {Number(row.q9_delta_market_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_market_usd || 0) / 1e6).toFixed(0)}M
+                                  </td>
+                                  <td className={`py-2 text-right ${Number(row.q9_delta_liquidity_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                    {Number(row.q9_delta_liquidity_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_liquidity_usd || 0) / 1e6).toFixed(0)}M
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
                     </div>
                   )}
                 </CardContent>

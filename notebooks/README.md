@@ -160,8 +160,20 @@ Use this sequence to produce a complete “what-if → PPNR” output set:
 **What It Does**:
 - Aggregates existing `ml_models.ppnr_forecasts` (monthly) to **quarterly** baseline PPNR
 - Defines scenario inputs per quarter (driver grid includes `fed_funds_pct`, `sofr_pct`, `prime_pct`, `rate_2y_pct`, `rate_10y_pct`, `curve_slope`)
+- Includes explicit non-rate and liquidity shock drivers for scenario planning:
+  - `equity_shock_pct`
+  - `credit_spread_shock_bps`
+  - `fx_shock_pct`
+  - `liquidity_runoff_shock_pct`
+- Supports `market_shock` alongside rate scenarios for ALCO what-if analysis
 - Rebuilds PPNR using repriced NII when `NII_Repricing_Engine_2Y.py` has been run
 - Writes scenario outputs to `gold_finance.ppnr_projection_quarterly`
+
+**Attribution Outputs (Quarterly)**:
+- `delta_ppnr_rate_usd`
+- `delta_ppnr_market_usd`
+- `delta_ppnr_liquidity_usd`
+- `delta_ppnr_usd`
 
 **Output Tables**:
 - `cfo_banking_demo.gold_finance.ppnr_scenario_catalog`

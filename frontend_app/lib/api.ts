@@ -6,7 +6,10 @@ export function getApiBaseUrl(): string {
     if (port === '3000') {
       const isHttps = protocol === 'https:'
       const backendProtocol = isHttps ? 'https:' : 'http:'
-      return `${backendProtocol}//${hostname}:8000`
+      // On macOS, localhost may resolve to IPv6 (::1) while uvicorn is bound to 127.0.0.1.
+      // Force IPv4 loopback for local dev to avoid silent API connection failures.
+      const backendHost = hostname === 'localhost' ? '127.0.0.1' : hostname
+      return `${backendProtocol}//${backendHost}:8000`
     }
   }
 
