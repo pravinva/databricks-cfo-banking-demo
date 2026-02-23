@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Treasury Deposit and PPNR Briefing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --db-navy: #1B3139;
+      --db-cyan: #00A8E1;
+      --db-lava: #FF3621;
+      --ink: #0f1b20;
+      --muted: #51656f;
+      --surface: #ffffff;
+      --line: #d9e2e7;
+      --ok: #117a50;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Barlow", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1000px 460px at 90% -10%, rgba(0,168,225,0.18), transparent 55%),
+        radial-gradient(860px 420px at -10% 0%, rgba(255,54,33,0.12), transparent 48%),
+        linear-gradient(180deg, #f8fbfc 0%, #eef4f7 100%);
+      line-height: 1.45;
+    }
+    .container { width: min(1280px, 94vw); margin: 0 auto; }
+    .hero {
+      margin: 20px auto 14px;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 16px;
+      color: #fff;
+      background: linear-gradient(130deg, var(--db-navy) 0%, #23424d 56%, #1f6f88 100%);
+      box-shadow: 0 18px 36px rgba(27,49,57,0.25);
+      overflow: hidden;
+      position: relative;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(95deg, transparent 0 76%, rgba(255,54,33,0.25) 100%);
+      pointer-events: none;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.9fr 1fr;
+      gap: 24px;
+      padding: 24px;
+      position: relative;
+      z-index: 2;
+    }
+    .title { margin: 0; font-size: clamp(1.25rem, 2.3vw, 1.95rem); letter-spacing: .2px; }
+    .subtitle { margin-top: 8px; color: #d7edf5; font-size: .97rem; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .btn {
+      border: 1px solid rgba(255,255,255,.35);
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      text-decoration: none;
+      padding: 9px 13px;
+      border-radius: 9px;
+      font-weight: 600;
+      font-size: .88rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .btn:hover { background: rgba(255,255,255,0.18); }
+    .hero-card {
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 12px;
+      background: rgba(255,255,255,.08);
+      padding: 14px;
+      font-size: .9rem;
+    }
+    .hero-card h3 { margin: 0 0 8px; font-size: .95rem; color: #f2fbff; }
+    .hero-card ul { margin: 0; padding-left: 18px; color: #d6edf4; }
+    .hero-card li { margin: 5px 0; }
+
+    .tabs {
+      margin: 12px auto 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #19303a;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-weight: 600;
+      font-size: .88rem;
+      cursor: pointer;
+    }
+    .tab.active {
+      color: #fff;
+      border-color: transparent;
+      background: linear-gradient(90deg, var(--db-navy), #255364);
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(25,48,58,0.06);
+      margin: 0 0 14px;
+      overflow: hidden;
+    }
+    .section .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff 0%, #f7fbfd 100%);
+    }
+    .section .head h2 { margin: 0; font-size: 1rem; color: #19303a; }
+    .section .body { padding: 14px 16px 16px; }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fff;
+    }
+    .card h3 { margin: 0 0 8px; font-size: .96rem; color: #18303a; }
+    .card p { margin: 0 0 8px; font-size: .92rem; color: var(--muted); }
+    .card ul { margin: 0; padding-left: 18px; }
+    .card li { margin: 4px 0; font-size: .9rem; }
+
+    .chip {
+      display: inline-block;
+      font-size: .73rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid #cfe2ec;
+      color: #2d5361;
+      background: #f4fbff;
+      margin-right: 6px;
+    }
+    .chip.rate { border-color: #bfe7f5; background: #eef9ff; color: #1c637b; }
+    .chip.market { border-color: #ffd8d3; background: #fff3f1; color: #b0392f; }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .input, .select {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 8px 10px;
+      font: inherit;
+      font-size: .88rem;
+      color: #223e4a;
+      background: #fff;
+    }
+    .input { min-width: 260px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      font-size: .86rem;
+    }
+    th, td { padding: 9px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #f5fafc; color: #234250; font-size: .8rem; text-transform: uppercase; letter-spacing: .02em; }
+    tr:hover td { background: #fbfdff; }
+    .muted { color: var(--muted); }
+    .ok { color: var(--ok); font-weight: 600; }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      margin-bottom: 10px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #1f3f4b;
+    }
+    .callout {
+      border-left: 4px solid var(--db-cyan);
+      background: #f5fbff;
+      border: 1px solid #d9ebf5;
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 9px 11px;
+      font-size: .88rem;
+      color: #2b4b57;
+    }
+    .footer {
+      margin: 6px 0 20px;
+      color: #5b727d;
+      font-size: .84rem;
+    }
+    @media (max-width: 980px) {
+      .hero-grid, .grid-2 { grid-template-columns: 1fr; }
+      .input { min-width: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <div class="hero-grid">
+        <div>
+          <h1 class="title">Treasury Deposit Modeling and PPNR Scenario Planning Briefing</h1>
+          <div class="subtitle">
+            Professional presenter companion for Databricks-hosted treasury analytics, scenario planning, and ALCO reporting.
+          </div>
+          <div class="hero-actions">
+            <a class="btn" href="https://e2-demo-field-eng.cloud.databricks.com/dashboardsv3/01f108f1192218ecb07e67641bdc54ed/published?o=1444828305810485" target="_blank" rel="noopener noreferrer">Open AI/BI Dashboard</a>
+            <a class="btn" href="https://e2-demo-field-eng.cloud.databricks.com/genie/rooms/01f101adda151c09835a99254d4c308c?o=1444828305810485" target="_blank" rel="noopener noreferrer">Open Genie Room</a>
+            <button class="btn" id="copyTalkTrackBtn" type="button">Copy Talk Track</button>
+          </div>
+        </div>
+        <aside class="hero-card">
+          <h3>Context Snapshot</h3>
+          <ul>
+            <li>Deposit analytics: beta, vintage decay, dynamic stress sensitivity.</li>
+            <li>PPNR analytics: quarterly planning with rate, market, and liquidity shocks.</li>
+            <li>Operational flow: notebooks feed UC tables, FastAPI serves frontend and Genie API proxy.</li>
+          </ul>
+        </aside>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="Briefing sections">
+      <button class="tab active" data-tab="talktrack">Talk Track</button>
+      <button class="tab" data-tab="notebooks">Notebook Summary</button>
+      <button class="tab" data-tab="channels">Genie and Dashboards</button>
+      <button class="tab" data-tab="frontend">Frontend Functionalities</button>
+    </nav>
+
+    <section id="talktrack" class="panel active">
+      <article class="section">
+        <div class="head">
+          <h2>Short Executive Talk Track</h2>
+        </div>
+        <div class="body grid-2">
+          <div class="card">
+            <h3>Deposit Modeling (60-75 seconds)</h3>
+            <p class="muted">
+              We run a three-layer deposit modeling stack so Treasury can move from static assumptions to behavior-driven stress projections.
+            </p>
+            <ul>
+              <li>Approach 1 establishes portfolio beta sensitivity by product and relationship segment.</li>
+              <li>Approach 2 adds vintage survival and runoff behavior, improving liquidity planning realism.</li>
+              <li>Approach 3 applies dynamic beta and regulatory stress views to quantify NII and EVE sensitivity under adverse paths.</li>
+              <li>Batch inference operationalizes the models for recurring portfolio-level decision support.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>PPNR Scenario Planning (60-75 seconds)</h3>
+            <p class="muted">
+              PPNR planning extends beyond rate-only scenarios by integrating explicit market and liquidity shock channels for ALCO.
+            </p>
+            <ul>
+              <li>Training notebooks generate baseline Non-Interest Income and Expense forecasts.</li>
+              <li>Scenario planning introduces curve drivers and non-rate shocks including equity, credit spread, FX, and runoff.</li>
+              <li>NII repricing and ML inference refresh quarterly scenario outputs with auditable attribution.</li>
+              <li>Executive reporting and dashboard pages present Q1-Q9 trajectory, cumulative impact, and attribution decomposition.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <article class="section">
+        <div class="head"><h2>Suggested Presentation Flow (5-7 minutes)</h2></div>
+        <div class="body">
+          <details open>
+            <summary>1) Start with deposit stability and risk sensitivity</summary>
+            <p>Lead with total deposits, beta concentration, and segment-level runoff signals to establish current balance-sheet behavior.</p>
+          </details>
+          <details open>
+            <summary>2) Transition into stress behavior and planning horizon</summary>
+            <p>Show dynamic beta and stress outcomes, then bridge into quarterly PPNR planning under baseline, rate, and market shock paths.</p>
+          </details>
+          <details open>
+            <summary>3) Close with scenario governance and actionability</summary>
+            <p>Highlight attribution (rate vs market vs liquidity), model governance cadence, and dashboard/Genie access paths for decision support.</p>
+          </details>
+          <div class="callout">
+            Presenter tip: keep commentary in business impact terms first, then explain model mechanics only where needed for confidence and governance.
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section id="notebooks" class="panel">
+      <article class="section">
+        <div class="head">
+          <h2>Tabular Summary of Notebooks</h2>
+          <span class="muted">Interactive filter and search</span>
+        </div>
+        <div class="body">
+          <div class="toolbar">
+            <input class="input" id="searchBox" type="search" placeholder="Search notebook, purpose, outputs..." />
+            <select class="select" id="domainFilter">
+              <option value="all">All Domains</option>
+              <option value="deposit">Deposit Modeling</option>
+              <option value="ppnr">PPNR and Scenario</option>
+              <option value="reporting">Reporting</option>
+              <option value="foundation">Data Foundation</option>
+            </select>
+          </div>
+          <table id="notebookTable">
+            <thead>
+              <tr>
+                <th>Notebook</th>
+                <th>Domain</th>
+                <th>Primary Purpose</th>
+                <th>Key Outputs</th>
+                <th>Typical Runtime</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-domain="deposit">
+                <td><strong>Approach1_Enhanced_Deposit_Beta_Model.py</strong></td>
+                <td>Deposit Modeling</td>
+                <td>Static beta sensitivity model and UC model registration</td>
+                <td>deposit beta training data, deposit beta model alias</td>
+                <td>5-10 min</td>
+              </tr>
+              <tr data-domain="deposit">
+                <td><strong>Approach2_Vintage_Analysis_and_Decay_Modeling.py</strong></td>
+                <td>Deposit Modeling</td>
+                <td>Cohort survival and runoff behavior analytics</td>
+                <td>cohort survival, decay metrics, runoff forecasts</td>
+                <td>10-15 min</td>
+              </tr>
+              <tr data-domain="deposit">
+                <td><strong>Approach3_Dynamic_Beta_and_Stress_Testing.py</strong></td>
+                <td>Deposit Modeling</td>
+                <td>Dynamic beta and stress scenario sensitivity</td>
+                <td>dynamic parameters, stress results, EVE sensitivity</td>
+                <td>15-20 min</td>
+              </tr>
+              <tr data-domain="deposit">
+                <td><strong>Batch_Inference_Deposit_Beta_Model.py</strong></td>
+                <td>Deposit Modeling</td>
+                <td>Portfolio scoring and scenario impacts for operations</td>
+                <td>deposit beta predictions, rate shock analysis</td>
+                <td>~5 min</td>
+              </tr>
+              <tr data-domain="ppnr">
+                <td><strong>Train_PPNR_Models.py</strong></td>
+                <td>PPNR and Scenario</td>
+                <td>Train Non-Interest Income and Expense forecasting models</td>
+                <td>training tables, monthly ppnr forecasts, UC model aliases</td>
+                <td>15-20 min</td>
+              </tr>
+              <tr data-domain="ppnr">
+                <td><strong>PPNR_Scenario_Planning_Engine.py</strong></td>
+                <td>PPNR and Scenario</td>
+                <td>Quarterly scenario planning with rate plus market/liquidity shocks</td>
+                <td>scenario drivers, scenario projections, attribution deltas</td>
+                <td>1-3 min</td>
+              </tr>
+              <tr data-domain="ppnr">
+                <td><strong>NII_Repricing_Engine_2Y.py</strong></td>
+                <td>PPNR and Scenario</td>
+                <td>Reprice NII under scenario curves and volume dynamics</td>
+                <td>nii projection quarterly, repricing assumptions tables</td>
+                <td>2-5 min</td>
+              </tr>
+              <tr data-domain="ppnr">
+                <td><strong>PPNR_Scenario_ML_Inference_2Y.py</strong></td>
+                <td>PPNR and Scenario</td>
+                <td>ML-driven NonII and NonIE under scenario paths</td>
+                <td>ppnr ML monthly, ppnr quarterly ML</td>
+                <td>1-3 min</td>
+              </tr>
+              <tr data-domain="reporting">
+                <td><strong>Generate_Report_Executive_Layout.py</strong></td>
+                <td>Reporting</td>
+                <td>Executive ALCO PDF and HTML report generation</td>
+                <td>executive report artifacts in UC volume</td>
+                <td>job-driven</td>
+              </tr>
+              <tr data-domain="reporting">
+                <td><strong>Generate_Deposit_Analytics_Report.py</strong></td>
+                <td>Reporting</td>
+                <td>Executive deposit analytics HTML report</td>
+                <td>report files and analytics summary tables</td>
+                <td>3-5 min</td>
+              </tr>
+              <tr data-domain="foundation">
+                <td><strong>Phase_1_Bronze_Tables.py</strong></td>
+                <td>Data Foundation</td>
+                <td>Synthetic data generation and baseline table seeding</td>
+                <td>bronze core tables</td>
+                <td>10-15 min</td>
+              </tr>
+              <tr data-domain="foundation">
+                <td><strong>Phase_2_DLT_Pipelines.py</strong></td>
+                <td>Data Foundation</td>
+                <td>Bronze to Silver to Gold transformations and quality</td>
+                <td>silver and gold curated tables</td>
+                <td>15-20 min initial</td>
+              </tr>
+              <tr data-domain="reporting">
+                <td><strong>Generate_Stress_Test_Results.py</strong></td>
+                <td>Reporting</td>
+                <td>CCAR-style 9-quarter stress and capital projections</td>
+                <td>stress results and summary tables</td>
+                <td>~10 min</td>
+              </tr>
+              <tr data-domain="deposit">
+                <td><strong>Generate_Vintage_Analysis_Tables.py</strong></td>
+                <td>Deposit Modeling</td>
+                <td>Vintage cohort retention refreshes for liquidity analytics</td>
+                <td>cohort survival and decay tables</td>
+                <td>5-10 min</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="channels" class="panel">
+      <article class="section">
+        <div class="head"><h2>Genie Room and AI/BI Dashboards</h2></div>
+        <div class="body grid-2">
+          <div class="card">
+            <h3>Genie Room</h3>
+            <p><strong>Room ID:</strong> <code>01f101adda151c09835a99254d4c308c</code></p>
+            <p><strong>Usage:</strong> natural language Q&A for treasury, deposit, and PPNR analytics via conversational API proxy in FastAPI.</p>
+            <p><a href="https://e2-demo-field-eng.cloud.databricks.com/genie/rooms/01f101adda151c09835a99254d4c308c?o=1444828305810485" target="_blank" rel="noopener noreferrer">Open Genie Room</a></p>
+            <p class="muted">Frontend supports persisted conversation context across messages.</p>
+          </div>
+          <div class="card">
+            <h3>Primary Published AI/BI Dashboard</h3>
+            <p><strong>Dashboard ID:</strong> <code>01f108f1192218ecb07e67641bdc54ed</code></p>
+            <p><strong>Usage:</strong> executive-facing published dashboard linked directly in the app header.</p>
+            <p><a href="https://e2-demo-field-eng.cloud.databricks.com/dashboardsv3/01f108f1192218ecb07e67641bdc54ed/published?o=1444828305810485" target="_blank" rel="noopener noreferrer">Open Published Dashboard</a></p>
+          </div>
+          <div class="card">
+            <h3>Portfolio Suite Dashboard (Lakeview)</h3>
+            <p><strong>Dashboard ID:</strong> <code>01f0fea1adbb1e97a3142da3a87f7cb8</code></p>
+            <p><strong>Usage:</strong> includes added PPNR Scenario Planning page and supporting widgets.</p>
+            <p class="muted">Automation scripts exist for adding and updating the PPNR page in this suite.</p>
+          </div>
+          <div class="card">
+            <h3>Dashboard Suite Coverage</h3>
+            <ul>
+              <li>Executive portfolio overview</li>
+              <li>ALM and treasury operations</li>
+              <li>Product and customer analytics</li>
+              <li>Gap analysis and ALM sensitivity</li>
+              <li>CCAR-style regulatory reporting</li>
+              <li>Model performance monitoring</li>
+              <li>Treasury operations command center</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section id="frontend" class="panel">
+      <article class="section">
+        <div class="head"><h2>Frontend Features and Functionalities</h2></div>
+        <div class="body">
+          <div class="grid-2">
+            <div class="card">
+              <h3>Header and Executive Controls</h3>
+              <ul>
+                <li>AI/BI Dashboard deep link.</li>
+                <li>Genie Room deep link.</li>
+                <li>Download latest ALCO PDF.</li>
+                <li>Run executive report job on demand with status feedback.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>KPI and Treasury Workspace</h3>
+              <ul>
+                <li>Core KPIs: total deposits, average predicted beta, latest PPNR.</li>
+                <li>Tabbed views: Deposits, Deposit Beta, Vintage Analysis, CCAR Stress, PPNR.</li>
+                <li>Compact market panel with treasury yield curve.</li>
+                <li>Expanded PPNR planning panel with scenario cards and trajectory table.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>PPNR Planning Experience</h3>
+              <ul>
+                <li>Scenario comparison across Q1, Q4, Q9, and cumulative nine-quarter totals.</li>
+                <li>Shock visibility: rate, equity, credit spread, FX, and runoff.</li>
+                <li>Expandable attribution view for rate, market, and liquidity contributions.</li>
+                <li>Data source fallback chain for resilient rendering.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Conversational Analytics</h3>
+              <ul>
+                <li>Floating treasury assistant integrated to Genie conversation API.</li>
+                <li>Dedicated assistant page using same Genie backend path.</li>
+                <li>Conversation continuity with stored conversation ID.</li>
+                <li>Sample question prompts for rapid exploration.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="callout" style="margin-top:10px;">
+            Local reliability note: frontend API base resolves to <code>127.0.0.1:8000</code> during local development to avoid localhost IPv6 loopback mismatches.
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <p class="footer">
+      Prepared for treasury and financial services stakeholders. This page is static and can be hosted on GitHub Pages directly.
+    </p>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll(".panel");
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        const id = tab.dataset.tab;
+        panels.forEach((p) => p.classList.toggle("active", p.id === id));
+      });
+    });
+
+    const searchBox = document.getElementById("searchBox");
+    const domainFilter = document.getElementById("domainFilter");
+    const rows = Array.from(document.querySelectorAll("#notebookTable tbody tr"));
+    function applyNotebookFilter() {
+      const query = (searchBox.value || "").toLowerCase().trim();
+      const domain = domainFilter.value;
+      rows.forEach((row) => {
+        const text = row.textContent.toLowerCase();
+        const rowDomain = row.dataset.domain;
+        const domainMatch = domain === "all" || rowDomain === domain;
+        const queryMatch = !query || text.includes(query);
+        row.style.display = domainMatch && queryMatch ? "" : "none";
+      });
+    }
+    if (searchBox && domainFilter) {
+      searchBox.addEventListener("input", applyNotebookFilter);
+      domainFilter.addEventListener("change", applyNotebookFilter);
+    }
+
+    const talkTrackText = [
+      "Deposit modeling talk track: We use a three-layer approach to move from static beta assumptions into behavior-based runoff and dynamic stress sensitivity, then operationalize the output through batch inference for recurring ALM decisions.",
+      "PPNR talk track: We train baseline NonII and NonIE models, run quarterly scenario planning with rate plus market and liquidity shocks, reprice NII, and produce auditable scenario attribution to support ALCO and executive reporting."
+    ].join("\\n\\n");
+
+    const copyBtn = document.getElementById("copyTalkTrackBtn");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(talkTrackText);
+          copyBtn.textContent = "Talk Track Copied";
+          setTimeout(() => (copyBtn.textContent = "Copy Talk Track"), 1400);
+        } catch (e) {
+          copyBtn.textContent = "Copy Failed";
+          setTimeout(() => (copyBtn.textContent = "Copy Talk Track"), 1400);
+        }
+      });
+    }
+  </script>
+</body>
+</html>
