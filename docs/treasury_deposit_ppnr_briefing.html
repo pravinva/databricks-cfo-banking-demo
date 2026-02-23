@@ -12,6 +12,7 @@
       --db-navy: #1B3139;
       --db-cyan: #00A8E1;
       --db-lava: #FF3621;
+      --bb-amber: #ff9e2a;
       --ink: #0f1b20;
       --muted: #51656f;
       --surface: #ffffff;
@@ -24,9 +25,9 @@
       font-family: "Barlow", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(1000px 460px at 90% -10%, rgba(0,168,225,0.18), transparent 55%),
-        radial-gradient(860px 420px at -10% 0%, rgba(255,54,33,0.12), transparent 48%),
-        linear-gradient(180deg, #f8fbfc 0%, #eef4f7 100%);
+        radial-gradient(1000px 460px at 90% -10%, rgba(0,168,225,0.22), transparent 55%),
+        radial-gradient(860px 420px at -10% 0%, rgba(255,54,33,0.16), transparent 48%),
+        linear-gradient(180deg, #f3f9fc 0%, #e8f1f5 100%);
       line-height: 1.45;
     }
     .container { width: min(1280px, 94vw); margin: 0 auto; }
@@ -44,7 +45,7 @@
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(95deg, transparent 0 76%, rgba(255,54,33,0.25) 100%);
+      background: linear-gradient(95deg, transparent 0 70%, rgba(255,158,42,0.24) 100%);
       pointer-events: none;
     }
     .hero-grid {
@@ -74,15 +75,53 @@
     }
     .btn:hover { background: rgba(255,255,255,0.18); }
     .hero-card {
-      border: 1px solid rgba(255,255,255,.24);
+      border: 1px solid rgba(255,255,255,.28);
       border-radius: 12px;
-      background: rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(19,43,52,0.74), rgba(19,43,52,0.58));
       padding: 14px;
       font-size: .9rem;
     }
     .hero-card h3 { margin: 0 0 8px; font-size: .95rem; color: #f2fbff; }
     .hero-card ul { margin: 0; padding-left: 18px; color: #d6edf4; }
     .hero-card li { margin: 5px 0; }
+    .panel-kpis {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .panel-kpi {
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 8px;
+      background: rgba(255,255,255,.08);
+      padding: 8px;
+    }
+    .panel-kpi .k {
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #a3d7e9;
+    }
+    .panel-kpi .v {
+      margin-top: 2px;
+      font-size: .92rem;
+      color: #ffffff;
+      font-weight: 700;
+    }
+    .panel-links {
+      margin-top: 10px;
+      border-top: 1px solid rgba(255,255,255,.2);
+      padding-top: 10px;
+      display: grid;
+      gap: 6px;
+    }
+    .panel-link {
+      color: #ffd39d;
+      text-decoration: none;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+    .panel-link:hover { color: #fff0d9; }
 
     .tabs {
       margin: 12px auto 16px;
@@ -103,7 +142,8 @@
     .tab.active {
       color: #fff;
       border-color: transparent;
-      background: linear-gradient(90deg, var(--db-navy), #255364);
+      background: linear-gradient(90deg, #17313a, #1f4d5d);
+      box-shadow: 0 4px 12px rgba(21,47,56,0.2);
     }
     .panel { display: none; }
     .panel.active { display: block; }
@@ -122,7 +162,7 @@
       gap: 12px;
       padding: 13px 16px;
       border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, #fff 0%, #f7fbfd 100%);
+      background: linear-gradient(180deg, #ffffff 0%, #f2f8fb 100%);
     }
     .section .head h2 { margin: 0; font-size: 1rem; color: #19303a; }
     .section .body { padding: 14px 16px 16px; }
@@ -232,12 +272,35 @@
           </div>
         </div>
         <aside class="hero-card">
-          <h3>Context Snapshot</h3>
+          <h3>Presenter Sidepanel</h3>
+          <div class="panel-kpis">
+            <div class="panel-kpi">
+              <div class="k">Story Length</div>
+              <div class="v">5-7 min</div>
+            </div>
+            <div class="panel-kpi">
+              <div class="k">Core Steps</div>
+              <div class="v">3 blocks</div>
+            </div>
+            <div class="panel-kpi">
+              <div class="k">Scenario Types</div>
+              <div class="v">Rate + Market</div>
+            </div>
+            <div class="panel-kpi">
+              <div class="k">Primary Audience</div>
+              <div class="v">ALCO / Treasury</div>
+            </div>
+          </div>
           <ul>
-            <li>Deposit analytics: beta, vintage decay, dynamic stress sensitivity.</li>
-            <li>PPNR analytics: quarterly planning with rate, market, and liquidity shocks.</li>
-            <li>Operational flow: notebooks feed UC tables, FastAPI serves frontend and Genie API proxy.</li>
+            <li>Open with deposit stability, then move to stress translation and PPNR pathing.</li>
+            <li>Call out <strong>Train_PPNR_Models.py</strong> as the baseline model anchor before scenario overlays.</li>
+            <li>Close with attribution and operating actions (rate, market, liquidity).</li>
           </ul>
+          <div class="panel-links">
+            <a class="panel-link" href="https://cfo-banking-demo-1444828305810485.aws.databricksapps.com/" target="_blank" rel="noopener noreferrer">Frontend Application</a>
+            <a class="panel-link" href="https://e2-demo-field-eng.cloud.databricks.com/dashboardsv3/01f108f1192218ecb07e67641bdc54ed/published?o=1444828305810485" target="_blank" rel="noopener noreferrer">AI/BI Dashboard</a>
+            <a class="panel-link" href="https://e2-demo-field-eng.cloud.databricks.com/genie/rooms/01f101adda151c09835a99254d4c308c?o=1444828305810485" target="_blank" rel="noopener noreferrer">Genie Room</a>
+          </div>
         </aside>
       </div>
     </header>
@@ -273,7 +336,7 @@
               PPNR planning extends beyond rate-only scenarios by integrating explicit market and liquidity shock channels for ALCO.
             </p>
             <ul>
-              <li>Training notebooks generate baseline Non-Interest Income and Expense forecasts.</li>
+              <li><strong>Train_PPNR_Models.py</strong> generates baseline Non-Interest Income, Non-Interest Expense, and monthly PPNR forecasts and registers UC model aliases.</li>
               <li>Scenario planning introduces curve drivers and non-rate shocks including equity, credit spread, FX, and runoff.</li>
               <li>NII repricing and ML inference refresh quarterly scenario outputs with auditable attribution.</li>
               <li>Executive reporting and dashboard pages present Q1-Q9 trajectory, cumulative impact, and attribution decomposition.</li>
@@ -300,6 +363,7 @@
             <summary>2) Transition into stress behavior and planning horizon</summary>
             <p>Move from today’s position to forward-looking resilience. Show how balance-sheet behavior changes under stress and then connect that directly to quarterly earnings path impacts.</p>
             <ul>
+              <li><strong>Model baseline first:</strong> reference <code>Train_PPNR_Models.py</code> outputs as the anchor baseline before scenario overlays.</li>
               <li><strong>Dynamic response:</strong> present dynamic beta behavior under rising and falling rate paths to demonstrate non-linear sensitivity.</li>
               <li><strong>Stress translation:</strong> summarize scenario outcomes for NII and EVE sensitivity, then bridge to PPNR trajectory impacts.</li>
               <li><strong>Scenario set:</strong> walk baseline, adverse rate, rate-cut, and market-shock scenarios with clear Q1, Q4, and Q9 checkpoints.</li>
