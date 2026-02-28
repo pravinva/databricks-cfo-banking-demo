@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TREASURER MATERIALS INDEX</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{--navy:#1B3139;--cyan:#00A8E1;--lava:#FF3621;--line:#d7e2e8;--ink:#12242d;--surface:#fff;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:"Barlow",system-ui,sans-serif;color:var(--ink);background:linear-gradient(180deg,#f4fafc 0%,#eaf2f6 100%);}
+    .wrap{width:min(1040px,94vw);margin:24px auto;}
+    .top{background:linear-gradient(130deg,#182b33 0%,#1B3139 56%,#245060 100%);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:18px;}
+    .top h1{margin:0;font-size:1.25rem}
+    .top p{margin:.45rem 0 0;color:#d9ebf3}
+    .actions{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
+    .btn{text-decoration:none;border:1px solid rgba(255,255,255,.35);border-radius:9px;padding:8px 10px;font-size:.86rem;font-weight:600;color:#fff;background:rgba(255,255,255,.08)}
+    .btn:hover{background:rgba(255,255,255,.17)}
+    .content{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 8px 20px rgba(22,42,52,.07);}
+    #md h1,#md h2,#md h3{color:#1a3641}
+    #md pre{background:#0f2630;color:#eef6fa;padding:12px;border-radius:8px;overflow:auto}
+    #md code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    #md table{border-collapse:collapse;width:100%}
+    #md th,#md td{border:1px solid #d9e8ef;padding:8px;vertical-align:top}
+    #md a{color:#1f5061}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <main class="wrap">
+    <section class="top">
+      <h1>TREASURER MATERIALS INDEX</h1>
+      <p>HTML view of this documentation page.</p>
+      <div class="actions">
+        <a class="btn" href="../documentation_index.html">Back to Documentation Index</a>
+      </div>
+    </section>
+    <section class="content">
+      <div id="md">Loading content...</div>
+    </section>
+  </main>
+  <script>
+    fetch('TREASURER_MATERIALS_INDEX.md')
+      .then((res) => res.ok ? res.text() : Promise.reject(new Error('Unable to load markdown source.')))
+      .then((text) => {
+        document.getElementById('md').innerHTML = marked.parse(text);
+      })
+      .catch((err) => {
+        document.getElementById('md').innerHTML = '<p>Unable to render content.</p><pre>' + String(err.message || err) + '</pre>';
+      });
+  </script>
+</body>
+</html>
