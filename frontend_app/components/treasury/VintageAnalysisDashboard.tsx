@@ -155,7 +155,7 @@ export default function VintageAnalysisDashboard() {
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
             <LineChart data={survivalChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis
                 dataKey="months"
                 stroke="#999"
@@ -168,7 +168,7 @@ export default function VintageAnalysisDashboard() {
                 label={{ value: 'Survival Rate (%)', angle: -90, position: 'insideLeft', fill: '#999', fontFamily: 'monospace' }}
               />
               <Tooltip
-                contentStyle={{ backgroundColor: '#000', border: '2px solid #ff8c00', fontFamily: 'monospace', fontSize: '12px' }}
+                contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}
                 labelStyle={{ color: '#ff8c00' }}
               />
               <Legend
@@ -214,7 +214,7 @@ export default function VintageAnalysisDashboard() {
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={runoffChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis
                 dataKey="year"
                 stroke="#999"
@@ -226,7 +226,7 @@ export default function VintageAnalysisDashboard() {
                 label={{ value: 'Balance ($B)', angle: -90, position: 'insideLeft', fill: '#999', fontFamily: 'monospace' }}
               />
               <Tooltip
-                contentStyle={{ backgroundColor: '#000', border: '2px solid #ff8c00', fontFamily: 'monospace', fontSize: '12px' }}
+                contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}
                 labelStyle={{ color: '#ff8c00' }}
                 formatter={(value: any) => `$${value.toFixed(2)}B`}
               />
@@ -264,7 +264,7 @@ export default function VintageAnalysisDashboard() {
               </thead>
               <tbody>
                 {runoffForecasts.map((forecast, index) => (
-                  <tr key={index} className="border-b border-bloomberg-border hover:bg-black/20">
+                  <tr key={index} className="border-b border-bloomberg-border hover:bg-slate-50">
                     <td className="p-3" style={{ color: relationshipColors[forecast.relationship_category as keyof typeof relationshipColors] }}>
                       {forecast.relationship_category}
                     </td>
@@ -298,7 +298,7 @@ export default function VintageAnalysisDashboard() {
           <p className="text-xs text-bloomberg-text-dim font-mono">Separates closure rate from balance growth</p>
         </CardHeader>
         <CardContent>
-          <div className="p-6 bg-black/40 border-2 border-bloomberg-orange/30 rounded">
+          <div className="p-6 bg-slate-50 border border-bloomberg-border rounded-lg">
             <div className="text-center mb-6">
               <div className="text-2xl font-bold text-bloomberg-orange font-mono">
                 D(t+1) = D(t) × (1 - λ) × (1 + g)

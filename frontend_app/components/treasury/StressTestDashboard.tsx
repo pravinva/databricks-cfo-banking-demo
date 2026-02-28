@@ -188,7 +188,7 @@ export default function StressTestDashboard() {
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
             <LineChart data={capitalRatioData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis
                 dataKey="quarter"
                 stroke="#999"
@@ -252,7 +252,7 @@ export default function StressTestDashboard() {
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
             <AreaChart data={betaCurveData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis
                 dataKey="rate"
                 stroke="#999"
@@ -328,7 +328,7 @@ export default function StressTestDashboard() {
               </thead>
               <tbody>
                 {dynamicBetas.map((params, index) => (
-                  <tr key={index} className="border-b border-bloomberg-border hover:bg-black/20">
+                  <tr key={index} className="border-b border-bloomberg-border hover:bg-slate-50">
                     <td className="p-3" style={{ color: relationshipColors[params.relationship_category as keyof typeof relationshipColors] }}>
                       {params.relationship_category}
                     </td>
@@ -359,7 +359,7 @@ export default function StressTestDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-6">
-            <div className="p-6 bg-black/40 border-2 border-bloomberg-green rounded">
+            <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-lg">
               <div className="flex items-center justify-between mb-4">
                 <Shield className="h-12 w-12 text-bloomberg-green bloomberg-glow-green" />
                 <div className="text-4xl font-bold text-bloomberg-green font-mono bloomberg-glow-green">
@@ -376,7 +376,7 @@ export default function StressTestDashboard() {
                 Ready for Federal Reserve submission
               </div>
             </div>
-            <div className="p-6 bg-black/40 border-2 border-bloomberg-border rounded">
+            <div className="p-6 bg-slate-50 border border-bloomberg-border rounded-lg">
               <div className="text-sm font-mono space-y-3">
                 <div className="flex justify-between">
                   <span className="text-bloomberg-text-dim">Submission Deadline:</span>

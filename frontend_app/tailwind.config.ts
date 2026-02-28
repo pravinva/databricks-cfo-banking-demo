@@ -10,16 +10,16 @@ const config: Config = {
     extend: {
       colors: {
         bloomberg: {
-          bg: '#000000',
-          surface: '#1a1a1a',
-          border: '#333333',
-          orange: '#ff8c00',
-          amber: '#ffb347',
-          text: '#ffffff',
-          'text-dim': '#999999',
-          green: '#00ff00',
-          red: '#ff0000',
-          blue: '#00a0ff',
+          bg: '#f4f7f8',
+          surface: '#ffffff',
+          border: '#e3e8eb',
+          orange: '#d97706',
+          amber: '#f59e0b',
+          text: '#111827',
+          'text-dim': '#6b7280',
+          green: '#0f9d78',
+          red: '#c24141',
+          blue: '#2563eb',
         },
         primary: {
           50: '#fff7ed',
@@ -32,8 +32,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['"Courier New"', 'Monaco', 'Menlo', 'monospace'],
-        mono: ['"Courier New"', 'Monaco', 'Menlo', 'monospace'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        mono: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
       },
     },
   },

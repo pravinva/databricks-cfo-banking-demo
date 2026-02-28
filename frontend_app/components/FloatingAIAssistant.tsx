@@ -41,6 +41,18 @@ export default function FloatingAIAssistant() {
     }
   }, [])
 
+  useEffect(() => {
+    const openHandler = () => {
+      setIsOpen(true)
+      setIsMinimized(false)
+    }
+
+    window.addEventListener('open-treasury-genie', openHandler)
+    return () => {
+      window.removeEventListener('open-treasury-genie', openHandler)
+    }
+  }, [])
+
   const handleSend = async () => {
     if (!input.trim() || loading) return
 

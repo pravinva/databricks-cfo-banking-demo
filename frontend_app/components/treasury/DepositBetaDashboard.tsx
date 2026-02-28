@@ -182,7 +182,7 @@ export default function DepositBetaDashboard() {
               {distribution.map((item, index) => (
                 <div
                   key={index}
-                  className="p-4 border-2 border-bloomberg-border bg-black/20 hover:border-bloomberg-orange/70 transition-colors"
+                  className="p-4 border border-bloomberg-border rounded-lg bg-slate-50 hover:border-bloomberg-orange/70 transition-colors"
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -229,7 +229,7 @@ export default function DepositBetaDashboard() {
               {atRiskAccounts.slice(0, 10).map((account, index) => (
                 <div
                   key={index}
-                  className="p-3 border-2 border-bloomberg-border bg-black/20 hover:border-bloomberg-red/70 transition-colors"
+                  className="p-3 border border-bloomberg-border rounded-lg bg-slate-50 hover:border-bloomberg-red/70 transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div>
@@ -291,7 +291,7 @@ export default function DepositBetaDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-4 gap-6">
-            <div className="p-4 border-2 border-bloomberg-border bg-black/20">
+            <div className="p-4 border border-bloomberg-border rounded-lg bg-slate-50">
               <div className="text-xs text-bloomberg-text-dim font-mono mb-2">MAPE (ENHANCED)</div>
               <div className="text-2xl font-bold text-bloomberg-green font-mono bloomberg-glow-green">
                 7.2%
@@ -300,7 +300,7 @@ export default function DepositBetaDashboard() {
                 +41% improvement
               </div>
             </div>
-            <div className="p-4 border-2 border-bloomberg-border bg-black/20">
+            <div className="p-4 border border-bloomberg-border rounded-lg bg-slate-50">
               <div className="text-xs text-bloomberg-text-dim font-mono mb-2">BASELINE MAPE</div>
               <div className="text-2xl font-bold text-bloomberg-text-dim font-mono">
                 12.3%
@@ -309,7 +309,7 @@ export default function DepositBetaDashboard() {
                 15 features
               </div>
             </div>
-            <div className="p-4 border-2 border-bloomberg-border bg-black/20">
+            <div className="p-4 border border-bloomberg-border rounded-lg bg-slate-50">
               <div className="text-xs text-bloomberg-text-dim font-mono mb-2">FEATURES</div>
               <div className="text-2xl font-bold text-bloomberg-orange font-mono bloomberg-glow">
                 19
@@ -318,7 +318,7 @@ export default function DepositBetaDashboard() {
                 Canonical scoring feature set
               </div>
             </div>
-            <div className="p-4 border-2 border-bloomberg-border bg-black/20">
+            <div className="p-4 border border-bloomberg-border rounded-lg bg-slate-50">
               <div className="text-xs text-bloomberg-text-dim font-mono mb-2">MODEL VERSION</div>
               <div className="text-2xl font-bold text-bloomberg-text font-mono">
                 @champion

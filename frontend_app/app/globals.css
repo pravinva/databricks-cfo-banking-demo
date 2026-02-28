@@ -2,37 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Bloomberg Terminal Color Palette */
+/* Light Treasury UI Palette */
 :root {
-  --bloomberg-bg: #000000;
-  --bloomberg-surface: #1a1a1a;
-  --bloomberg-border: #333333;
-  --bloomberg-orange: #ff8c00;
-  --bloomberg-amber: #ffb347;
-  --bloomberg-text: #ffffff;
-  --bloomberg-text-dim: #999999;
-  --bloomberg-green: #00ff00;
-  --bloomberg-red: #ff0000;
-  --bloomberg-blue: #00a0ff;
+  --bloomberg-bg: #f4f7f8;
+  --bloomberg-surface: #ffffff;
+  --bloomberg-border: #e3e8eb;
+  --bloomberg-orange: #d97706;
+  --bloomberg-amber: #f59e0b;
+  --bloomberg-text: #111827;
+  --bloomberg-text-dim: #6b7280;
+  --bloomberg-green: #0f9d78;
+  --bloomberg-red: #c24141;
+  --bloomberg-blue: #2563eb;
 }
 
 body {
-  background: #000000;
-  color: #ffffff;
-  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+  background: var(--bloomberg-bg);
+  color: var(--bloomberg-text);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-/* Bloomberg Terminal styling */
+/* Dashboard styling primitives */
 .bloomberg-panel {
-  background: #1a1a1a;
-  border: 1px solid #333333;
-  box-shadow: 0 0 20px rgba(255, 140, 0, 0.2);
+  background: var(--bloomberg-surface);
+  border: 1px solid var(--bloomberg-border);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  border-radius: 14px;
 }
 
 .bloomberg-header {
-  background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
-  border-bottom: 2px solid #ff8c00;
-  box-shadow: 0 4px 10px rgba(255, 140, 0, 0.3);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--bloomberg-border);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
 }
 
 .bloomberg-text-orange {
@@ -44,19 +46,19 @@ body {
 }
 
 .bloomberg-mono {
-  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-variant-numeric: tabular-nums;
 }
 
-/* Glowing effects */
+/* Keep helper classes but tone down for light theme */
 .bloomberg-glow {
-  text-shadow: 0 0 10px rgba(255, 140, 0, 0.5);
+  text-shadow: none;
 }
 
 .bloomberg-glow-green {
-  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+  text-shadow: none;
 }
 
 .bloomberg-glow-red {
-  text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  text-shadow: none;
 }

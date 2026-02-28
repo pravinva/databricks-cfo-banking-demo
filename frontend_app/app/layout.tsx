@@ -6,8 +6,8 @@ import ClientLayout from '@/components/ClientLayout'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Databricks CFO Platform',
-  description: 'AI-Powered Financial Management',
+  title: 'Treasury Deposits and PPNR Hub',
+  description: 'Executive dashboard for deposit modeling and PPNR scenario planning',
 }
 
 export default function RootLayout({
