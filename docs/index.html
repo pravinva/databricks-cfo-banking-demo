@@ -80,6 +80,23 @@
     }
     .btn:hover{transform:translateY(-1px)}
     .footer{margin-top:14px;color:#5a707a;font-size:.84rem}
+    .architecture{
+      margin-top:16px;
+      background:var(--surface);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:14px;
+      box-shadow:0 6px 16px rgba(20,40,50,.06);
+    }
+    .architecture h2{margin:0 0 8px;font-size:1.05rem;color:#1d3641}
+    .architecture p{margin:0 0 10px;color:var(--muted);font-size:.93rem}
+    .architecture img{
+      width:100%;
+      height:auto;
+      border-radius:10px;
+      border:1px solid #ccdbe2;
+      display:block;
+    }
     @media (max-width:980px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
@@ -113,6 +130,17 @@
         <p>Natural-language access for deposits and PPNR analysis through Genie room integration in the frontend and API layer.</p>
         <div class="actions"><a class="btn" href="https://e2-demo-field-eng.cloud.databricks.com/genie/rooms/01f101adda151c09835a99254d4c308c?o=1444828305810485" target="_blank" rel="noopener noreferrer">Open Genie Room</a></div>
       </article>
+    </section>
+
+    <section class="architecture">
+      <h2>Reference Architecture (Main View)</h2>
+      <p>Executive architecture view for treasury and CFO workflows. Use the detailed view for zone-level components and flow labels.</p>
+      <a href="./reference_architecture_detailed.html" title="Open detailed architecture diagram">
+        <img src="./images/reference_architecture_main.png" alt="Main banking treasury reference architecture diagram" />
+      </a>
+      <div class="actions">
+        <a class="btn" href="./reference_architecture_detailed.html">Open Detailed Diagram</a>
+      </div>
     </section>
 
     <p class="footer">

@@ -82,6 +82,23 @@
       color:#5e747e;
       font-size:.84rem;
     }
+    .architecture{
+      margin-top:14px;
+      background:var(--surface);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:14px;
+      box-shadow:0 6px 16px rgba(22,42,52,.06);
+    }
+    .architecture h2{margin:0 0 8px;font-size:1rem;color:#1a3641}
+    .architecture p{margin:0 0 10px;color:var(--muted);font-size:.92rem}
+    .architecture img{
+      width:100%;
+      height:auto;
+      border-radius:10px;
+      border:1px solid #ccdbe2;
+      display:block;
+    }
     @media (max-width:980px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
@@ -143,6 +160,17 @@
           <a class="link" href="./guides/PPNR_ML_SCENARIO_INFERENCE_2Y.html">PPNR ML Scenario Inference 2Y</a>
         </div>
       </article>
+    </section>
+
+    <section class="architecture">
+      <h2>Reference Architecture (Main View)</h2>
+      <p>High-level architecture for deposit modeling and PPNR scenario planning. Click the image for the full detailed blueprint.</p>
+      <a href="./reference_architecture_detailed.html" title="Open detailed architecture diagram">
+        <img src="./images/reference_architecture_main.png" alt="Main banking treasury reference architecture diagram" />
+      </a>
+      <div class="links" style="margin-top:10px">
+        <a class="link" href="./reference_architecture_detailed.html">Open Detailed Diagram</a>
+      </div>
     </section>
 
     <p class="meta">Last Updated: February 2026 | Databricks brand palette: Navy, Cyan, Lava.</p>
