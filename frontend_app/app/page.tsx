@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { TrendingUp, Activity, Info } from 'lucide-react'
+import { TrendingUp, Activity, Info, LayoutDashboard, Landmark, WalletCards, MessageSquare } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import YieldCurveChart from '@/components/charts/YieldCurveChart'
 import MetricCard from '@/components/MetricCard'
 import { DrillDownProvider, useDrillDown } from '@/lib/drill-down-context'
@@ -15,6 +14,16 @@ import VintageAnalysisDashboard from '@/components/treasury/VintageAnalysisDashb
 import StressTestDashboard from '@/components/treasury/StressTestDashboard'
 import PpnrDashboard from '@/components/treasury/PpnrDashboard'
 import { apiFetch } from '@/lib/api'
+
+type SidebarSection =
+  | 'dashboard'
+  | 'deposits'
+  | 'deposit-beta'
+  | 'vintage'
+  | 'stress-test'
+  | 'ppnr'
+  | 'ppnr-scenarios'
+  | 'genie'
 
 function DataSourceTooltip({ source }: { source: string }) {
   return (
@@ -96,6 +105,8 @@ function DashboardContent() {
     'https://e2-demo-field-eng.cloud.databricks.com/dashboardsv3/01f108f1192218ecb07e67641bdc54ed/published?o=1444828305810485'
   const genieRoomUrl =
     'https://e2-demo-field-eng.cloud.databricks.com/genie/rooms/01f101adda151c09835a99254d4c308c?o=1444828305810485'
+  const demoDocumentationUrl =
+    'https://pravinva.github.io/databricks-cfo-banking-demo/documentation_index.html'
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [depositBetaMetrics, setDepositBetaMetrics] = useState<any>(null)
@@ -108,8 +119,9 @@ function DashboardContent() {
     'idle' | 'generating' | 'done' | 'failed'
   >('idle')
   const [currentTime, setCurrentTime] = useState<string>('')
+  const [activeSection, setActiveSection] = useState<SidebarSection>('dashboard')
   const [selectedDepositAccountId, setSelectedDepositAccountId] = useState<string | null>(null)
-  const { state, navigateTo } = useDrillDown()
+  const { state, navigateTo, reset } = useDrillDown()
 
   useEffect(() => {
     // Set initial time on client only
@@ -339,7 +351,7 @@ function DashboardContent() {
 
             if (lastLifeCycle === 'TERMINATED' && htmlChanged) {
               // Notebook is coded to allow SUCCESS even if PDF conversion fails.
-              setExecutiveReportStatusText('Done. HTML is ready (PDF not generated for this run).')
+              setExecutiveReportStatusText('Done. Report artifacts are ready.')
               setExecutiveReportStatusTone('done')
               break
             }
@@ -367,51 +379,56 @@ function DashboardContent() {
     }
   }
 
+  const sidebarItemClass = (section: SidebarSection) =>
+    [
+      'w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors',
+      activeSection === section
+        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+        : 'text-bloomberg-text-dim hover:bg-slate-50 border border-transparent',
+    ].join(' ')
+
+  const handleSidebarSelect = (section: SidebarSection) => {
+    if (state.view === 'deposit-table') {
+      reset()
+    }
+    setActiveSection(section)
+  }
+
   return (
     <div className="min-h-screen bg-bloomberg-bg">
-      {/* Header - Bloomberg Terminal Style */}
       <header className="bloomberg-header sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-3">
+        <div className="px-6 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-bloomberg-orange bloomberg-glow tracking-wide">
-                TREASURY MODELING COMMAND CENTER
+              <h1 className="text-2xl font-semibold text-bloomberg-text tracking-tight">
+                Treasury Deposits & PPNR Hub
               </h1>
-              <p className="text-xs text-bloomberg-text-dim font-mono mt-1">
-                DEPOSITS + PPNR | POWERED BY DATABRICKS LAKEHOUSE
+              <p className="text-xs text-bloomberg-text-dim mt-1">
+                Executive Dashboard | Deposits, PPNR, Liquidity and Funding Risk
               </p>
             </div>
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
                 <a
-                  href={publishedDashboardUrl}
+                  href={demoDocumentationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-orange font-mono text-xs transition-colors hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
-                  title="Open published Databricks dashboard"
+                  className="px-3 py-2 border border-bloomberg-orange rounded-lg bg-orange-50 text-bloomberg-orange text-xs font-semibold transition-colors hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/40"
+                  title="Open GitHub Pages demo documentation"
                 >
-                  AI/BI DASHBOARD
-                </a>
-                <a
-                  href={genieRoomUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-orange font-mono text-xs transition-colors hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
-                  title="Open Genie room in Databricks"
-                >
-                  GENIE ROOM
+                  DEMO DOCUMENTATION
                 </a>
                 <button
-                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-green font-mono text-xs transition-colors disabled:opacity-50 hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
+                  className="px-3 py-2 border border-bloomberg-green rounded-lg bg-emerald-50 text-bloomberg-green text-xs font-semibold transition-colors disabled:opacity-50 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-green/40"
                   onClick={() => downloadLatestExecutiveReport('pdf')}
                   disabled={executiveReportLoading}
                   title={latestExecutiveReport?.latest_timestamp ? `Latest: ${latestExecutiveReport.latest_timestamp}` : 'Download latest PDF'}
                 >
-                  {executiveReportLoading ? 'WORKING…' : 'DOWNLOAD ALCO PDF'}
+                  {executiveReportLoading ? 'WORKING…' : 'GET DOCUMENT (PDF)'}
                 </button>
                 <button
-                  className="px-3 py-2 border border-bloomberg-border bg-bloomberg-surface text-bloomberg-orange font-mono text-xs transition-colors disabled:opacity-50 hover:border-bloomberg-orange hover:text-bloomberg-orange hover:bg-bloomberg-orange/10 hover:shadow-[0_0_0_1px_rgba(255,54,33,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bloomberg-bg"
+                  className="px-3 py-2 border border-bloomberg-border rounded-lg bg-bloomberg-surface text-bloomberg-orange text-xs transition-colors disabled:opacity-50 hover:border-bloomberg-orange hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bloomberg-orange/40"
                   onClick={runExecutiveReportNow}
                   disabled={executiveReportLoading}
                   title="Trigger the scheduled notebook/job now"
@@ -421,7 +438,7 @@ function DashboardContent() {
                 {executiveReportStatusText ? (
                   <div
                     className={[
-                      'ml-2 text-[11px] font-mono max-w-[360px] truncate',
+                      'ml-2 text-[11px] max-w-[360px] truncate',
                       executiveReportStatusTone === 'generating'
                         ? 'text-bloomberg-orange'
                         : executiveReportStatusTone === 'done'
@@ -435,18 +452,72 @@ function DashboardContent() {
                   </div>
                 ) : null}
               </div>
-              <div className="flex items-center gap-3 text-xs font-mono text-bloomberg-text-dim">
+              <div className="flex items-center gap-3 text-xs text-bloomberg-text-dim">
                 <span>{currentTime || '--:--:--'}</span>
-                <div className="h-2 w-2 rounded-full bg-bloomberg-green animate-pulse bloomberg-glow-green" />
+                <div className="h-2 w-2 rounded-full bg-bloomberg-green animate-pulse" />
                 <span className="text-bloomberg-green font-bold">LIVE</span>
               </div>
             </div>
           </div>
         </div>
       </header>
+      <div className="flex">
+        <aside className="hidden xl:flex xl:w-64 border-r border-bloomberg-border bg-white/80 min-h-[calc(100vh-72px)] p-5">
+          <div className="w-full">
+            <div className="mb-4 p-2 rounded-lg border border-bloomberg-border bg-white">
+              <img
+                src="/databank-logo.png"
+                alt="DataBank"
+                className="w-full h-16 object-contain rounded-md"
+              />
+            </div>
+            <div className="space-y-1 text-sm">
+              <a
+                href={publishedDashboardUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors text-bloomberg-text-dim hover:bg-slate-50 border border-transparent"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                AI/BI Dashboard
+              </a>
+              <button className={sidebarItemClass('dashboard')} onClick={() => handleSidebarSelect('dashboard')}>
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </button>
+              <button className={sidebarItemClass('deposits')} onClick={() => handleSidebarSelect('deposits')}>
+                <Activity className="h-4 w-4" />
+                Deposits
+              </button>
+              <button className={sidebarItemClass('deposit-beta')} onClick={() => handleSidebarSelect('deposit-beta')}>
+                <TrendingUp className="h-4 w-4" />
+                Deposit Beta
+              </button>
+              <button className={sidebarItemClass('vintage')} onClick={() => handleSidebarSelect('vintage')}>
+                <WalletCards className="h-4 w-4" />
+                Vintage Analysis
+              </button>
+              <button className={sidebarItemClass('stress-test')} onClick={() => handleSidebarSelect('stress-test')}>
+                <Landmark className="h-4 w-4" />
+                CCAR Stress
+              </button>
+              <button className={sidebarItemClass('ppnr')} onClick={() => handleSidebarSelect('ppnr')}>
+                <WalletCards className="h-4 w-4" />
+                PPNR Forecast
+              </button>
+              <button className={sidebarItemClass('ppnr-scenarios')} onClick={() => handleSidebarSelect('ppnr-scenarios')}>
+                <TrendingUp className="h-4 w-4" />
+                PPNR Scenarios
+              </button>
+              <button className={sidebarItemClass('genie')} onClick={() => handleSidebarSelect('genie')}>
+                <MessageSquare className="h-4 w-4" />
+                Genie Conversation
+              </button>
+            </div>
+          </div>
+        </aside>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-6">
+        <main className="flex-1 px-6 py-6">
         <Breadcrumbs />
 
         {state.view === 'deposit-table' ? (
@@ -456,103 +527,369 @@ function DashboardContent() {
           />
         ) : (
           <>
-            {/* KPI Cards Row */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div onClick={() => navigateTo('deposit-table', {}, 'All Deposits')} className="cursor-pointer">
-                <MetricCard
-                  title="Total Deposits"
-                  value={summary?.success ? `$${(summary.deposits / 1e9).toFixed(1)}B` : 'Loading...'}
-                  change="+1.8%"
-                  trend="up"
-                  icon={<Activity className="h-5 w-5" />}
-                  dataSource="Unity Catalog: cfo_banking_demo.bronze_core_banking.deposit_accounts WHERE account_status = 'Active' (SUM current_balance) → agent_tools.get_portfolio_summary()"
-                />
-              </div>
-              <MetricCard
-                title="Avg Predicted Beta"
-                value={
-                  depositBetaMetrics && typeof depositBetaMetrics?.avg_beta === 'number'
-                    ? depositBetaMetrics.avg_beta.toFixed(3)
-                    : '—'
-                }
-                change="Approach 1"
-                trend="up"
-                icon={<TrendingUp className="h-5 w-5" />}
-                dataSource="Unity Catalog: cfo_banking_demo.ml_models.deposit_beta_predictions (AVG predicted_beta) → /api/data/deposit-beta-metrics"
-              />
-              <MetricCard
-                title="Latest PPNR"
-                value={ppnrLatest?.ppnr != null ? `$${(Number(ppnrLatest.ppnr) / 1e9).toFixed(2)}B` : '—'}
-                change="Monthly forecast"
-                trend="up"
-                icon={<TrendingUp className="h-5 w-5" />}
-                dataSource="Unity Catalog: cfo_banking_demo.ml_models.ppnr_forecasts (latest month) → /api/data/ppnr-forecasts"
-              />
-            </div>
+            {activeSection === 'dashboard' && (
+              <>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div onClick={() => navigateTo('deposit-table', {}, 'All Deposits')} className="cursor-pointer">
+                    <MetricCard
+                      title="Total Deposits"
+                      value={summary?.success ? `$${(summary.deposits / 1e9).toFixed(1)}B` : 'Loading...'}
+                      change="+1.8%"
+                      trend="up"
+                      icon={<Activity className="h-5 w-5" />}
+                      dataSource="Unity Catalog: cfo_banking_demo.bronze_core_banking.deposit_accounts WHERE account_status = 'Active' (SUM current_balance) → agent_tools.get_portfolio_summary()"
+                    />
+                  </div>
+                  <MetricCard
+                    title="Avg Predicted Beta"
+                    value={
+                      depositBetaMetrics && typeof depositBetaMetrics?.avg_beta === 'number'
+                        ? depositBetaMetrics.avg_beta.toFixed(3)
+                        : '—'
+                    }
+                    change="Approach 1"
+                    trend="up"
+                    icon={<TrendingUp className="h-5 w-5" />}
+                    dataSource="Unity Catalog: cfo_banking_demo.ml_models.deposit_beta_predictions (AVG predicted_beta) → /api/data/deposit-beta-metrics"
+                  />
+                  <MetricCard
+                    title="Latest PPNR"
+                    value={ppnrLatest?.ppnr != null ? `$${(Number(ppnrLatest.ppnr) / 1e9).toFixed(2)}B` : '—'}
+                    change="Monthly forecast"
+                    trend="up"
+                    icon={<TrendingUp className="h-5 w-5" />}
+                    dataSource="Unity Catalog: cfo_banking_demo.ml_models.ppnr_forecasts (latest month) → /api/data/ppnr-forecasts"
+                  />
+                </div>
 
-            {/* Treasury Modeling Tabs */}
-            <Tabs defaultValue="ppnr" className="space-y-5 mb-6">
-              <TabsList>
-                <TabsTrigger value="deposits">Deposits</TabsTrigger>
-                <TabsTrigger value="deposit-beta" className="text-bloomberg-orange">
-                  Deposit Beta
-                </TabsTrigger>
-                <TabsTrigger value="vintage" className="text-bloomberg-orange">
-                  Vintage Analysis
-                </TabsTrigger>
-                <TabsTrigger value="stress-test" className="text-bloomberg-orange">
-                  CCAR Stress
-                </TabsTrigger>
-                <TabsTrigger value="ppnr" className="text-bloomberg-orange">
-                  PPNR
-                </TabsTrigger>
-              </TabsList>
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                  <Card className="xl:col-span-3">
+                    <CardHeader>
+                      <div className="flex items-center">
+                        <h3 className="text-base font-semibold leading-none tracking-wide text-bloomberg-text">
+                          US TREASURY YIELD CURVE
+                        </h3>
+                        <DataSourceTooltip source="Alpha Vantage API → agent_tools.get_current_treasury_yields() → U.S. Department of Treasury daily rates" />
+                      </div>
+                      <p className="text-sm text-bloomberg-text-dim">
+                        Live market data (compact view)
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <YieldCurveChart height={150} />
+                    </CardContent>
+                  </Card>
 
-              <TabsContent value="deposits" className="space-y-6">
+                  <Card className="xl:col-span-9">
+                    <CardHeader>
+                      <div className="flex items-center">
+                        <h3 className="text-base font-semibold leading-none tracking-wide text-bloomberg-text">
+                          PPNR SCENARIO PLANNING (ALCO)
+                        </h3>
+                        <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml (fallback to ppnr_projection_quarterly / ml_models.ppnr_forecasts) via /api/data/ppnr-scenario-summary" />
+                      </div>
+                      <p className="text-sm text-bloomberg-text-dim">
+                        Expanded scenario view: trajectory, cumulative impact, and optional attribution detail
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      {ppnrScenarioSummary.length === 0 ? (
+                        <div className="text-sm text-bloomberg-text-dim font-mono">
+                          No PPNR scenario data available yet. Run scenario planning notebooks.
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                            {ppnrScenarioSummary.map((row: any, idx: number) => (
+                              <div key={idx} className="p-3 border border-bloomberg-border rounded-lg bg-slate-50">
+                                <div className="text-xs text-bloomberg-text-dim font-mono uppercase tracking-wider">{row.scenario}</div>
+                                <div className="text-base font-bold text-bloomberg-text font-mono mt-1">
+                                  Q1 ${(Number(row.q1_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                </div>
+                                <div className="text-lg font-bold text-bloomberg-text font-mono mt-1">
+                                  ${(Number(row.q9_ppnr_usd || 0) / 1e9).toFixed(2)}B
+                                </div>
+                                <div className="text-xs font-mono mt-1 text-bloomberg-text-dim">Q9 PPNR</div>
+                                <div
+                                  className={`text-xs font-mono mt-1 ${Number(row.q9_delta_ppnr_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}
+                                >
+                                  {Number(row.q9_delta_ppnr_usd || 0) >= 0 ? '+' : ''}
+                                  ${(Number(row.q9_delta_ppnr_usd || 0) / 1e6).toFixed(0)}M vs baseline
+                                </div>
+                                <div className="text-xs font-mono mt-1 text-bloomberg-text-dim">
+                                  9Q Cum ${(Number(row.cumulative_9q_ppnr_usd || 0) / 1e9).toFixed(2)}B
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs font-mono">
+                              <thead>
+                                <tr className="text-bloomberg-text-dim border-b border-bloomberg-border">
+                                  <th className="text-left py-2">Scenario</th>
+                                  <th className="text-right py-2">2Y Shock</th>
+                                  <th className="text-right py-2">Equity</th>
+                                  <th className="text-right py-2">Credit</th>
+                                  <th className="text-right py-2">FX</th>
+                                  <th className="text-right py-2">Runoff</th>
+                                  <th className="text-right py-2">Q1 PPNR</th>
+                                  <th className="text-right py-2">Q4 PPNR</th>
+                                  <th className="text-right py-2">Q9 PPNR</th>
+                                  <th className="text-right py-2">9Q Cumulative</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {ppnrScenarioSummary.map((row: any, idx: number) => (
+                                  <tr key={idx} className="border-b border-bloomberg-border/40">
+                                    <td className="py-2 text-bloomberg-text">{row.scenario}</td>
+                                    <td className="py-2 text-right text-bloomberg-text-dim">
+                                      {Number(row.rate_2y_delta_bps || 0) >= 0 ? '+' : ''}
+                                      {Number(row.rate_2y_delta_bps || 0).toFixed(0)} bps
+                                    </td>
+                                    <td className="py-2 text-right text-bloomberg-text-dim">
+                                      {Number(row.equity_shock_pct || 0) >= 0 ? '+' : ''}
+                                      {(Number(row.equity_shock_pct || 0) * 100).toFixed(1)}%
+                                    </td>
+                                    <td className="py-2 text-right text-bloomberg-text-dim">
+                                      {Number(row.credit_spread_shock_bps || 0) >= 0 ? '+' : ''}
+                                      {Number(row.credit_spread_shock_bps || 0).toFixed(0)} bps
+                                    </td>
+                                    <td className="py-2 text-right text-bloomberg-text-dim">
+                                      {Number(row.fx_shock_pct || 0) >= 0 ? '+' : ''}
+                                      {(Number(row.fx_shock_pct || 0) * 100).toFixed(1)}%
+                                    </td>
+                                    <td className="py-2 text-right text-bloomberg-text-dim">
+                                      {Number(row.liquidity_runoff_shock_pct || 0) >= 0 ? '+' : ''}
+                                      {(Number(row.liquidity_runoff_shock_pct || 0) * 100).toFixed(1)}%
+                                    </td>
+                                    <td className="py-2 text-right text-bloomberg-text">
+                                      ${(Number(row.q1_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                    </td>
+                                    <td className="py-2 text-right text-bloomberg-text">
+                                      ${(Number(row.q4_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                    </td>
+                                    <td className="py-2 text-right text-bloomberg-text">
+                                      ${(Number(row.q9_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                    </td>
+                                    <td className="py-2 text-right text-bloomberg-text">
+                                      ${(Number(row.cumulative_9q_ppnr_usd || 0) / 1e9).toFixed(1)}B
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <details className="border border-bloomberg-border rounded-lg bg-slate-50 p-3">
+                            <summary className="cursor-pointer text-xs font-mono text-bloomberg-orange uppercase tracking-wider">
+                              Show Q9 attribution details (rate / market / liquidity)
+                            </summary>
+                            <div className="overflow-x-auto mt-3">
+                              <table className="w-full text-xs font-mono">
+                                <thead>
+                                  <tr className="text-bloomberg-text-dim border-b border-bloomberg-border">
+                                    <th className="text-left py-2">Scenario</th>
+                                    <th className="text-right py-2">Q9 Δ Total</th>
+                                    <th className="text-right py-2">Q9 Δ Rate</th>
+                                    <th className="text-right py-2">Q9 Δ Market</th>
+                                    <th className="text-right py-2">Q9 Δ Liquidity</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {ppnrScenarioSummary.map((row: any, idx: number) => (
+                                    <tr key={idx} className="border-b border-bloomberg-border/40">
+                                      <td className="py-2 text-bloomberg-text">{row.scenario}</td>
+                                      <td className={`py-2 text-right ${Number(row.q9_delta_ppnr_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                        {Number(row.q9_delta_ppnr_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                      </td>
+                                      <td className={`py-2 text-right ${Number(row.q9_delta_rate_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                        {Number(row.q9_delta_rate_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_rate_usd || 0) / 1e6).toFixed(0)}M
+                                      </td>
+                                      <td className={`py-2 text-right ${Number(row.q9_delta_market_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                        {Number(row.q9_delta_market_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_market_usd || 0) / 1e6).toFixed(0)}M
+                                      </td>
+                                      <td className={`py-2 text-right ${Number(row.q9_delta_liquidity_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
+                                        {Number(row.q9_delta_liquidity_usd || 0) >= 0 ? '+' : ''}${(Number(row.q9_delta_liquidity_usd || 0) / 1e6).toFixed(0)}M
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </details>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
+
+            {activeSection === 'deposits' && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center">
+                    <CardTitle>Deposit Portfolio by Product</CardTitle>
+                    <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.bronze_core_banking.deposit_accounts → Aggregated by product_type with current_balance and stated_rate" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <DepositPortfolioBreakdown />
+                </CardContent>
+              </Card>
+            )}
+
+            {activeSection === 'deposit-beta' && <DepositBetaDashboard />}
+            {activeSection === 'vintage' && <VintageAnalysisDashboard />}
+            {activeSection === 'stress-test' && <StressTestDashboard />}
+            {activeSection === 'ppnr' && <PpnrDashboard />}
+            {activeSection === 'ppnr-scenarios' && (
+              <div className="space-y-4">
                 <Card>
                   <CardHeader>
                     <div className="flex items-center">
-                      <CardTitle>Deposit Portfolio by Product</CardTitle>
-                      <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.bronze_core_banking.deposit_accounts → Aggregated by product_type with current_balance and stated_rate" />
+                      <CardTitle>PPNR Scenario Planning (ALCO)</CardTitle>
+                      <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml (fallback to ppnr_projection_quarterly / ml_models.ppnr_forecasts) via /api/data/ppnr-scenario-summary" />
                     </div>
+                    <p className="text-sm text-bloomberg-text-dim">
+                      Scenario-specific PPNR trajectory with rate, market, and liquidity shocks.
+                    </p>
                   </CardHeader>
                   <CardContent>
-                    <DepositPortfolioBreakdown />
+                    {ppnrScenarioSummary.length === 0 ? (
+                      <div className="text-sm text-bloomberg-text-dim font-mono">
+                        No PPNR scenario data available yet. Run scenario planning notebooks.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                          {ppnrScenarioSummary.map((row: any, idx: number) => (
+                            <div key={idx} className="p-3 border border-bloomberg-border rounded-lg bg-slate-50">
+                              <div className="text-xs text-bloomberg-text-dim font-mono uppercase tracking-wider">{row.scenario}</div>
+                              <div className="text-base font-bold text-bloomberg-text font-mono mt-1">
+                                Q1 ${(Number(row.q1_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                              </div>
+                              <div className="text-lg font-bold text-bloomberg-text font-mono mt-1">
+                                ${(Number(row.q9_ppnr_usd || 0) / 1e9).toFixed(2)}B
+                              </div>
+                              <div className="text-xs font-mono mt-1 text-bloomberg-text-dim">Q9 PPNR</div>
+                              <div
+                                className={`text-xs font-mono mt-1 ${Number(row.q9_delta_ppnr_usd || 0) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}
+                              >
+                                {Number(row.q9_delta_ppnr_usd || 0) >= 0 ? '+' : ''}
+                                ${(Number(row.q9_delta_ppnr_usd || 0) / 1e6).toFixed(0)}M vs baseline
+                              </div>
+                              <div className="text-xs font-mono mt-1 text-bloomberg-text-dim">
+                                9Q Cum ${(Number(row.cumulative_9q_ppnr_usd || 0) / 1e9).toFixed(2)}B
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs font-mono">
+                            <thead>
+                              <tr className="text-bloomberg-text-dim border-b border-bloomberg-border">
+                                <th className="text-left py-2">Scenario</th>
+                                <th className="text-right py-2">2Y Shock</th>
+                                <th className="text-right py-2">Equity</th>
+                                <th className="text-right py-2">Credit</th>
+                                <th className="text-right py-2">FX</th>
+                                <th className="text-right py-2">Runoff</th>
+                                <th className="text-right py-2">Q1 PPNR</th>
+                                <th className="text-right py-2">Q4 PPNR</th>
+                                <th className="text-right py-2">Q9 PPNR</th>
+                                <th className="text-right py-2">9Q Cumulative</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ppnrScenarioSummary.map((row: any, idx: number) => (
+                                <tr key={idx} className="border-b border-bloomberg-border/40">
+                                  <td className="py-2 text-bloomberg-text">{row.scenario}</td>
+                                  <td className="py-2 text-right text-bloomberg-text-dim">
+                                    {Number(row.rate_2y_delta_bps || 0) >= 0 ? '+' : ''}
+                                    {Number(row.rate_2y_delta_bps || 0).toFixed(0)} bps
+                                  </td>
+                                  <td className="py-2 text-right text-bloomberg-text-dim">
+                                    {Number(row.equity_shock_pct || 0) >= 0 ? '+' : ''}
+                                    {(Number(row.equity_shock_pct || 0) * 100).toFixed(1)}%
+                                  </td>
+                                  <td className="py-2 text-right text-bloomberg-text-dim">
+                                    {Number(row.credit_spread_shock_bps || 0) >= 0 ? '+' : ''}
+                                    {Number(row.credit_spread_shock_bps || 0).toFixed(0)} bps
+                                  </td>
+                                  <td className="py-2 text-right text-bloomberg-text-dim">
+                                    {Number(row.fx_shock_pct || 0) >= 0 ? '+' : ''}
+                                    {(Number(row.fx_shock_pct || 0) * 100).toFixed(1)}%
+                                  </td>
+                                  <td className="py-2 text-right text-bloomberg-text-dim">
+                                    {Number(row.liquidity_runoff_shock_pct || 0) >= 0 ? '+' : ''}
+                                    {(Number(row.liquidity_runoff_shock_pct || 0) * 100).toFixed(1)}%
+                                  </td>
+                                  <td className="py-2 text-right text-bloomberg-text">
+                                    ${(Number(row.q1_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                  </td>
+                                  <td className="py-2 text-right text-bloomberg-text">
+                                    ${(Number(row.q4_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                  </td>
+                                  <td className="py-2 text-right text-bloomberg-text">
+                                    ${(Number(row.q9_ppnr_usd || 0) / 1e6).toFixed(0)}M
+                                  </td>
+                                  <td className="py-2 text-right text-bloomberg-text">
+                                    ${(Number(row.cumulative_9q_ppnr_usd || 0) / 1e9).toFixed(1)}B
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>
+            )}
 
-              <TabsContent value="deposit-beta" className="space-y-6">
-                <DepositBetaDashboard />
-              </TabsContent>
+            {activeSection === 'genie' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Genie Conversation</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-bloomberg-text-dim">
+                    Open Genie in Databricks or use the in-app assistant page for conversation tracking.
+                  </p>
+                  <div className="flex gap-2">
+                    <a
+                      href={genieRoomUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 border border-bloomberg-border rounded-lg bg-bloomberg-surface text-sm hover:border-bloomberg-orange hover:bg-orange-50"
+                    >
+                      Open Genie Room
+                    </a>
+                    <button
+                      onClick={() => window.dispatchEvent(new Event('open-treasury-genie'))}
+                      className="px-3 py-2 border border-bloomberg-border rounded-lg bg-bloomberg-surface text-sm hover:border-bloomberg-orange hover:bg-orange-50"
+                    >
+                      Open In-App Assistant
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-              <TabsContent value="vintage" className="space-y-6">
-                <VintageAnalysisDashboard />
-              </TabsContent>
-
-              <TabsContent value="stress-test" className="space-y-6">
-                <StressTestDashboard />
-              </TabsContent>
-
-              <TabsContent value="ppnr" className="space-y-6">
-                <PpnrDashboard />
-              </TabsContent>
-            </Tabs>
-
-            {/* Market + PPNR Scenario Snapshot */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+            {false && <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
               <Card className="xl:col-span-3">
                 <CardHeader>
                   <div className="flex items-center">
-                    <h3
-                      className="text-lg font-bold leading-none tracking-wider font-mono uppercase"
-                      style={{ color: '#ff8c00 !important' }}
-                    >
+                    <h3 className="text-base font-semibold leading-none tracking-wide text-bloomberg-text">
                       US TREASURY YIELD CURVE
                     </h3>
                     <DataSourceTooltip source="Alpha Vantage API → agent_tools.get_current_treasury_yields() → U.S. Department of Treasury daily rates" />
                   </div>
-                  <p className="text-sm font-mono" style={{ color: '#999999' }}>
+                  <p className="text-sm text-bloomberg-text-dim">
                     Live market data (compact view)
                   </p>
                 </CardHeader>
@@ -564,15 +901,12 @@ function DashboardContent() {
               <Card className="xl:col-span-9">
                 <CardHeader>
                   <div className="flex items-center">
-                    <h3
-                      className="text-lg font-bold leading-none tracking-wider font-mono uppercase"
-                      style={{ color: '#ff8c00 !important' }}
-                    >
+                    <h3 className="text-base font-semibold leading-none tracking-wide text-bloomberg-text">
                       PPNR SCENARIO PLANNING (ALCO)
                     </h3>
                     <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.gold_finance.ppnr_projection_quarterly_ml (fallback to ppnr_projection_quarterly / ml_models.ppnr_forecasts) via /api/data/ppnr-scenario-summary" />
                   </div>
-                  <p className="text-sm font-mono" style={{ color: '#999999' }}>
+                  <p className="text-sm text-bloomberg-text-dim">
                     Expanded scenario view: trajectory, cumulative impact, and optional attribution detail
                   </p>
                 </CardHeader>
@@ -585,7 +919,7 @@ function DashboardContent() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
                         {ppnrScenarioSummary.map((row: any, idx: number) => (
-                          <div key={idx} className="p-3 border-2 border-bloomberg-border bg-black/20">
+                          <div key={idx} className="p-3 border border-bloomberg-border rounded-lg bg-slate-50">
                             <div className="text-xs text-bloomberg-text-dim font-mono uppercase tracking-wider">{row.scenario}</div>
                             <div className="text-base font-bold text-bloomberg-text font-mono mt-1">
                               Q1 ${(Number(row.q1_ppnr_usd || 0) / 1e6).toFixed(0)}M
@@ -665,7 +999,7 @@ function DashboardContent() {
                         </table>
                       </div>
 
-                      <details className="border border-bloomberg-border bg-black/20 p-3">
+                      <details className="border border-bloomberg-border rounded-lg bg-slate-50 p-3">
                         <summary className="cursor-pointer text-xs font-mono text-bloomberg-orange uppercase tracking-wider">
                           Show Q9 attribution details (rate / market / liquidity)
                         </summary>
@@ -706,7 +1040,7 @@ function DashboardContent() {
                   )}
                 </CardContent>
               </Card>
-            </div>
+            </div>}
           </>
         )}
 
@@ -717,7 +1051,8 @@ function DashboardContent() {
             onClose={() => setSelectedDepositAccountId(null)}
           />
         )}
-      </main>
+        </main>
+      </div>
     </div>
   )
 }

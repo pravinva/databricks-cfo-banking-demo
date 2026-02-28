@@ -37,7 +37,7 @@ const TabsList = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "flex w-full h-14 items-center bg-bloomberg-surface border-b-2 border-bloomberg-orange/30 p-0 gap-1",
+        "flex w-full h-12 items-center bg-bloomberg-surface border border-bloomberg-border rounded-xl p-1 gap-1",
         className
       )}
       {...domProps}
@@ -63,10 +63,10 @@ const TabsTrigger = React.forwardRef<
   <button
     ref={ref}
     className={cn(
-      "flex-1 items-center justify-center whitespace-nowrap rounded-none px-6 py-4 text-sm font-bold font-mono uppercase tracking-wider transition-all duration-200 border-b-4 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
+      "flex-1 items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium tracking-wide transition-all duration-200 border focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
       activeTab === value
-        ? "bg-bloomberg-surface border-bloomberg-orange text-bloomberg-orange"
-        : "bg-transparent border-transparent text-bloomberg-text-dim hover:text-bloomberg-orange hover:bg-bloomberg-surface/50 hover:border-bloomberg-orange/30",
+        ? "bg-orange-50 border-orange-200 text-bloomberg-orange shadow-sm"
+        : "bg-transparent border-transparent text-bloomberg-text-dim hover:text-bloomberg-text hover:bg-slate-50 hover:border-bloomberg-border",
       className
     )}
     onClick={() => setActiveTab?.(value)}

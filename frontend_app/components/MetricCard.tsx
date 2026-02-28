@@ -24,7 +24,7 @@ export default function MetricCard({
 }: MetricCardProps) {
 
   const trendColors = {
-    up: 'text-bloomberg-green bloomberg-glow-green',
+    up: 'text-bloomberg-green',
     down: 'text-bloomberg-red bloomberg-glow-red',
     neutral: 'text-bloomberg-amber'
   }
@@ -36,21 +36,21 @@ export default function MetricCard({
       transition={{ duration: 0.3 }}
       whileHover={{
         y: -4,
-        boxShadow: '0 0 20px rgba(255, 140, 0, 0.3)'
+        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)'
       }}
     >
       <div
-        className={`bloomberg-panel rounded-none p-6 transition-all duration-200 relative border-2 ${
-          highlight ? 'border-bloomberg-orange' : 'border-bloomberg-border hover:border-bloomberg-orange/50'
+        className={`bloomberg-panel p-5 transition-all duration-200 relative border ${
+          highlight ? 'border-bloomberg-orange/60' : 'border-bloomberg-border hover:border-bloomberg-orange/40'
         }`}
       >
         {dataSource && (
           <div className="group absolute top-3 right-3">
             <Info className="h-4 w-4 text-bloomberg-text-dim cursor-help" />
             <div className="absolute top-full right-0 mt-2 hidden group-hover:block z-50 w-72">
-              <div className="bg-bloomberg-surface border border-bloomberg-orange text-bloomberg-text text-xs p-3 shadow-lg">
+              <div className="bg-white border border-bloomberg-border text-bloomberg-text text-xs p-3 shadow-lg rounded-lg">
                 <div className="font-bold mb-1 text-bloomberg-orange">DATA SOURCE</div>
-                <div className="text-bloomberg-text-dim font-mono text-[10px]">{dataSource}</div>
+                <div className="text-bloomberg-text-dim text-[10px]">{dataSource}</div>
               </div>
             </div>
           </div>
@@ -65,16 +65,16 @@ export default function MetricCard({
             {icon}
           </motion.div>
           <div
-            className={`text-xs font-bold font-mono px-2 py-1 ${trendColors[trend]}`}
+            className={`text-xs font-semibold px-2 py-1 ${trendColors[trend]}`}
           >
             {change}
           </div>
         </div>
 
         <div>
-          <p className="text-xs text-bloomberg-text-dim mb-2 font-mono font-bold tracking-wider">{title.toUpperCase()}</p>
+          <p className="text-xs text-bloomberg-text-dim mb-2 font-semibold tracking-wide">{title.toUpperCase()}</p>
           <motion.p
-            className="text-3xl font-bold text-bloomberg-orange bloomberg-glow font-mono tabular-nums"
+            className="text-3xl font-semibold text-bloomberg-text tabular-nums"
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.2 }}

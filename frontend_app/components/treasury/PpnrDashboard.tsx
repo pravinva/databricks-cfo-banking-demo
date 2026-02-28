@@ -60,6 +60,8 @@ export default function PpnrDashboard() {
   const latest = rows.length ? rows[rows.length - 1] : null
 
   const fmt = (v: number) => `$${(v / 1e6).toFixed(0)}M`
+  const nonInterestIncomeColor = '#2F9E8F'
+  const nonInterestExpenseColor = '#C27A7A'
 
   return (
     <div className="space-y-6">
@@ -122,7 +124,7 @@ export default function PpnrDashboard() {
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={rows}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="month" stroke="#999" hide />
                 <YAxis stroke="#999" tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`} />
                 <Tooltip formatter={(v: any) => fmt(toNumber(v))} />
@@ -145,13 +147,13 @@ export default function PpnrDashboard() {
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rows}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="month" stroke="#999" hide />
                 <YAxis stroke="#999" tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`} />
                 <Tooltip formatter={(v: any) => fmt(toNumber(v))} />
                 <Legend />
-                <Bar dataKey="non_interest_income" name="Non-Interest Income" fill="#FF8C00" />
-                <Bar dataKey="non_interest_expense" name="Non-Interest Expense" fill="#FF3621" />
+                <Bar dataKey="non_interest_income" name="Non-Interest Income" fill={nonInterestIncomeColor} />
+                <Bar dataKey="non_interest_expense" name="Non-Interest Expense" fill={nonInterestExpenseColor} />
               </BarChart>
             </ResponsiveContainer>
           </div>
