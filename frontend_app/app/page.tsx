@@ -384,7 +384,7 @@ function DashboardContent() {
       'w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors',
       activeSection === section
         ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-        : 'text-bloomberg-text-dim hover:bg-slate-50 border border-transparent',
+        : 'text-bloomberg-text-dim hover:bg-orange-50 hover:border-bloomberg-orange/60 hover:text-bloomberg-text border border-transparent',
     ].join(' ')
 
   const handleSidebarSelect = (section: SidebarSection) => {
@@ -476,14 +476,14 @@ function DashboardContent() {
                 href={publishedDashboardUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors text-bloomberg-text-dim hover:bg-slate-50 border border-transparent"
+                className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors text-bloomberg-text-dim hover:bg-orange-50 hover:border-bloomberg-orange/60 hover:text-bloomberg-text border border-transparent"
               >
                 <LayoutDashboard className="h-4 w-4" />
-                AI/BI Dashboard
+                AI/BI Insights
               </a>
               <button className={sidebarItemClass('dashboard')} onClick={() => handleSidebarSelect('dashboard')}>
                 <LayoutDashboard className="h-4 w-4" />
-                Dashboard
+                Portfolio
               </button>
               <button className={sidebarItemClass('deposits')} onClick={() => handleSidebarSelect('deposits')}>
                 <Activity className="h-4 w-4" />
