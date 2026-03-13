@@ -15,7 +15,7 @@ function Badge({ className, variant = 'default', ...props }: BadgeProps) {
 
   return (
     <div
-      className={`inline-flex items-center rounded-none border-2 px-2.5 py-0.5 text-xs font-bold font-mono transition-colors focus:outline-none ${variantClasses[variant]} ${className || ''}`}
+      className={`inline-flex items-center rounded-xl border-2 px-2.5 py-0.5 text-xs font-bold font-mono transition-colors focus:outline-none ${variantClasses[variant]} ${className || ''}`}
       {...props}
     />
   )

@@ -4,16 +4,16 @@
 
 /* Light Treasury UI Palette */
 :root {
-  --bloomberg-bg: #f4f7f8;
+  --bloomberg-bg: hsl(220 20% 97%);
   --bloomberg-surface: #ffffff;
   --bloomberg-border: #e3e8eb;
-  --bloomberg-orange: #d97706;
-  --bloomberg-amber: #f59e0b;
+  --bloomberg-orange: hsl(152 55% 41%);
+  --bloomberg-amber: hsl(38 95% 52%);
   --bloomberg-text: #111827;
   --bloomberg-text-dim: #6b7280;
-  --bloomberg-green: #0f9d78;
-  --bloomberg-red: #c24141;
-  --bloomberg-blue: #2563eb;
+  --bloomberg-green: hsl(152 55% 41%);
+  --bloomberg-red: hsl(0 72% 52%);
+  --bloomberg-blue: hsl(217 91% 60%);
 }
 
 body {
@@ -27,7 +27,7 @@ body {
   background: var(--bloomberg-surface);
   border: 1px solid var(--bloomberg-border);
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
-  border-radius: 14px;
+  border-radius: 12px;
 }
 
 .bloomberg-header {
