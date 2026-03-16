@@ -464,7 +464,7 @@ function DashboardContent() {
       </header>
       <div className="flex">
         <aside className="hidden xl:flex xl:w-64 border-r border-bloomberg-border bg-white/80 min-h-[calc(100vh-72px)] p-5">
-          <div className="w-full">
+          <div className="w-full h-full flex flex-col">
             <div className="mb-4 p-2 rounded-lg border border-bloomberg-border bg-white">
               <img
                 src="/databank-logo.png"
@@ -472,15 +472,7 @@ function DashboardContent() {
                 className="w-full h-16 object-contain rounded-md"
               />
             </div>
-            <div className="space-y-1 text-sm">
-              <a
-                href={treasuryDataHubUrl}
-                className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors text-bloomberg-text-dim hover:bg-orange-50 hover:border-bloomberg-orange/60 hover:text-bloomberg-text border border-transparent"
-                title="Return to Treasury Data Hub"
-              >
-                <Home className="h-4 w-4" />
-                Treasury Data Hub
-              </a>
+            <div className="flex flex-col flex-1 space-y-1 text-sm">
               <a
                 href={publishedDashboardUrl}
                 target="_blank"
@@ -522,6 +514,14 @@ function DashboardContent() {
                 <MessageSquare className="h-4 w-4" />
                 Genie Conversation
               </button>
+              <a
+                href={treasuryDataHubUrl}
+                className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors text-bloomberg-text-dim hover:bg-orange-50 hover:border-bloomberg-orange/60 hover:text-bloomberg-text border border-transparent mt-auto"
+                title="Return to CFO Hub"
+              >
+                <Home className="h-4 w-4" />
+                Return to CFO Hub
+              </a>
             </div>
           </div>
         </aside>
