@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { TrendingUp, Activity, Info, LayoutDashboard, Landmark, WalletCards, MessageSquare } from 'lucide-react'
+import { TrendingUp, Activity, Info, LayoutDashboard, Landmark, WalletCards, MessageSquare, Home } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import YieldCurveChart from '@/components/charts/YieldCurveChart'
 import MetricCard from '@/components/MetricCard'
@@ -107,6 +107,7 @@ function DashboardContent() {
     'https://e2-demo-field-eng.cloud.databricks.com/genie/rooms/01f101adda151c09835a99254d4c308c?o=1444828305810485'
   const demoDocumentationUrl =
     'https://pravinva.github.io/databricks-cfo-banking-demo/documentation_index.html'
+  const treasuryDataHubUrl = 'https://cfo-office-hub-3036928383961086.aws.databricksapps.com/'
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [depositBetaMetrics, setDepositBetaMetrics] = useState<any>(null)
@@ -472,6 +473,14 @@ function DashboardContent() {
               />
             </div>
             <div className="space-y-1 text-sm">
+              <a
+                href={treasuryDataHubUrl}
+                className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors text-bloomberg-text-dim hover:bg-orange-50 hover:border-bloomberg-orange/60 hover:text-bloomberg-text border border-transparent"
+                title="Return to Treasury Data Hub"
+              >
+                <Home className="h-4 w-4" />
+                Treasury Data Hub
+              </a>
               <a
                 href={publishedDashboardUrl}
                 target="_blank"
