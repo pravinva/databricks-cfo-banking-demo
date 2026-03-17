@@ -165,7 +165,7 @@ export default function VintageAnalysisDashboard() {
             KAPLAN-MEIER SURVIVAL CURVES
             <InsightTooltip
               title="How to interpret survival values"
-              text="This chart uses retention/survival proportions (account_count divided by initial_account_count), not hazard ratios. Typical interpretation is 0 to 1 (0% to 100% retained). Values above 1.0 indicate cohort/aggregation artifacts and should be interpreted as capped at 1.0 for narrative purposes."
+              text="This chart is a retention view shown with survival terminology. Each point is the share of the original cohort still active at that month (account_count divided by initial_account_count). So 0.93 means 93% retained and 7% attrited; 0.80 means 80% retained and 20% attrited. This is not a hazard ratio or relative risk metric."
               className="ml-2"
             />
           </CardTitle>
