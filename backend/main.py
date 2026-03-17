@@ -1923,16 +1923,28 @@ async def get_runoff_forecasts():
     """Phase 2: 3-year deposit runoff projections"""
     try:
         query = """
+            WITH scoped AS (
+                SELECT
+                    relationship_category,
+                    CAST(months_ahead / 12 AS INT) as year,
+                    current_balance_billions,
+                    projected_balance_billions
+                FROM cfo_banking_demo.ml_models.deposit_runoff_forecasts
+                WHERE months_ahead IN (12, 24, 36)
+            )
             SELECT
                 relationship_category,
-                CAST(months_ahead / 12 AS INT) as year,
-                current_balance_billions as beginning_balance,
-                projected_balance_billions as projected_balance,
-                (projected_balance_billions - current_balance_billions) as runoff_amount,
-                ((projected_balance_billions - current_balance_billions) / current_balance_billions * 100) as cumulative_runoff_pct
-            FROM cfo_banking_demo.ml_models.deposit_runoff_forecasts
-            WHERE months_ahead IN (12, 24, 36)
-            ORDER BY relationship_category, months_ahead
+                year,
+                AVG(current_balance_billions) as beginning_balance,
+                AVG(projected_balance_billions) as projected_balance,
+                (AVG(projected_balance_billions) - AVG(current_balance_billions)) as runoff_amount,
+                CASE
+                    WHEN AVG(current_balance_billions) = 0 THEN 0.0
+                    ELSE ((AVG(projected_balance_billions) - AVG(current_balance_billions)) / AVG(current_balance_billions) * 100)
+                END as cumulative_runoff_pct
+            FROM scoped
+            GROUP BY relationship_category, year
+            ORDER BY relationship_category, year
         """
         result = agent_tools.query_unity_catalog(query)
         if result["success"] and result["data"]:

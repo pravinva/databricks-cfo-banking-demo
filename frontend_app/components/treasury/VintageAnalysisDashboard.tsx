@@ -87,11 +87,11 @@ export default function VintageAnalysisDashboard() {
   const runoffChartData = runoffForecasts.reduce((acc: any[], item) => {
     const existing = acc.find(d => d.year === `Year ${item.year}`)
     if (existing) {
-      existing[item.relationship_category] = (item.projected_balance / 1e9)
+      existing[item.relationship_category] = item.projected_balance
     } else {
       acc.push({
         year: `Year ${item.year}`,
-        [item.relationship_category]: (item.projected_balance / 1e9)
+        [item.relationship_category]: item.projected_balance
       })
     }
     return acc
@@ -161,8 +161,13 @@ export default function VintageAnalysisDashboard() {
       {/* Cohort Survival Curves (Kaplan-Meier) */}
       <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
         <CardHeader>
-          <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
+          <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono inline-flex items-center">
             KAPLAN-MEIER SURVIVAL CURVES
+            <InsightTooltip
+              title="How to interpret survival values"
+              text="This chart uses retention/survival proportions (account_count divided by initial_account_count), not hazard ratios. Typical interpretation is 0 to 1 (0% to 100% retained). Values above 1.0 indicate cohort/aggregation artifacts and should be interpreted as capped at 1.0 for narrative purposes."
+              className="ml-2"
+            />
           </CardTitle>
           <p className="text-xs text-bloomberg-text-dim font-mono">Account retention by relationship category over 36 months</p>
         </CardHeader>
@@ -285,7 +290,7 @@ export default function VintageAnalysisDashboard() {
                     <td className="text-right p-3 text-bloomberg-text">{forecast.year}</td>
                     <td className="text-right p-3 text-bloomberg-text">
                       <span className="inline-flex items-center justify-end gap-1">
-                        ${(forecast.beginning_balance / 1e9).toFixed(2)}B
+                        ${forecast.beginning_balance.toFixed(2)}B
                         <InsightTooltip
                           title="Beginning balance takeaway"
                           text="Starting segment balance is the exposure base used to evaluate runoff sensitivity."
@@ -294,7 +299,7 @@ export default function VintageAnalysisDashboard() {
                     </td>
                     <td className="text-right p-3 text-bloomberg-text">
                       <span className="inline-flex items-center justify-end gap-1">
-                        ${(forecast.projected_balance / 1e9).toFixed(2)}B
+                        ${forecast.projected_balance.toFixed(2)}B
                         <InsightTooltip
                           title="Projected balance takeaway"
                           text="Projected ending balance reflects combined effects of closures and growth among survivors."
@@ -303,7 +308,7 @@ export default function VintageAnalysisDashboard() {
                     </td>
                     <td className="text-right p-3 text-bloomberg-red">
                       <span className="inline-flex items-center justify-end gap-1">
-                        -${(Math.abs(forecast.runoff_amount) / 1e9).toFixed(2)}B
+                        -${Math.abs(forecast.runoff_amount).toFixed(2)}B
                         <InsightTooltip
                           title="Runoff amount takeaway"
                           text="Absolute runoff quantifies expected balance loss and informs funding replacement needs."
