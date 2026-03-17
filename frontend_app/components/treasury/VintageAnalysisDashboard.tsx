@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { apiFetch } from '@/lib/api'
+import { InsightTooltip, InsightValue } from '@/components/ui/insight-tooltip'
 
 interface ComponentDecayMetrics {
   relationship_category: string
@@ -117,23 +118,36 @@ export default function VintageAnalysisDashboard() {
               <div className="space-y-4">
                 <div>
                   <div className="text-xs text-bloomberg-text-dim font-mono mb-1">CLOSURE RATE (λ)</div>
-                  <div className="text-2xl font-bold text-bloomberg-text font-mono">
-                    {(metric.closure_rate * 100).toFixed(2)}%
-                  </div>
+                  <InsightValue
+                    value={`${(metric.closure_rate * 100).toFixed(2)}%`}
+                    title="Closure rate takeaway"
+                    text="Higher lambda means faster account closures and weaker deposit retention."
+                    valueClassName="text-2xl font-bold text-bloomberg-text font-mono"
+                  />
                   <div className="text-xs text-bloomberg-text-dim font-mono mt-1">Annual account closure</div>
                 </div>
                 <div>
                   <div className="text-xs text-bloomberg-text-dim font-mono mb-1">ABGR (g)</div>
-                  <div className="text-2xl font-bold text-bloomberg-text font-mono">
-                    {(metric.abgr * 100) >= 0 ? '+' : ''}{(metric.abgr * 100).toFixed(2)}%
-                  </div>
+                  <InsightValue
+                    value={`${(metric.abgr * 100) >= 0 ? '+' : ''}${(metric.abgr * 100).toFixed(2)}%`}
+                    title="ABGR takeaway"
+                    text="ABGR captures balance growth among retained accounts; negative ABGR signals shrinking average balances."
+                    valueClassName="text-2xl font-bold text-bloomberg-text font-mono"
+                  />
                   <div className="text-xs text-bloomberg-text-dim font-mono mt-1">Balance growth rate</div>
                 </div>
                 <div>
                   <div className="text-xs text-bloomberg-text-dim font-mono mb-1">3-YEAR RUNOFF</div>
-                  <div className="text-2xl font-bold font-mono" style={{ color: relationshipColors[metric.relationship_category as keyof typeof relationshipColors] }}>
-                    {(100 - metric.year_3_retention * 100).toFixed(1)}%
-                  </div>
+                  <InsightValue
+                    value={
+                      <span style={{ color: relationshipColors[metric.relationship_category as keyof typeof relationshipColors] }}>
+                        {(100 - metric.year_3_retention * 100).toFixed(1)}%
+                      </span>
+                    }
+                    title="3-year runoff takeaway"
+                    text="Runoff percentage estimates cumulative balance attrition over the horizon for this segment."
+                    valueClassName="text-2xl font-bold font-mono"
+                  />
                   <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
                     ${((metric.year_3_retention - 1) * -10).toFixed(2)}B lost
                   </div>
@@ -270,16 +284,40 @@ export default function VintageAnalysisDashboard() {
                     </td>
                     <td className="text-right p-3 text-bloomberg-text">{forecast.year}</td>
                     <td className="text-right p-3 text-bloomberg-text">
-                      ${(forecast.beginning_balance / 1e9).toFixed(2)}B
+                      <span className="inline-flex items-center justify-end gap-1">
+                        ${(forecast.beginning_balance / 1e9).toFixed(2)}B
+                        <InsightTooltip
+                          title="Beginning balance takeaway"
+                          text="Starting segment balance is the exposure base used to evaluate runoff sensitivity."
+                        />
+                      </span>
                     </td>
                     <td className="text-right p-3 text-bloomberg-text">
-                      ${(forecast.projected_balance / 1e9).toFixed(2)}B
+                      <span className="inline-flex items-center justify-end gap-1">
+                        ${(forecast.projected_balance / 1e9).toFixed(2)}B
+                        <InsightTooltip
+                          title="Projected balance takeaway"
+                          text="Projected ending balance reflects combined effects of closures and growth among survivors."
+                        />
+                      </span>
                     </td>
                     <td className="text-right p-3 text-bloomberg-red">
-                      -${(Math.abs(forecast.runoff_amount) / 1e9).toFixed(2)}B
+                      <span className="inline-flex items-center justify-end gap-1">
+                        -${(Math.abs(forecast.runoff_amount) / 1e9).toFixed(2)}B
+                        <InsightTooltip
+                          title="Runoff amount takeaway"
+                          text="Absolute runoff quantifies expected balance loss and informs funding replacement needs."
+                        />
+                      </span>
                     </td>
                     <td className="text-right p-3 text-bloomberg-red font-bold">
-                      {forecast.cumulative_runoff_pct.toFixed(1)}%
+                      <span className="inline-flex items-center justify-end gap-1">
+                        {forecast.cumulative_runoff_pct.toFixed(1)}%
+                        <InsightTooltip
+                          title="Cumulative runoff takeaway"
+                          text="Higher cumulative runoff implies larger long-horizon funding pressure for this segment."
+                        />
+                      </span>
                     </td>
                   </tr>
                 ))}

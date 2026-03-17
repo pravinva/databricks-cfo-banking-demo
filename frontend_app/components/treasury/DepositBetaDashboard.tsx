@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { TrendingUp, TrendingDown, AlertTriangle, Info } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
+import { InsightTooltip, InsightValue } from '@/components/ui/insight-tooltip'
 
 interface BetaMetrics {
   total_accounts: number
@@ -101,9 +102,12 @@ export default function DepositBetaDashboard() {
             <CardTitle className="text-sm font-mono text-bloomberg-text-dim tracking-wider">PORTFOLIO BETA</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-bloomberg-text font-mono">
-              {metrics ? metrics.avg_beta.toFixed(3) : '—'}
-            </div>
+            <InsightValue
+              value={metrics ? metrics.avg_beta.toFixed(3) : '—'}
+              title="Portfolio beta takeaway"
+              text="Deposit beta estimates pass-through from market rates to offered rates. Lower beta implies stickier, lower-cost funding."
+              valueClassName="text-3xl font-bold text-bloomberg-text font-mono"
+            />
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">
               {metrics ? `${metrics.total_accounts.toLocaleString()} accounts` : '—'}
             </p>
@@ -121,9 +125,12 @@ export default function DepositBetaDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-bloomberg-orange font-mono bloomberg-glow">
-              {metrics ? `$${(metrics.at_risk_balance / 1e9).toFixed(1)}B` : '—'}
-            </div>
+            <InsightValue
+              value={metrics ? `$${(metrics.at_risk_balance / 1e9).toFixed(1)}B` : '—'}
+              title="At-risk deposits takeaway"
+              text="This is balance likely to reprice or run off first if competitors offer materially better rates."
+              valueClassName="text-3xl font-bold text-bloomberg-orange font-mono bloomberg-glow"
+            />
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">
               {metrics ? `${metrics.at_risk_accounts.toLocaleString()} accounts` : '—'}
             </p>
@@ -138,9 +145,12 @@ export default function DepositBetaDashboard() {
             <CardTitle className="text-sm font-mono text-bloomberg-text-dim tracking-wider">STRATEGIC</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-bloomberg-green font-mono bloomberg-glow-green">
-              {metrics ? `${metrics.strategic_pct.toFixed(1)}%` : '—'}
-            </div>
+            <InsightValue
+              value={metrics ? `${metrics.strategic_pct.toFixed(1)}%` : '—'}
+              title="Strategic segment takeaway"
+              text="Higher strategic share indicates a larger base of low-beta accounts and stronger funding durability."
+              valueClassName="text-3xl font-bold text-bloomberg-green font-mono bloomberg-glow-green"
+            />
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">
               Low sensitivity (sticky)
             </p>
@@ -155,9 +165,12 @@ export default function DepositBetaDashboard() {
             <CardTitle className="text-sm font-mono text-bloomberg-text-dim tracking-wider">EXPENDABLE</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-bloomberg-red font-mono bloomberg-glow-red">
-              {metrics ? `${metrics.expendable_pct.toFixed(1)}%` : '—'}
-            </div>
+            <InsightValue
+              value={metrics ? `${metrics.expendable_pct.toFixed(1)}%` : '—'}
+              title="Expendable segment takeaway"
+              text="Higher expendable share signals more flight-prone balances and greater sensitivity under stress."
+              valueClassName="text-3xl font-bold text-bloomberg-red font-mono bloomberg-glow-red"
+            />
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">
               High sensitivity (hot money)
             </p>
@@ -193,7 +206,13 @@ export default function DepositBetaDashboard() {
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-bloomberg-text font-mono text-xl">
-                        {item.avg_beta.toFixed(3)}
+                        <span className="inline-flex items-center gap-1">
+                          {item.avg_beta.toFixed(3)}
+                          <InsightTooltip
+                            title={`${item.product_type} beta takeaway`}
+                            text="Product-level beta indicates likely repricing pressure for this deposit type under rate moves."
+                          />
+                        </span>
                       </div>
                       <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
                         ${(item.total_balance / 1e9).toFixed(2)}B
@@ -242,10 +261,22 @@ export default function DepositBetaDashboard() {
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-bloomberg-text font-mono text-sm">
-                        ${(account.current_balance / 1e6).toFixed(2)}M
+                        <span className="inline-flex items-center gap-1">
+                          ${(account.current_balance / 1e6).toFixed(2)}M
+                          <InsightTooltip
+                            title="Account balance takeaway"
+                            text="Larger at-risk balances have outsized impact on repricing cost and runoff sensitivity."
+                          />
+                        </span>
                       </div>
                       <div className="text-xs text-bloomberg-red font-mono font-bold mt-1">
-                        β = {account.predicted_beta.toFixed(3)}
+                        <span className="inline-flex items-center gap-1">
+                          β = {account.predicted_beta.toFixed(3)}
+                          <InsightTooltip
+                            title="Predicted beta takeaway"
+                            text="Higher account beta indicates faster rate pass-through and greater likelihood of needing competitive repricing."
+                          />
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -294,7 +325,13 @@ export default function DepositBetaDashboard() {
             <div className="p-4 border border-bloomberg-border rounded-lg bg-slate-50">
               <div className="text-xs text-bloomberg-text-dim font-mono mb-2">MAPE (ENHANCED)</div>
               <div className="text-2xl font-bold text-bloomberg-green font-mono bloomberg-glow-green">
-                7.2%
+                <span className="inline-flex items-center gap-1">
+                  7.2%
+                  <InsightTooltip
+                    title="MAPE takeaway"
+                    text="Lower MAPE means better beta prediction accuracy and more reliable pricing decisions."
+                  />
+                </span>
               </div>
               <div className="text-xs text-bloomberg-green font-mono font-bold mt-1">
                 +41% improvement
@@ -303,7 +340,13 @@ export default function DepositBetaDashboard() {
             <div className="p-4 border border-bloomberg-border rounded-lg bg-slate-50">
               <div className="text-xs text-bloomberg-text-dim font-mono mb-2">BASELINE MAPE</div>
               <div className="text-2xl font-bold text-bloomberg-text-dim font-mono">
-                12.3%
+                <span className="inline-flex items-center gap-1">
+                  12.3%
+                  <InsightTooltip
+                    title="Baseline MAPE takeaway"
+                    text="This baseline error shows prior model quality; improvement vs this number indicates modeling gain."
+                  />
+                </span>
               </div>
               <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
                 15 features
@@ -312,7 +355,13 @@ export default function DepositBetaDashboard() {
             <div className="p-4 border border-bloomberg-border rounded-lg bg-slate-50">
               <div className="text-xs text-bloomberg-text-dim font-mono mb-2">FEATURES</div>
               <div className="text-2xl font-bold text-bloomberg-orange font-mono bloomberg-glow">
-                19
+                <span className="inline-flex items-center gap-1">
+                  19
+                  <InsightTooltip
+                    title="Feature set takeaway"
+                    text="A broader feature set captures more behavioral drivers and usually improves segmentation precision."
+                  />
+                </span>
               </div>
               <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
                 Canonical scoring feature set

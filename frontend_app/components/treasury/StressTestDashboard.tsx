@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts'
 import { Shield, AlertTriangle, CheckCircle } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
+import { InsightTooltip, InsightValue } from '@/components/ui/insight-tooltip'
 
 interface StressTestResult {
   scenario: string
@@ -143,9 +144,12 @@ export default function StressTestDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-xs text-bloomberg-text-dim font-mono mb-1">CET1 MINIMUM</div>
-                    <div className="text-2xl font-bold text-bloomberg-text font-mono">
-                      {summary.cet1_minimum.toFixed(1)}%
-                    </div>
+                    <InsightValue
+                      value={`${summary.cet1_minimum.toFixed(1)}%`}
+                      title="CET1 minimum takeaway"
+                      text="Minimum CET1 across the horizon is the binding capital buffer under this scenario."
+                      valueClassName="text-2xl font-bold text-bloomberg-text font-mono"
+                    />
                   </div>
                   {summary.cet1_minimum >= 7.0 ? (
                     <CheckCircle className="h-8 w-8 text-bloomberg-green bloomberg-glow-green" />
@@ -155,15 +159,21 @@ export default function StressTestDashboard() {
                 </div>
                 <div>
                   <div className="text-xs text-bloomberg-text-dim font-mono mb-1">NII IMPACT (2Y)</div>
-                  <div className="text-xl font-bold text-bloomberg-red font-mono">
-                    -${(Math.abs(summary.nii_impact_total) / 1e6).toFixed(0)}M
-                  </div>
+                  <InsightValue
+                    value={`-$${(Math.abs(summary.nii_impact_total) / 1e6).toFixed(0)}M`}
+                    title="NII impact takeaway"
+                    text="Negative NII impact indicates spread compression from rate and funding stress assumptions."
+                    valueClassName="text-xl font-bold text-bloomberg-red font-mono"
+                  />
                 </div>
                 <div>
                   <div className="text-xs text-bloomberg-text-dim font-mono mb-1">DEPOSIT RUNOFF</div>
-                  <div className="text-xl font-bold text-bloomberg-red font-mono">
-                    -${(Math.abs(summary.deposit_runoff_total) / 1e9).toFixed(1)}B
-                  </div>
+                  <InsightValue
+                    value={`-$${(Math.abs(summary.deposit_runoff_total) / 1e9).toFixed(1)}B`}
+                    title="Deposit runoff takeaway"
+                    text="Runoff is modeled funding outflow requiring replacement with potentially higher-cost funding."
+                    valueClassName="text-xl font-bold text-bloomberg-red font-mono"
+                  />
                   <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
                     ({((summary.deposit_runoff_total / 30e9) * 100).toFixed(1)}% of total)
                   </div>
@@ -333,11 +343,25 @@ export default function StressTestDashboard() {
                       {params.relationship_category}
                     </td>
                     <td className="text-right p-3 text-bloomberg-text">{params.beta_min.toFixed(4)}</td>
-                    <td className="text-right p-3 text-bloomberg-text">{params.beta_max.toFixed(4)}</td>
+                    <td className="text-right p-3 text-bloomberg-text">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        {params.beta_max.toFixed(4)}
+                        <InsightTooltip
+                          title="Beta max takeaway"
+                          text="Beta max reflects pass-through at high-rate regimes, informing worst-case repricing intensity."
+                        />
+                      </span>
+                    </td>
                     <td className="text-right p-3 text-bloomberg-text">{params.k.toFixed(2)}</td>
                     <td className="text-right p-3 text-bloomberg-text">{(params.R0 * 100).toFixed(2)}%</td>
                     <td className="text-right p-3 text-bloomberg-amber font-bold">
-                      {((params.beta_max - params.beta_min) * 100).toFixed(1)} bps
+                      <span className="inline-flex items-center justify-end gap-1">
+                        {((params.beta_max - params.beta_min) * 100).toFixed(1)} bps
+                        <InsightTooltip
+                          title="Beta range takeaway"
+                          text="Wider beta range implies stronger regime sensitivity between low- and high-rate environments."
+                        />
+                      </span>
                     </td>
                   </tr>
                 ))}

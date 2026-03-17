@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { apiFetch } from '@/lib/api'
+import { InsightTooltip, InsightValue } from '@/components/ui/insight-tooltip'
 
 interface PpnrRow {
   month: string
@@ -63,6 +64,14 @@ export default function PpnrDashboard() {
   const nonInterestIncomeColor = '#2F9E8F'
   const nonInterestExpenseColor = '#C27A7A'
 
+  const ppnrTakeaway = (value: number) =>
+    value >= 0
+      ? 'Positive PPNR indicates core earnings capacity before provisions and taxes.'
+      : 'Negative PPNR indicates core operating loss before provisions and taxes.'
+
+  const deltaTakeaway = (label: string, value: number) =>
+    `${label} is ${value >= 0 ? 'supporting' : 'pressuring'} PPNR by ${value >= 0 ? '+' : '-'}$${Math.abs(value / 1e6).toFixed(0)}M vs baseline in Q9.`
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-6">
@@ -71,9 +80,12 @@ export default function PpnrDashboard() {
             <CardTitle className="text-sm font-mono text-bloomberg-text-dim tracking-wider">PPNR (LATEST)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-bloomberg-green font-mono bloomberg-glow-green">
-              {latest ? fmt(latest.ppnr) : '—'}
-            </div>
+            <InsightValue
+              value={latest ? fmt(latest.ppnr) : '—'}
+              title="PPNR latest takeaway"
+              text={ppnrTakeaway(toNumber(latest?.ppnr))}
+              valueClassName="text-3xl font-bold text-bloomberg-green font-mono bloomberg-glow-green"
+            />
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">Monthly forecast</p>
           </CardContent>
         </Card>
@@ -83,7 +95,12 @@ export default function PpnrDashboard() {
             <CardTitle className="text-sm font-mono text-bloomberg-text-dim tracking-wider">NET INTEREST INCOME</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-bloomberg-text font-mono">{latest ? fmt(latest.net_interest_income) : '—'}</div>
+            <InsightValue
+              value={latest ? fmt(latest.net_interest_income) : '—'}
+              title="Net interest income takeaway"
+              text="NII reflects earnings from asset-liability spread; lower NII typically compresses PPNR."
+              valueClassName="text-3xl font-bold text-bloomberg-text font-mono"
+            />
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">Placeholder in demo</p>
           </CardContent>
         </Card>
@@ -93,9 +110,12 @@ export default function PpnrDashboard() {
             <CardTitle className="text-sm font-mono text-bloomberg-text-dim tracking-wider">NON-INTEREST INCOME</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-bloomberg-orange font-mono bloomberg-glow">
-              {latest ? fmt(latest.non_interest_income) : '—'}
-            </div>
+            <InsightValue
+              value={latest ? fmt(latest.non_interest_income) : '—'}
+              title="Non-interest income takeaway"
+              text="Higher fee and ancillary income provides a buffer against rate-cycle pressure."
+              valueClassName="text-3xl font-bold text-bloomberg-orange font-mono bloomberg-glow"
+            />
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">Fee income forecast</p>
           </CardContent>
         </Card>
@@ -105,9 +125,12 @@ export default function PpnrDashboard() {
             <CardTitle className="text-sm font-mono text-bloomberg-text-dim tracking-wider">NON-INTEREST EXPENSE</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-bloomberg-red font-mono">
-              {latest ? fmt(latest.non_interest_expense) : '—'}
-            </div>
+            <InsightValue
+              value={latest ? fmt(latest.non_interest_expense) : '—'}
+              title="Non-interest expense takeaway"
+              text="Operating expense discipline is a direct lever for improving PPNR resilience."
+              valueClassName="text-3xl font-bold text-bloomberg-red font-mono"
+            />
             <p className="text-xs text-bloomberg-text-dim font-mono mt-2">Operating expense forecast</p>
           </CardContent>
         </Card>
@@ -185,16 +208,51 @@ export default function PpnrDashboard() {
                 <tbody>
                   {scenarioRows.map((r, i) => (
                     <tr key={i} className="border-b border-bloomberg-border/40">
-                      <td className="py-2 text-bloomberg-text">{r.scenario}</td>
-                      <td className="py-2 text-right text-bloomberg-text">${(toNumber(r.q9_ppnr_usd) / 1e6).toFixed(0)}M</td>
+                      <td className="py-2 text-bloomberg-text">
+                        <span className="inline-flex items-center">
+                          {r.scenario}
+                          <InsightTooltip
+                            title="Scenario takeaway"
+                            text={ppnrTakeaway(toNumber(r.q9_ppnr_usd))}
+                            className="ml-2"
+                          />
+                        </span>
+                      </td>
+                      <td className="py-2 text-right text-bloomberg-text">
+                        <span className="inline-flex items-center justify-end gap-1">
+                          ${(toNumber(r.q9_ppnr_usd) / 1e6).toFixed(0)}M
+                          <InsightTooltip
+                            title="Q9 PPNR interpretation"
+                            text={ppnrTakeaway(toNumber(r.q9_ppnr_usd))}
+                          />
+                        </span>
+                      </td>
                       <td className={`py-2 text-right ${toNumber(r.q9_delta_rate_usd) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
-                        {toNumber(r.q9_delta_rate_usd) >= 0 ? '+' : ''}${(toNumber(r.q9_delta_rate_usd) / 1e6).toFixed(0)}M
+                        <span className="inline-flex items-center justify-end gap-1">
+                          {toNumber(r.q9_delta_rate_usd) >= 0 ? '+' : ''}${(toNumber(r.q9_delta_rate_usd) / 1e6).toFixed(0)}M
+                          <InsightTooltip
+                            title="Rate delta interpretation"
+                            text={deltaTakeaway('Rate effect', toNumber(r.q9_delta_rate_usd))}
+                          />
+                        </span>
                       </td>
                       <td className={`py-2 text-right ${toNumber(r.q9_delta_market_usd) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
-                        {toNumber(r.q9_delta_market_usd) >= 0 ? '+' : ''}${(toNumber(r.q9_delta_market_usd) / 1e6).toFixed(0)}M
+                        <span className="inline-flex items-center justify-end gap-1">
+                          {toNumber(r.q9_delta_market_usd) >= 0 ? '+' : ''}${(toNumber(r.q9_delta_market_usd) / 1e6).toFixed(0)}M
+                          <InsightTooltip
+                            title="Market delta interpretation"
+                            text={deltaTakeaway('Market effect', toNumber(r.q9_delta_market_usd))}
+                          />
+                        </span>
                       </td>
                       <td className={`py-2 text-right ${toNumber(r.q9_delta_liquidity_usd) >= 0 ? 'text-bloomberg-green' : 'text-bloomberg-red'}`}>
-                        {toNumber(r.q9_delta_liquidity_usd) >= 0 ? '+' : ''}${(toNumber(r.q9_delta_liquidity_usd) / 1e6).toFixed(0)}M
+                        <span className="inline-flex items-center justify-end gap-1">
+                          {toNumber(r.q9_delta_liquidity_usd) >= 0 ? '+' : ''}${(toNumber(r.q9_delta_liquidity_usd) / 1e6).toFixed(0)}M
+                          <InsightTooltip
+                            title="Liquidity delta interpretation"
+                            text={deltaTakeaway('Liquidity effect', toNumber(r.q9_delta_liquidity_usd))}
+                          />
+                        </span>
                       </td>
                     </tr>
                   ))}

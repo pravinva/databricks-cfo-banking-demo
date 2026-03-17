@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { LucideIcon, Info } from 'lucide-react'
+import { InsightTooltip } from '@/components/ui/insight-tooltip'
 
 interface MetricCardProps {
   title: string
@@ -11,6 +12,7 @@ interface MetricCardProps {
   icon: React.ReactNode
   highlight?: boolean
   dataSource?: string
+  insight?: string
 }
 
 export default function MetricCard({
@@ -20,7 +22,8 @@ export default function MetricCard({
   trend,
   icon,
   highlight = false,
-  dataSource
+  dataSource,
+  insight
 }: MetricCardProps) {
 
   const trendColors = {
@@ -73,14 +76,22 @@ export default function MetricCard({
 
         <div>
           <p className="text-xs text-bloomberg-text-dim mb-2 font-semibold tracking-wide">{title.toUpperCase()}</p>
-          <motion.p
-            className="text-3xl font-semibold text-bloomberg-text tabular-nums"
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.2 }}
-          >
-            {value}
-          </motion.p>
+          <div className="flex items-center gap-2">
+            <motion.p
+              className="text-3xl font-semibold text-bloomberg-text tabular-nums"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {value}
+            </motion.p>
+            {insight && (
+              <InsightTooltip
+                title={`Takeaway: ${title}`}
+                text={insight}
+              />
+            )}
+          </div>
         </div>
       </div>
     </motion.div>

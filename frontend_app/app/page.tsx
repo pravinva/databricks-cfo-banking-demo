@@ -14,6 +14,7 @@ import VintageAnalysisDashboard from '@/components/treasury/VintageAnalysisDashb
 import StressTestDashboard from '@/components/treasury/StressTestDashboard'
 import PpnrDashboard from '@/components/treasury/PpnrDashboard'
 import { apiFetch } from '@/lib/api'
+import { InsightTooltip } from '@/components/ui/insight-tooltip'
 
 type SidebarSection =
   | 'dashboard'
@@ -123,6 +124,23 @@ function DashboardContent() {
   const [activeSection, setActiveSection] = useState<SidebarSection>('dashboard')
   const [selectedDepositAccountId, setSelectedDepositAccountId] = useState<string | null>(null)
   const { state, navigateTo, reset } = useDrillDown()
+
+  const formatUsdMillions = (value: number) => `$${Math.abs(value / 1e6).toFixed(0)}M`
+
+  const scenarioTakeaway = (row: any) => {
+    const q9 = Number(row?.q9_ppnr_usd || 0)
+    const delta = Number(row?.q9_delta_ppnr_usd || 0)
+    const scenario = String(row?.scenario || 'Scenario')
+    const q9Text = `${q9 < 0 ? '-' : ''}${formatUsdMillions(q9)}`
+    const deltaText = `${delta < 0 ? '-' : '+'}${formatUsdMillions(delta)}`
+    if (scenario.toLowerCase() === 'baseline') {
+      return `Baseline projection lands at ${q9Text} in Q9. This is the reference path all other scenario deltas are compared against.`
+    }
+    if (delta < 0) {
+      return `${scenario} is ${deltaText} vs baseline at Q9, indicating earnings compression under stress assumptions.`
+    }
+    return `${scenario} is ${deltaText} vs baseline at Q9, indicating a resilient or improving earnings path.`
+  }
 
   useEffect(() => {
     // Set initial time on client only
@@ -560,6 +578,7 @@ function DashboardContent() {
                     trend="up"
                     icon={<TrendingUp className="h-5 w-5" />}
                     dataSource="Unity Catalog: cfo_banking_demo.ml_models.deposit_beta_predictions (AVG predicted_beta) → /api/data/deposit-beta-metrics"
+                    insight="Approach 1 beta is the static pass-through estimate of how much deposit pricing moves for a 100 bps market rate move. Lower beta generally means stickier, more stable funding."
                   />
                   <MetricCard
                     title="Latest PPNR"
@@ -568,6 +587,7 @@ function DashboardContent() {
                     trend="up"
                     icon={<TrendingUp className="h-5 w-5" />}
                     dataSource="Unity Catalog: cfo_banking_demo.ml_models.ppnr_forecasts (latest month) → /api/data/ppnr-forecasts"
+                    insight="PPNR (pre-provision net revenue) is core earnings before credit loss provisions and taxes. Positive and stable PPNR indicates stronger earnings absorption capacity."
                   />
                 </div>
 
@@ -611,7 +631,10 @@ function DashboardContent() {
                           <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
                             {ppnrScenarioSummary.map((row: any, idx: number) => (
                               <div key={idx} className="p-3 border border-bloomberg-border rounded-lg bg-slate-50">
-                                <div className="text-xs text-bloomberg-text-dim font-mono uppercase tracking-wider">{row.scenario}</div>
+                                <div className="flex items-center text-xs text-bloomberg-text-dim font-mono uppercase tracking-wider">
+                                  <span>{row.scenario}</span>
+                                  <InsightTooltip title="Scenario takeaway" text={scenarioTakeaway(row)} className="ml-2" />
+                                </div>
                                 <div className="text-base font-bold text-bloomberg-text font-mono mt-1">
                                   Q1 ${(Number(row.q1_ppnr_usd || 0) / 1e6).toFixed(0)}M
                                 </div>
