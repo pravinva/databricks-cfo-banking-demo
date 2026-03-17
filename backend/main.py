@@ -136,8 +136,54 @@ DEMO_WELL_RUN_PROFILE_ENABLED = (
     os.getenv("CFO_DEMO_WELL_RUN_PROFILE", "true").strip().lower()
     not in {"0", "false", "no", "off"}
 )
+BETA_TACTICAL_MIN = 0.35
+BETA_EXPENDABLE_MIN = 0.60
 
 _EXEC_REPORT_RE = re.compile(r"^treasury_report_executive_(\d{8}_\d{6})\.(pdf|html)$")
+
+
+def _segment_for_beta(beta: float) -> str:
+    if beta >= BETA_EXPENDABLE_MIN:
+        return "Expendable"
+    if beta >= BETA_TACTICAL_MIN:
+        return "Tactical"
+    return "Strategic"
+
+
+def _safe_pct(num: float, den: float) -> float:
+    if den <= 0:
+        return 0.0
+    return (num / den) * 100.0
+
+
+def _normalize_dynamic_segment(label: str) -> str:
+    key = (label or "").strip().lower().replace("_", " ")
+    if key in {"strategic", "low beta", "low"}:
+        return "Strategic"
+    if key in {"tactical", "medium beta", "medium"}:
+        return "Tactical"
+    if key in {"expendable", "high beta", "high"}:
+        return "Expendable"
+    return str(label or "Strategic").strip().title()
+
+
+def _default_dynamic_beta_params() -> dict[str, dict[str, float]]:
+    # Calibrated demo defaults for a "well-run bank" narrative.
+    return {
+        "Strategic": {"beta_min": 0.10, "beta_max": 0.45, "k": 1.40, "R0": 0.022},
+        "Tactical": {"beta_min": 0.22, "beta_max": 0.68, "k": 1.90, "R0": 0.028},
+        "Expendable": {"beta_min": 0.34, "beta_max": 0.87, "k": 4.80, "R0": 0.006},
+    }
+
+
+def _looks_like_placeholder_dynamic_params(beta_min: float, beta_max: float, k: float, r0: float) -> bool:
+    # Heuristic for placeholder-like rows such as 0.0/0.5 beta bands with flat k and large R0.
+    return (
+        beta_min <= 0.001
+        and beta_max <= 0.55
+        and k <= 0.70
+        and r0 >= 0.08
+    )
 
 
 class ExecutiveReportRunRequest(BaseModel):
@@ -1362,7 +1408,10 @@ async def get_deposit_beta_metrics():
                 SUM(current_balance) as total_balance,
                 AVG(predicted_beta) as avg_beta,
                 SUM(CASE WHEN predicted_beta >= 0.60 THEN 1 ELSE 0 END) as at_risk_accounts,
-                SUM(CASE WHEN predicted_beta >= 0.60 THEN current_balance ELSE 0 END) as at_risk_balance
+                SUM(CASE WHEN predicted_beta >= 0.60 THEN current_balance ELSE 0 END) as at_risk_balance,
+                SUM(CASE WHEN predicted_beta < 0.35 THEN 1 ELSE 0 END) as strategic_accounts,
+                SUM(CASE WHEN predicted_beta >= 0.35 AND predicted_beta < 0.60 THEN 1 ELSE 0 END) as tactical_accounts,
+                SUM(CASE WHEN predicted_beta >= 0.60 THEN 1 ELSE 0 END) as expendable_accounts
             FROM cfo_banking_demo.ml_models.deposit_beta_predictions
         """
         result = agent_tools.query_unity_catalog(query)
@@ -1373,15 +1422,33 @@ async def get_deposit_beta_metrics():
             )
         if result["success"] and result["data"] and len(result["data"]) > 0:
             row = result["data"][0]
+            total_accounts = int(row[0]) if row[0] else 0
+            strategic_accounts = int(row[5]) if len(row) > 5 and row[5] else 0
+            tactical_accounts = int(row[6]) if len(row) > 6 and row[6] else 0
+            expendable_accounts = int(row[7]) if len(row) > 7 and row[7] else 0
+
+            strategic_pct = _safe_pct(strategic_accounts, total_accounts)
+            tactical_pct = _safe_pct(tactical_accounts, total_accounts)
+            expendable_pct = _safe_pct(expendable_accounts, total_accounts)
+
+            if (
+                DEMO_WELL_RUN_PROFILE_ENABLED
+                and total_accounts > 0
+                and strategic_pct == 0.0
+                and tactical_pct == 0.0
+                and expendable_pct == 0.0
+            ):
+                strategic_pct, tactical_pct, expendable_pct = 65.0, 25.0, 10.0
+
             data = {
-                "total_accounts": int(row[0]) if row[0] else 0,
+                "total_accounts": total_accounts,
                 "total_balance": float(row[1]) if row[1] else 0.0,
                 "avg_beta": float(row[2]) if row[2] else 0.0,
                 "at_risk_accounts": int(row[3]) if row[3] else 0,
                 "at_risk_balance": float(row[4]) if row[4] else 0.0,
-                "strategic_pct": 0.0,
-                "tactical_pct": 0.0,
-                "expendable_pct": 0.0
+                "strategic_pct": strategic_pct,
+                "tactical_pct": tactical_pct,
+                "expendable_pct": expendable_pct
             }
             return {"success": True, "data": data}
         return JSONResponse({"error": "No data found"}, status_code=404)
@@ -1901,16 +1968,43 @@ async def get_dynamic_beta_parameters():
         """
         result = agent_tools.query_unity_catalog(query)
         if result["success"] and result["data"]:
-            data = [
-                {
-                    "relationship_category": row[0],
-                    "beta_min": float(row[1]) if row[1] else 0.0,
-                    "beta_max": float(row[2]) if row[2] else 0.0,
-                    "k": float(row[3]) if row[3] else 0.0,
-                    "R0": float(row[4]) if row[4] else 0.0
+            defaults = _default_dynamic_beta_params()
+            normalized: dict[str, dict[str, float]] = {}
+
+            for row in result["data"]:
+                category = _normalize_dynamic_segment(str(row[0]) if len(row) > 0 else "")
+                beta_min = float(row[1]) if len(row) > 1 and row[1] is not None else 0.0
+                beta_max = float(row[2]) if len(row) > 2 and row[2] is not None else 0.0
+                k_val = float(row[3]) if len(row) > 3 and row[3] is not None else 0.0
+                r0_val = float(row[4]) if len(row) > 4 and row[4] is not None else 0.0
+
+                if DEMO_WELL_RUN_PROFILE_ENABLED and _looks_like_placeholder_dynamic_params(
+                    beta_min, beta_max, k_val, r0_val
+                ):
+                    d = defaults.get(category, defaults["Tactical"])
+                    beta_min, beta_max, k_val, r0_val = d["beta_min"], d["beta_max"], d["k"], d["R0"]
+
+                normalized[category] = {
+                    "relationship_category": category,
+                    "beta_min": beta_min,
+                    "beta_max": beta_max,
+                    "k": k_val,
+                    "R0": r0_val,
                 }
-                for row in result["data"]
-            ]
+
+            for category in ("Strategic", "Tactical", "Expendable"):
+                if category not in normalized and DEMO_WELL_RUN_PROFILE_ENABLED:
+                    d = defaults[category]
+                    normalized[category] = {
+                        "relationship_category": category,
+                        "beta_min": d["beta_min"],
+                        "beta_max": d["beta_max"],
+                        "k": d["k"],
+                        "R0": d["R0"],
+                    }
+
+            order = {"Strategic": 0, "Tactical": 1, "Expendable": 2}
+            data = sorted(normalized.values(), key=lambda x: order.get(x["relationship_category"], 99))
             return {"success": True, "data": data}
         return JSONResponse({"error": "No data found"}, status_code=404)
     except Exception as e:
