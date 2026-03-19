@@ -132,22 +132,10 @@ EXEC_REPORT_NOTEBOOK_PATH_SUFFIX = os.getenv(
     "Generate_Report_Executive_Layout",
 )
 GENIE_SPACE_ID = os.getenv("CFO_GENIE_SPACE_ID", "01f101adda151c09835a99254d4c308c")
-DEMO_WELL_RUN_PROFILE_ENABLED = (
-    os.getenv("CFO_DEMO_WELL_RUN_PROFILE", "true").strip().lower()
-    not in {"0", "false", "no", "off"}
-)
 BETA_TACTICAL_MIN = 0.35
 BETA_EXPENDABLE_MIN = 0.60
 
 _EXEC_REPORT_RE = re.compile(r"^treasury_report_executive_(\d{8}_\d{6})\.(pdf|html)$")
-
-
-def _segment_for_beta(beta: float) -> str:
-    if beta >= BETA_EXPENDABLE_MIN:
-        return "Expendable"
-    if beta >= BETA_TACTICAL_MIN:
-        return "Tactical"
-    return "Strategic"
 
 
 def _safe_pct(num: float, den: float) -> float:
@@ -165,25 +153,6 @@ def _normalize_dynamic_segment(label: str) -> str:
     if key in {"expendable", "high beta", "high"}:
         return "Expendable"
     return str(label or "Strategic").strip().title()
-
-
-def _default_dynamic_beta_params() -> dict[str, dict[str, float]]:
-    # Calibrated demo defaults for a "well-run bank" narrative.
-    return {
-        "Strategic": {"beta_min": 0.10, "beta_max": 0.45, "k": 1.40, "R0": 0.022},
-        "Tactical": {"beta_min": 0.22, "beta_max": 0.68, "k": 1.90, "R0": 0.028},
-        "Expendable": {"beta_min": 0.34, "beta_max": 0.87, "k": 4.80, "R0": 0.006},
-    }
-
-
-def _looks_like_placeholder_dynamic_params(beta_min: float, beta_max: float, k: float, r0: float) -> bool:
-    # Heuristic for placeholder-like rows such as 0.0/0.5 beta bands with flat k and large R0.
-    return (
-        beta_min <= 0.001
-        and beta_max <= 0.55
-        and k <= 0.70
-        and r0 >= 0.08
-    )
 
 
 class ExecutiveReportRunRequest(BaseModel):
@@ -1431,15 +1400,6 @@ async def get_deposit_beta_metrics():
             tactical_pct = _safe_pct(tactical_accounts, total_accounts)
             expendable_pct = _safe_pct(expendable_accounts, total_accounts)
 
-            if (
-                DEMO_WELL_RUN_PROFILE_ENABLED
-                and total_accounts > 0
-                and strategic_pct == 0.0
-                and tactical_pct == 0.0
-                and expendable_pct == 0.0
-            ):
-                strategic_pct, tactical_pct, expendable_pct = 65.0, 25.0, 10.0
-
             data = {
                 "total_accounts": total_accounts,
                 "total_balance": float(row[1]) if row[1] else 0.0,
@@ -1774,81 +1734,6 @@ async def get_ppnr_scenario_summary(limit_quarters: int = 9):
         )
 
     data = sorted(data, key=lambda x: (x["scenario_rank"], x["scenario"]))
-
-    def _profile_targets(scenario_label: str) -> tuple[float, float]:
-        s = (scenario_label or "").strip().lower()
-        if s == "baseline":
-            return 140_000_000.0, 150_000_000.0
-        if s.startswith("adverse"):
-            return 70_000_000.0, 55_000_000.0
-        if s.startswith("severely adverse"):
-            return 30_000_000.0, -35_000_000.0
-        if s.startswith("market shock"):
-            return 20_000_000.0, -60_000_000.0
-        if s.startswith("rate cut"):
-            return 120_000_000.0, 95_000_000.0
-        return 80_000_000.0, 60_000_000.0
-
-    def _split_delta_components(
-        source_rate: float, source_market: float, source_liquidity: float, target_delta: float
-    ) -> tuple[float, float, float]:
-        source_total = source_rate + source_market + source_liquidity
-        if abs(source_total) > 1e-6:
-            scale = target_delta / source_total
-            return source_rate * scale, source_market * scale, source_liquidity * scale
-        return target_delta * 0.65, target_delta * 0.25, target_delta * 0.10
-
-    def _apply_demo_well_run_profile(rows: list[dict], quarters_default: int) -> list[dict]:
-        for row in rows:
-            scenario_label = str(row.get("scenario", ""))
-            qtrs = max(1, int(row.get("quarters") or quarters_default or 9))
-            q1_target, q9_target = _profile_targets(scenario_label)
-
-            if qtrs == 1:
-                q4_value = q1_target
-                q9_value = q1_target
-                cumulative_value = q1_target
-            else:
-                step = (q9_target - q1_target) / max(1, qtrs - 1)
-                q4_idx = min(3, qtrs - 1)
-                q9_idx = min(8, qtrs - 1)
-                q4_value = q1_target + (step * q4_idx)
-                q9_value = q1_target + (step * q9_idx)
-                cumulative_value = sum(q1_target + (step * i) for i in range(qtrs))
-
-            row["q1_ppnr_usd"] = q1_target
-            row["q4_ppnr_usd"] = q4_value
-            row["q9_ppnr_usd"] = q9_value
-            row["cumulative_9q_ppnr_usd"] = cumulative_value
-
-        baseline_q9 = next(
-            (float(r.get("q9_ppnr_usd", 0.0)) for r in rows if str(r.get("scenario", "")).strip().lower() == "baseline"),
-            150_000_000.0,
-        )
-
-        for row in rows:
-            scenario_label = str(row.get("scenario", "")).strip().lower()
-            q9_value = float(row.get("q9_ppnr_usd", 0.0))
-            target_delta = 0.0 if scenario_label == "baseline" else (q9_value - baseline_q9)
-            row["q9_delta_ppnr_usd"] = target_delta
-
-            source_rate = float(row.get("q9_delta_rate_usd", 0.0))
-            source_market = float(row.get("q9_delta_market_usd", 0.0))
-            source_liquidity = float(row.get("q9_delta_liquidity_usd", 0.0))
-            rate, market, liquidity = _split_delta_components(
-                source_rate, source_market, source_liquidity, target_delta
-            )
-            if scenario_label == "baseline":
-                rate, market, liquidity = 0.0, 0.0, 0.0
-            row["q9_delta_rate_usd"] = rate
-            row["q9_delta_market_usd"] = market
-            row["q9_delta_liquidity_usd"] = liquidity
-
-        return rows
-
-    if DEMO_WELL_RUN_PROFILE_ENABLED:
-        data = _apply_demo_well_run_profile(data, int(limit_quarters))
-
     return {"success": True, "source": chosen_source, "data": data}
 
 @app.get("/api/data/component-decay-metrics")
@@ -1895,19 +1780,7 @@ async def get_cohort_survival():
             SELECT
                 relationship_category,
                 months_since_open as months_since_opening,
-                LEAST(
-                    1.0,
-                    GREATEST(
-                        0.0,
-                        CASE
-                            WHEN SUM(COALESCE(initial_account_count, 0)) = 0 THEN 0.0
-                            ELSE SUM(
-                                LEAST(1.0, GREATEST(0.0, COALESCE(account_survival_rate, 0.0)))
-                                * COALESCE(initial_account_count, 0)
-                            ) / SUM(COALESCE(initial_account_count, 0))
-                        END
-                    )
-                ) as survival_rate,
+                AVG(account_survival_rate) as survival_rate,
                 '' as cohort_quarter
             FROM cfo_banking_demo.ml_models.cohort_survival_rates
             WHERE months_since_open <= 36
@@ -1925,29 +1798,6 @@ async def get_cohort_survival():
                 }
                 for row in result["data"]
             ]
-
-            if DEMO_WELL_RUN_PROFILE_ENABLED and data:
-                # If the curve is unnaturally pegged near 100%, fall back to a
-                # realistic well-run-bank retention profile by segment.
-                raw_rates = [float(x.get("survival_rate", 0.0)) for x in data]
-                near_flat_high = (
-                    len(raw_rates) > 0
-                    and min(raw_rates) >= 0.995
-                    and (max(raw_rates) - min(raw_rates)) <= 0.01
-                )
-
-                if near_flat_high:
-                    annual_closure = {
-                        "strategic": 0.03,   # sticky franchise deposits
-                        "tactical": 0.07,    # moderate sensitivity
-                        "expendable": 0.20,  # highly rate-sensitive
-                    }
-                    for row in data:
-                        category = str(row.get("relationship_category", "")).strip().lower()
-                        m = float(row.get("months_since_opening", 0.0))
-                        lam = annual_closure.get(category, 0.08)
-                        row["survival_rate"] = max(0.0, min(1.0, (1.0 - lam) ** (m / 12.0)))
-
             return {"success": True, "data": data}
         return JSONResponse({"error": "No data found"}, status_code=404)
     except Exception as e:
@@ -2015,7 +1865,6 @@ async def get_dynamic_beta_parameters():
         """
         result = agent_tools.query_unity_catalog(query)
         if result["success"] and result["data"]:
-            defaults = _default_dynamic_beta_params()
             normalized: dict[str, dict[str, float]] = {}
 
             for row in result["data"]:
@@ -2025,12 +1874,6 @@ async def get_dynamic_beta_parameters():
                 k_val = float(row[3]) if len(row) > 3 and row[3] is not None else 0.0
                 r0_val = float(row[4]) if len(row) > 4 and row[4] is not None else 0.0
 
-                if DEMO_WELL_RUN_PROFILE_ENABLED and _looks_like_placeholder_dynamic_params(
-                    beta_min, beta_max, k_val, r0_val
-                ):
-                    d = defaults.get(category, defaults["Tactical"])
-                    beta_min, beta_max, k_val, r0_val = d["beta_min"], d["beta_max"], d["k"], d["R0"]
-
                 normalized[category] = {
                     "relationship_category": category,
                     "beta_min": beta_min,
@@ -2038,17 +1881,6 @@ async def get_dynamic_beta_parameters():
                     "k": k_val,
                     "R0": r0_val,
                 }
-
-            for category in ("Strategic", "Tactical", "Expendable"):
-                if category not in normalized and DEMO_WELL_RUN_PROFILE_ENABLED:
-                    d = defaults[category]
-                    normalized[category] = {
-                        "relationship_category": category,
-                        "beta_min": d["beta_min"],
-                        "beta_max": d["beta_max"],
-                        "k": d["k"],
-                        "R0": d["R0"],
-                    }
 
             order = {"Strategic": 0, "Tactical": 1, "Expendable": 2}
             data = sorted(normalized.values(), key=lambda x: order.get(x["relationship_category"], 99))
