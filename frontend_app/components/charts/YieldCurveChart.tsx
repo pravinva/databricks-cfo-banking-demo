@@ -27,11 +27,12 @@ export default function YieldCurveChart({ height = 300 }: { height?: number }) {
       const result = await res.json()
 
       const formatted: YieldData[] = [
-        { maturity: '3M', yield: parseFloat(result['3M']), order: 1 },
-        { maturity: '2Y', yield: parseFloat(result['2Y']), order: 2 },
-        { maturity: '5Y', yield: parseFloat(result['5Y']), order: 3 },
-        { maturity: '10Y', yield: parseFloat(result['10Y']), order: 4 },
-        { maturity: '30Y', yield: parseFloat(result['30Y']), order: 5 },
+        // Backend stores yields as decimals (e.g., 0.0395); chart displays percent points.
+        { maturity: '3M', yield: parseFloat(result['3M']) * 100, order: 1 },
+        { maturity: '2Y', yield: parseFloat(result['2Y']) * 100, order: 2 },
+        { maturity: '5Y', yield: parseFloat(result['5Y']) * 100, order: 3 },
+        { maturity: '10Y', yield: parseFloat(result['10Y']) * 100, order: 4 },
+        { maturity: '30Y', yield: parseFloat(result['30Y']) * 100, order: 5 },
       ]
       setData(formatted)
       setLoading(false)
@@ -77,7 +78,8 @@ export default function YieldCurveChart({ height = 300 }: { height?: number }) {
           tickLine={false}
           axisLine={{ stroke: '#333333' }}
           tickFormatter={(value) => `${value.toFixed(2)}%`}
-          domain={['dataMin - 0.5', 'dataMax + 0.5']}
+          // Keep a tighter visual band so slope differences are visible.
+          domain={['dataMin - 0.1', 'dataMax + 0.1']}
         />
 
         <Tooltip

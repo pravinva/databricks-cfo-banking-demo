@@ -174,7 +174,7 @@ export default function FloatingAIAssistant() {
                     </motion.div>
                     <div>
                       <h3 className="text-sm font-semibold text-white">Treasury Genie</h3>
-                      <p className="text-xs text-blue-100">Room: 01f101adda151c09835a99254d4c308c</p>
+                      <p className="text-xs text-blue-100">Room: 01f1239a9856100fa09ae924f9e5f401</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">

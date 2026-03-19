@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 from typing import Optional
 import time
+from functools import wraps
 
 # Add outputs directory to path for importing agent tools
 sys.path.insert(0, str(Path(__file__).parent.parent / "outputs"))
@@ -25,6 +26,42 @@ os.environ.setdefault("DATABRICKS_ENABLE_EXPERIMENTAL_FILES_API_CLIENT", "true")
 
 # Get warehouse ID from environment or use default
 WAREHOUSE_ID = os.getenv("DATABRICKS_WAREHOUSE_ID", "4b9b953939869799")
+DATA_CATALOG = os.getenv("CFO_DATA_CATALOG", "banking_cfo_treasury")
+SCHEMA_PREFIX = os.getenv("CFO_SCHEMA_PREFIX", "deposit_ppnr").strip().strip("_")
+
+
+def _schema_name(base_schema: str) -> str:
+    return f"{SCHEMA_PREFIX}_{base_schema}" if SCHEMA_PREFIX else base_schema
+
+
+SCHEMA_BRONZE = _schema_name("bronze_core_banking")
+SCHEMA_SILVER_FINANCE = _schema_name("silver_finance")
+SCHEMA_SILVER_TREASURY = _schema_name("silver_treasury")
+SCHEMA_ML_MODELS = _schema_name("ml_models")
+SCHEMA_GOLD_FINANCE = _schema_name("gold_finance")
+
+_SCHEMA_REWRITE_MAP = {
+    "bronze_core_banking": SCHEMA_BRONZE,
+    "silver_finance": SCHEMA_SILVER_FINANCE,
+    "silver_treasury": SCHEMA_SILVER_TREASURY,
+    "ml_models": SCHEMA_ML_MODELS,
+    "gold_finance": SCHEMA_GOLD_FINANCE,
+}
+
+
+def _rewrite_sql_namespaces(sql: str) -> str:
+    if not isinstance(sql, str) or not sql.strip():
+        return sql
+
+    rewritten = sql.replace("cfo_banking_demo.", f"{DATA_CATALOG}.")
+    for legacy_schema, target_schema in _SCHEMA_REWRITE_MAP.items():
+        rewritten = rewritten.replace(f".{legacy_schema}.", f".{target_schema}.")
+        rewritten = re.sub(
+            rf"(?<![\w\.]){legacy_schema}\.",
+            f"{DATA_CATALOG}.{target_schema}.",
+            rewritten,
+        )
+    return rewritten
 
 try:
     from agent_tools_library import CFOAgentTools
@@ -32,6 +69,17 @@ try:
         if profile:
             os.environ["DATABRICKS_CONFIG_PROFILE"] = profile
         tools = CFOAgentTools(warehouse_id=WAREHOUSE_ID)
+
+        # Route all SQL through catalog + workstream-prefixed schemas.
+        original_query_uc = tools.query_unity_catalog
+
+        @wraps(original_query_uc)
+        def query_uc_with_namespace_rewrite(query, *args, **kwargs):
+            if isinstance(query, str):
+                query = _rewrite_sql_namespaces(query)
+            return original_query_uc(query, *args, **kwargs)
+
+        tools.query_unity_catalog = query_uc_with_namespace_rewrite
 
         # Validate we're connected to the workspace that actually has demo data.
         # This catches cases where the SDK authenticates fine but points at a workspace
@@ -118,7 +166,7 @@ app.add_middleware(
 
 REPORTS_VOLUME_DIR = os.getenv(
     "CFO_EXEC_REPORTS_VOLUME_DIR",
-    "/Volumes/cfo_banking_demo/gold_finance/reports",
+    f"/Volumes/{DATA_CATALOG}/{SCHEMA_GOLD_FINANCE}/reports",
 )
 
 EXEC_REPORT_JOB_ID = os.getenv("CFO_EXEC_REPORT_JOB_ID")  # optional (for "run now")
@@ -131,7 +179,7 @@ EXEC_REPORT_NOTEBOOK_PATH_SUFFIX = os.getenv(
     "CFO_EXEC_REPORT_NOTEBOOK_PATH_SUFFIX",
     "Generate_Report_Executive_Layout",
 )
-GENIE_SPACE_ID = os.getenv("CFO_GENIE_SPACE_ID", "01f101adda151c09835a99254d4c308c")
+GENIE_SPACE_ID = os.getenv("CFO_GENIE_SPACE_ID", "01f1239a9856100fa09ae924f9e5f401")
 BETA_TACTICAL_MIN = 0.35
 BETA_EXPENDABLE_MIN = 0.60
 
@@ -142,6 +190,15 @@ def _safe_pct(num: float, den: float) -> float:
     if den <= 0:
         return 0.0
     return (num / den) * 100.0
+
+
+def _wow_pct(current_value: float, prior_value: float) -> float:
+    if prior_value is None:
+        return 0.0
+    base = abs(float(prior_value))
+    if base <= 0:
+        return 0.0
+    return ((float(current_value) - float(prior_value)) / base) * 100.0
 
 
 def _normalize_dynamic_segment(label: str) -> str:
@@ -639,7 +696,61 @@ async def get_summary():
         return JSONResponse({"error": "Agent tools not available"}, status_code=503)
 
     try:
+        # Current balances (loans + deposits)
         result = agent_tools.get_portfolio_summary()
+        if not result.get("success"):
+            return JSONResponse({"error": "Failed to load portfolio summary"}, status_code=500)
+
+        # Deposit week-over-week from historical snapshots
+        wow_query = """
+            WITH latest AS (
+                SELECT MAX(snapshot_date) AS as_of_date
+                FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_history
+            ),
+            dates AS (
+                SELECT
+                    l.as_of_date,
+                    (
+                        SELECT MAX(snapshot_date)
+                        FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_history h
+                        WHERE h.snapshot_date <= DATE_SUB(l.as_of_date, 7)
+                    ) AS prior_date
+                FROM latest l
+            ),
+            agg AS (
+                SELECT
+                    snapshot_date,
+                    SUM(current_balance) AS total_balance
+                FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_history
+                GROUP BY snapshot_date
+            )
+            SELECT
+                d.as_of_date,
+                d.prior_date,
+                COALESCE(a1.total_balance, 0.0) AS current_deposits,
+                COALESCE(a2.total_balance, 0.0) AS prior_deposits
+            FROM dates d
+            LEFT JOIN agg a1 ON a1.snapshot_date = d.as_of_date
+            LEFT JOIN agg a2 ON a2.snapshot_date = d.prior_date
+        """
+        wow_result = agent_tools.query_unity_catalog(wow_query, max_rows=1)
+        as_of_date = None
+        prior_date = None
+        current_deposits = float(result.get("deposits") or 0.0)
+        prior_deposits = 0.0
+        if wow_result.get("success") and wow_result.get("data"):
+            row = wow_result["data"][0]
+            as_of_date = row[0]
+            prior_date = row[1]
+            current_deposits = float(row[2]) if row[2] is not None else current_deposits
+            prior_deposits = float(row[3]) if row[3] is not None else 0.0
+
+        deposits_wow_pct = _wow_pct(current_deposits, prior_deposits)
+        result["as_of_date"] = as_of_date
+        result["prior_date"] = prior_date
+        result["deposits"] = current_deposits
+        result["deposits_prior_week"] = prior_deposits
+        result["deposits_wow_pct"] = deposits_wow_pct
         return result
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -1384,6 +1495,39 @@ async def get_deposit_beta_metrics():
             FROM cfo_banking_demo.ml_models.deposit_beta_predictions
         """
         result = agent_tools.query_unity_catalog(query)
+        wow_query = """
+            WITH latest AS (
+                SELECT MAX(snapshot_date) AS as_of_date
+                FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_history
+            ),
+            dates AS (
+                SELECT
+                    l.as_of_date,
+                    (
+                        SELECT MAX(snapshot_date)
+                        FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_history h
+                        WHERE h.snapshot_date <= DATE_SUB(l.as_of_date, 7)
+                    ) AS prior_date
+                FROM latest l
+            ),
+            agg AS (
+                SELECT
+                    snapshot_date,
+                    SUM(current_balance * COALESCE(beta, 0.0)) / NULLIF(SUM(current_balance), 0.0) AS weighted_beta
+                FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_history
+                WHERE account_status = 'Active'
+                GROUP BY snapshot_date
+            )
+            SELECT
+                d.as_of_date,
+                d.prior_date,
+                COALESCE(a1.weighted_beta, 0.0) AS beta_current,
+                COALESCE(a2.weighted_beta, 0.0) AS beta_prior
+            FROM dates d
+            LEFT JOIN agg a1 ON a1.snapshot_date = d.as_of_date
+            LEFT JOIN agg a2 ON a2.snapshot_date = d.prior_date
+        """
+        wow_result = agent_tools.query_unity_catalog(wow_query, max_rows=1)
         if not result.get("success"):
             return JSONResponse(
                 {"error": "Query failed", "details": result.get("error")},
@@ -1399,16 +1543,29 @@ async def get_deposit_beta_metrics():
             strategic_pct = _safe_pct(strategic_accounts, total_accounts)
             tactical_pct = _safe_pct(tactical_accounts, total_accounts)
             expendable_pct = _safe_pct(expendable_accounts, total_accounts)
+            as_of_date = None
+            prior_date = None
+            beta_prior = 0.0
+            if wow_result.get("success") and wow_result.get("data"):
+                wow_row = wow_result["data"][0]
+                as_of_date = wow_row[0]
+                prior_date = wow_row[1]
+                beta_prior = float(wow_row[3]) if wow_row[3] is not None else 0.0
+            avg_beta = float(row[2]) if row[2] else 0.0
 
             data = {
                 "total_accounts": total_accounts,
                 "total_balance": float(row[1]) if row[1] else 0.0,
-                "avg_beta": float(row[2]) if row[2] else 0.0,
+                "avg_beta": avg_beta,
                 "at_risk_accounts": int(row[3]) if row[3] else 0,
                 "at_risk_balance": float(row[4]) if row[4] else 0.0,
                 "strategic_pct": strategic_pct,
                 "tactical_pct": tactical_pct,
-                "expendable_pct": expendable_pct
+                "expendable_pct": expendable_pct,
+                "as_of_date": as_of_date,
+                "prior_date": prior_date,
+                "avg_beta_prior_week": beta_prior,
+                "avg_beta_wow_pct": _wow_pct(avg_beta, beta_prior),
             }
             return {"success": True, "data": data}
         return JSONResponse({"error": "No data found"}, status_code=404)
@@ -1446,6 +1603,131 @@ async def get_deposit_beta_distribution():
                 }
                 for row in result["data"]
             ]
+            return {"success": True, "data": data}
+        return JSONResponse({"error": "No data found"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/data/deposit-client-mix")
+async def get_deposit_client_mix():
+    """Approach 1: Retail vs Corporate/Institutional/Commercial deposit mix"""
+    try:
+        summary_query = """
+            WITH scoped AS (
+                SELECT
+                    customer_segment,
+                    current_balance
+                FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+                WHERE account_status = 'Active'
+                  AND is_current = true
+            ),
+            grouped AS (
+                SELECT
+                    CASE
+                        WHEN LOWER(COALESCE(customer_segment, '')) IN ('consumer', 'retail', 'affluent', 'mass affluent')
+                            THEN 'Retail'
+                        ELSE 'Corporate / Institutional / Commercial'
+                    END AS client_group,
+                    COUNT(*) AS account_count,
+                    SUM(COALESCE(current_balance, 0)) AS total_balance
+                FROM scoped
+                GROUP BY 1
+            ),
+            totals AS (
+                SELECT
+                    SUM(account_count) AS total_accounts,
+                    SUM(total_balance) AS total_balance
+                FROM grouped
+            )
+            SELECT
+                g.client_group,
+                g.account_count,
+                g.total_balance,
+                CASE WHEN t.total_accounts = 0 THEN 0.0 ELSE (g.account_count / t.total_accounts) * 100 END AS account_pct,
+                CASE WHEN t.total_balance = 0 THEN 0.0 ELSE (g.total_balance / t.total_balance) * 100 END AS balance_pct
+            FROM grouped g
+            CROSS JOIN totals t
+            ORDER BY g.total_balance DESC
+        """
+
+        split_query = """
+            WITH scoped AS (
+                SELECT
+                    CASE
+                        WHEN LOWER(COALESCE(customer_segment, '')) IN ('consumer', 'retail', 'affluent', 'mass affluent')
+                            THEN 'Retail'
+                        ELSE 'Corporate / Institutional / Commercial'
+                    END AS client_group,
+                    COALESCE(product_type, 'Unknown') AS product_type,
+                    current_balance
+                FROM cfo_banking_demo.bronze_core_banking.deposit_accounts
+                WHERE account_status = 'Active'
+                  AND is_current = true
+            ),
+            grouped AS (
+                SELECT
+                    client_group,
+                    product_type,
+                    COUNT(*) AS account_count,
+                    SUM(COALESCE(current_balance, 0)) AS total_balance
+                FROM scoped
+                GROUP BY client_group, product_type
+            ),
+            totals AS (
+                SELECT
+                    client_group,
+                    SUM(total_balance) AS group_total_balance
+                FROM grouped
+                GROUP BY client_group
+            )
+            SELECT
+                g.client_group,
+                g.product_type,
+                g.account_count,
+                g.total_balance,
+                CASE
+                    WHEN t.group_total_balance = 0 THEN 0.0
+                    ELSE (g.total_balance / t.group_total_balance) * 100
+                END AS pct_of_group_balance
+            FROM grouped g
+            JOIN totals t
+              ON g.client_group = t.client_group
+            ORDER BY g.client_group, g.total_balance DESC
+        """
+
+        summary_result = agent_tools.query_unity_catalog(summary_query)
+        split_result = agent_tools.query_unity_catalog(split_query)
+
+        if summary_result.get("success") and summary_result.get("data"):
+            data = []
+            for row in summary_result["data"]:
+                data.append(
+                    {
+                        "client_group": row[0],
+                        "account_count": int(row[1]) if row[1] else 0,
+                        "total_balance": float(row[2]) if row[2] else 0.0,
+                        "account_pct": float(row[3]) if row[3] else 0.0,
+                        "balance_pct": float(row[4]) if row[4] else 0.0,
+                        "product_splits": [],
+                    }
+                )
+
+            if split_result.get("success") and split_result.get("data"):
+                split_by_group: dict[str, list[dict]] = {}
+                for row in split_result["data"]:
+                    client_group = str(row[0])
+                    split_by_group.setdefault(client_group, []).append(
+                        {
+                            "product_type": row[1],
+                            "account_count": int(row[2]) if row[2] else 0,
+                            "total_balance": float(row[3]) if row[3] else 0.0,
+                            "pct_of_group_balance": float(row[4]) if row[4] else 0.0,
+                        }
+                    )
+
+                for item in data:
+                    item["product_splits"] = split_by_group.get(item["client_group"], [])
+
             return {"success": True, "data": data}
         return JSONResponse({"error": "No data found"}, status_code=404)
     except Exception as e:
@@ -1499,6 +1781,92 @@ async def get_at_risk_deposits():
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+
+@app.get("/api/data/repricing-opportunities")
+async def get_repricing_opportunities():
+    """
+    Deposit beta analysis: low-flight-risk accounts with above-market offered rates.
+    These are candidates for favorable repricing to improve NII with lower runoff risk.
+    """
+    try:
+        query = """
+            WITH yc AS (
+                SELECT rate_2y
+                FROM cfo_banking_demo.silver_treasury.yield_curves
+                WHERE date = (SELECT MAX(date) FROM cfo_banking_demo.silver_treasury.yield_curves)
+            ),
+            base AS (
+                SELECT
+                    p.account_id,
+                    p.product_type,
+                    p.current_balance,
+                    p.stated_rate,
+                    yc.rate_2y AS market_rate,
+                    (p.stated_rate - yc.rate_2y) AS generous_spread,
+                    p.predicted_beta
+                FROM cfo_banking_demo.ml_models.deposit_beta_predictions p
+                CROSS JOIN yc
+                WHERE p.current_balance > 0
+            ),
+            scored AS (
+                SELECT
+                    account_id,
+                    product_type,
+                    current_balance,
+                    stated_rate,
+                    market_rate,
+                    generous_spread,
+                    predicted_beta,
+                    CASE
+                        WHEN predicted_beta < 0.35 THEN 'Low Beta'
+                        WHEN predicted_beta < 0.60 THEN 'Medium Beta'
+                        ELSE 'High Beta'
+                    END AS relationship_category,
+                    LEAST(
+                        75.0,
+                        GREATEST(10.0, generous_spread * 10000 * 0.50)
+                    ) AS recommended_cut_bps
+                FROM base
+                WHERE generous_spread > 0.0010   -- at least 10 bps richer than market
+                  AND predicted_beta <= 0.45      -- lower runoff sensitivity
+            )
+            SELECT
+                account_id,
+                product_type,
+                current_balance,
+                stated_rate,
+                market_rate,
+                generous_spread,
+                predicted_beta,
+                relationship_category,
+                recommended_cut_bps,
+                (current_balance * (recommended_cut_bps / 10000.0)) AS annual_income_uplift_usd
+            FROM scored
+            ORDER BY annual_income_uplift_usd DESC, predicted_beta ASC, current_balance DESC
+            LIMIT 50
+        """
+        result = agent_tools.query_unity_catalog(query)
+        if result.get("success") and result.get("data"):
+            data = [
+                {
+                    "account_id": row[0],
+                    "product_type": row[1],
+                    "current_balance": float(row[2]) if row[2] else 0.0,
+                    "stated_rate": float(row[3]) if row[3] else 0.0,
+                    "market_rate": float(row[4]) if row[4] else 0.0,
+                    "generous_spread": float(row[5]) if row[5] else 0.0,
+                    "predicted_beta": float(row[6]) if row[6] else 0.0,
+                    "relationship_category": row[7],
+                    "recommended_cut_bps": float(row[8]) if row[8] else 0.0,
+                    "annual_income_uplift_usd": float(row[9]) if row[9] else 0.0,
+                }
+                for row in result["data"]
+            ]
+            return {"success": True, "data": data}
+        return JSONResponse({"error": "No repricing opportunities found"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 @app.get("/api/data/ppnr-forecasts")
 async def get_ppnr_forecasts(limit: int = 24):
     """PPNR: Return latest monthly PPNR forecast series"""
@@ -1519,6 +1887,39 @@ async def get_ppnr_forecasts(limit: int = 24):
         """
 
         result = agent_tools.query_unity_catalog(query)
+        wow_query = """
+            WITH latest AS (
+                SELECT MAX(snapshot_date) AS as_of_date
+                FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_history
+            ),
+            dates AS (
+                SELECT
+                    l.as_of_date,
+                    (
+                        SELECT MAX(snapshot_date)
+                        FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_history h
+                        WHERE h.snapshot_date <= DATE_SUB(l.as_of_date, 7)
+                    ) AS prior_date
+                FROM latest l
+            ),
+            estim AS (
+                SELECT
+                    snapshot_date,
+                    (108000000 + (SUM(current_balance) * 0.000025)) AS net_interest_income_raw,
+                    (90500000 + (AVG(stated_rate) * 45000000)) AS non_interest_expense_raw
+                FROM cfo_banking_demo.bronze_core_banking.deposit_accounts_history
+                GROUP BY snapshot_date
+            )
+            SELECT
+                d.as_of_date,
+                d.prior_date,
+                COALESCE((e1.net_interest_income_raw * 1.10) - e1.non_interest_expense_raw, 0.0) AS ppnr_current_est,
+                COALESCE((e2.net_interest_income_raw * 1.10) - e2.non_interest_expense_raw, 0.0) AS ppnr_prior_est
+            FROM dates d
+            LEFT JOIN estim e1 ON e1.snapshot_date = d.as_of_date
+            LEFT JOIN estim e2 ON e2.snapshot_date = d.prior_date
+        """
+        wow_result = agent_tools.query_unity_catalog(wow_query, max_rows=1)
         if not result.get("success"):
             return JSONResponse(
                 {"error": "Query failed", "details": result.get("error")},
@@ -1536,7 +1937,30 @@ async def get_ppnr_forecasts(limit: int = 24):
                 {cols[i]: row[i] for i in range(min(len(cols), len(row)))}
                 for row in result["data"]
             ]
-            return {"success": True, "data": list(reversed(rows))}
+            ordered_rows = list(reversed(rows))
+            as_of_date = None
+            prior_date = None
+            ppnr_prior = 0.0
+            if wow_result.get("success") and wow_result.get("data"):
+                wow_row = wow_result["data"][0]
+                as_of_date = wow_row[0]
+                prior_date = wow_row[1]
+                ppnr_prior = float(wow_row[3]) if wow_row[3] is not None else 0.0
+
+            latest_ppnr = 0.0
+            if ordered_rows:
+                latest = ordered_rows[-1]
+                latest_ppnr = float(latest.get("ppnr") or 0.0)
+
+            return {
+                "success": True,
+                "as_of_date": as_of_date,
+                "prior_date": prior_date,
+                "latest_ppnr": latest_ppnr,
+                "ppnr_prior_week_estimate": ppnr_prior,
+                "ppnr_wow_pct": _wow_pct(latest_ppnr, ppnr_prior),
+                "data": ordered_rows,
+            }
 
         return JSONResponse({"error": "No data found"}, status_code=404)
     except Exception as e:
@@ -1652,9 +2076,11 @@ async def get_ppnr_scenario_summary(limit_quarters: int = 9):
             "baseline": "Baseline",
             "adverse": "Adverse",
             "severely_adverse": "Severely Adverse",
-            "rate_hike_100": "Adverse (+100 bps)",
+            "rate_hike_50": "Rate Hike (+50 bps)",
+            "rate_hike_100": "Rate Hike (+100 bps)",
             "rate_hike_200": "Severely Adverse (+200 bps)",
             "rate_hike_300": "Severely Adverse (+300 bps)",
+            "rate_cut_50": "Rate Cut (-50 bps)",
             "rate_cut_100": "Rate Cut (-100 bps)",
             "market_shock": "Market Shock (Non-Rate)",
         }
@@ -1662,16 +2088,24 @@ async def get_ppnr_scenario_summary(limit_quarters: int = 9):
 
     def _rank(label: str) -> int:
         s = (label or "").lower()
-        if s == "baseline":
+        if s.startswith("rate cut (-100"):
             return 10
-        if s.startswith("adverse"):
+        if s.startswith("rate cut (-50"):
             return 20
-        if s.startswith("severely adverse"):
+        if s == "baseline":
             return 30
-        if s.startswith("market shock"):
-            return 35
-        if s.startswith("rate cut"):
+        if s.startswith("rate hike (+50"):
             return 40
+        if s.startswith("rate hike (+100"):
+            return 50
+        if s.startswith("adverse"):
+            return 60
+        if s.startswith("severely adverse"):
+            return 70
+        if s.startswith("market shock"):
+            return 80
+        if s.startswith("rate cut"):
+            return 90
         return 90
 
     grouped = {}

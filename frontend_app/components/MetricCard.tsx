@@ -13,6 +13,8 @@ interface MetricCardProps {
   highlight?: boolean
   dataSource?: string
   insight?: string
+  asOfDate?: string
+  changeNote?: string
 }
 
 export default function MetricCard({
@@ -23,7 +25,9 @@ export default function MetricCard({
   icon,
   highlight = false,
   dataSource,
-  insight
+  insight,
+  asOfDate,
+  changeNote
 }: MetricCardProps) {
 
   const trendColors = {
@@ -69,10 +73,16 @@ export default function MetricCard({
           </motion.div>
           <div
             className={`text-xs font-semibold px-2 py-1 ${trendColors[trend]}`}
+            title={changeNote || undefined}
           >
             {change}
           </div>
         </div>
+        {changeNote ? (
+          <p className="text-[11px] text-bloomberg-text-dim -mt-2 mb-2">
+            {changeNote}
+          </p>
+        ) : null}
 
         <div>
           <p className="text-xs text-bloomberg-text-dim mb-2 font-semibold tracking-wide">{title.toUpperCase()}</p>
@@ -92,6 +102,11 @@ export default function MetricCard({
               />
             )}
           </div>
+          {asOfDate ? (
+            <p className="text-[11px] text-bloomberg-text-dim mt-1">
+              <sub>as of {asOfDate}</sub>
+            </p>
+          ) : null}
         </div>
       </div>
     </motion.div>

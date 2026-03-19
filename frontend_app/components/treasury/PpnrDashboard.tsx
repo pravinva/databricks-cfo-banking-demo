@@ -61,6 +61,7 @@ export default function PpnrDashboard() {
   const latest = rows.length ? rows[rows.length - 1] : null
 
   const fmt = (v: number) => `$${(v / 1e6).toFixed(0)}M`
+  const netInterestIncomeColor = '#3B82F6'
   const nonInterestIncomeColor = '#2F9E8F'
   const nonInterestExpenseColor = '#C27A7A'
 
@@ -164,7 +165,7 @@ export default function PpnrDashboard() {
           <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
             COMPONENTS
           </CardTitle>
-          <p className="text-xs text-bloomberg-text-dim font-mono">Income vs expense drivers</p>
+          <p className="text-xs text-bloomberg-text-dim font-mono">NII, non-interest income, and non-interest expense drivers</p>
         </CardHeader>
         <CardContent>
           <div className="h-72">
@@ -175,6 +176,7 @@ export default function PpnrDashboard() {
                 <YAxis stroke="#999" tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`} />
                 <Tooltip formatter={(v: any) => fmt(toNumber(v))} />
                 <Legend />
+                <Bar dataKey="net_interest_income" name="Net Interest Income" fill={netInterestIncomeColor} />
                 <Bar dataKey="non_interest_income" name="Non-Interest Income" fill={nonInterestIncomeColor} />
                 <Bar dataKey="non_interest_expense" name="Non-Interest Expense" fill={nonInterestExpenseColor} />
               </BarChart>

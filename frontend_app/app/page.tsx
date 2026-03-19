@@ -101,11 +101,137 @@ function DepositPortfolioBreakdown() {
   )
 }
 
+function DepositClientMixView() {
+  const [rows, setRows] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const productPalette = ['#16a34a', '#0284c7', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#e11d48', '#6366f1']
+
+  useEffect(() => {
+    const fetchClientMix = async () => {
+      try {
+        const res = await apiFetch('/api/data/deposit-client-mix')
+        const json = await res.json()
+        if (json?.success && Array.isArray(json?.data)) {
+          setRows(json.data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch deposit client mix:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchClientMix()
+  }, [])
+
+  if (loading) {
+    return <div className="text-sm text-bloomberg-text-dim font-mono">Loading...</div>
+  }
+
+  if (rows.length === 0) {
+    return <div className="text-sm text-bloomberg-text-dim font-mono">No client mix data available.</div>
+  }
+
+  const colorByProduct = new Map<string, string>()
+  let colorIdx = 0
+  rows.forEach((row) => {
+    const splits = Array.isArray(row?.product_splits) ? row.product_splits : []
+    splits.forEach((split: any) => {
+      const productType = String(split?.product_type || 'Unknown')
+      if (!colorByProduct.has(productType)) {
+        colorByProduct.set(productType, productPalette[colorIdx % productPalette.length])
+        colorIdx += 1
+      }
+    })
+  })
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row, index) => {
+        const clientGroup = String(row?.client_group || 'Unknown')
+        const isRetail = clientGroup.toLowerCase().includes('retail')
+        const balancePct = Number(row?.balance_pct || 0)
+        const accountPct = Number(row?.account_pct || 0)
+        const totalBalance = Number(row?.total_balance || 0)
+        const accountCount = Number(row?.account_count || 0)
+        const productSplits = Array.isArray(row?.product_splits) ? row.product_splits : []
+        const colorClass = isRetail ? 'bg-bloomberg-green' : 'bg-bloomberg-blue'
+        const valueTextClass = isRetail ? 'text-bloomberg-green' : 'text-bloomberg-blue'
+
+        return (
+          <div key={index} className="p-4 border border-bloomberg-border rounded-lg bg-bloomberg-surface">
+            <div className="flex justify-between items-start gap-4">
+              <div>
+                <div className="font-bold text-bloomberg-orange font-mono text-sm">{clientGroup}</div>
+                <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
+                  {accountCount.toLocaleString()} accounts ({accountPct.toFixed(1)}%)
+                </div>
+              </div>
+              <div className={`font-bold font-mono text-base ${valueTextClass}`}>
+                ${(totalBalance / 1e9).toFixed(2)}B
+              </div>
+            </div>
+            <div className="mt-3">
+              <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div className={`h-2 ${colorClass}`} style={{ width: `${Math.max(0, Math.min(100, balancePct))}%` }} />
+              </div>
+              <div className="text-xs text-bloomberg-text-dim font-mono mt-2">
+                Balance share: {balancePct.toFixed(1)}%
+              </div>
+            </div>
+            {productSplits.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-xs text-bloomberg-text-dim font-mono mb-2">
+                  Split by deposit category
+                </div>
+                <div className="w-full h-3 rounded-full bg-slate-200 overflow-hidden flex">
+                  {productSplits.map((split: any, splitIndex: number) => {
+                    const productType = String(split?.product_type || 'Unknown')
+                    const pct = Number(split?.pct_of_group_balance || 0)
+                    return (
+                      <div
+                        key={`${productType}-${splitIndex}`}
+                        className="h-3"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, pct))}%`,
+                          backgroundColor: colorByProduct.get(productType) || '#94a3b8',
+                        }}
+                        title={`${productType}: ${pct.toFixed(1)}%`}
+                      />
+                    )
+                  })}
+                </div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {productSplits.map((split: any, splitIndex: number) => {
+                    const productType = String(split?.product_type || 'Unknown')
+                    const pct = Number(split?.pct_of_group_balance || 0)
+                    return (
+                      <div key={`${productType}-legend-${splitIndex}`} className="flex items-center justify-between text-xs font-mono">
+                        <div className="flex items-center gap-2 text-bloomberg-text-dim">
+                          <span
+                            className="inline-block h-2 w-2 rounded-sm"
+                            style={{ backgroundColor: colorByProduct.get(productType) || '#94a3b8' }}
+                          />
+                          <span>{productType}</span>
+                        </div>
+                        <span className="text-bloomberg-text">{pct.toFixed(1)}%</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function DashboardContent() {
   const publishedDashboardUrl =
     'https://e2-demo-field-eng.cloud.databricks.com/dashboardsv3/01f108f1192218ecb07e67641bdc54ed/published?o=1444828305810485'
   const genieRoomUrl =
-    'https://e2-demo-field-eng.cloud.databricks.com/genie/rooms/01f101adda151c09835a99254d4c308c?o=1444828305810485'
+    'https://fevm-fins-demo.cloud.databricks.com/genie/rooms/01f1239a9856100fa09ae924f9e5f401'
   const demoDocumentationUrl =
     'https://pravinva.github.io/databricks-cfo-banking-demo/documentation_index.html'
   const treasuryDataHubUrl = 'https://cfo-office-hub-3036928383961086.aws.databricksapps.com/'
@@ -113,6 +239,8 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true)
   const [depositBetaMetrics, setDepositBetaMetrics] = useState<any>(null)
   const [ppnrLatest, setPpnrLatest] = useState<any>(null)
+  const [ppnrWowPct, setPpnrWowPct] = useState<number | null>(null)
+  const [ppnrAsOfDate, setPpnrAsOfDate] = useState<string | null>(null)
   const [ppnrScenarioSummary, setPpnrScenarioSummary] = useState<any[]>([])
   const [latestExecutiveReport, setLatestExecutiveReport] = useState<any>(null)
   const [executiveReportLoading, setExecutiveReportLoading] = useState<boolean>(false)
@@ -126,6 +254,11 @@ function DashboardContent() {
   const { state, navigateTo, reset } = useDrillDown()
 
   const formatUsdMillions = (value: number) => `$${Math.abs(value / 1e6).toFixed(0)}M`
+  const formatWow = (value: number | null | undefined) => {
+    if (value == null || Number.isNaN(value)) return 'WoW —'
+    const sign = value >= 0 ? '+' : ''
+    return `${sign}${value.toFixed(2)}% WoW`
+  }
 
   const scenarioTakeaway = (row: any) => {
     const q9 = Number(row?.q9_ppnr_usd || 0)
@@ -187,6 +320,10 @@ function DashboardContent() {
         const ppnrJson = await ppnrRes.json()
         if (ppnrJson?.success && Array.isArray(ppnrJson?.data) && ppnrJson.data.length > 0) {
           setPpnrLatest(ppnrJson.data[ppnrJson.data.length - 1])
+          setPpnrWowPct(
+            typeof ppnrJson?.ppnr_wow_pct === 'number' ? ppnrJson.ppnr_wow_pct : null
+          )
+          setPpnrAsOfDate(ppnrJson?.as_of_date ? String(ppnrJson.as_of_date) : null)
         }
 
         const ppnrScenarioJson = await ppnrScenarioRes.json()
@@ -561,9 +698,11 @@ function DashboardContent() {
                     <MetricCard
                       title="Total Deposits"
                       value={summary?.success ? `$${(summary.deposits / 1e9).toFixed(1)}B` : 'Loading...'}
-                      change="+1.8%"
-                      trend="up"
+                      change={formatWow(summary?.deposits_wow_pct)}
+                      trend={(summary?.deposits_wow_pct ?? 0) > 0 ? 'up' : (summary?.deposits_wow_pct ?? 0) < 0 ? 'down' : 'neutral'}
+                      changeNote="Week-over-week vs snapshot from 7 days prior"
                       icon={<Activity className="h-5 w-5" />}
+                      asOfDate={summary?.as_of_date ? String(summary.as_of_date) : undefined}
                       dataSource="Unity Catalog: cfo_banking_demo.bronze_core_banking.deposit_accounts WHERE account_status = 'Active' (SUM current_balance) → agent_tools.get_portfolio_summary()"
                     />
                   </div>
@@ -574,18 +713,22 @@ function DashboardContent() {
                         ? depositBetaMetrics.avg_beta.toFixed(3)
                         : '—'
                     }
-                    change="Approach 1"
-                    trend="up"
+                    change={formatWow(depositBetaMetrics?.avg_beta_wow_pct)}
+                    trend={(depositBetaMetrics?.avg_beta_wow_pct ?? 0) > 0 ? 'up' : (depositBetaMetrics?.avg_beta_wow_pct ?? 0) < 0 ? 'down' : 'neutral'}
+                    changeNote="Week-over-week vs snapshot from 7 days prior"
                     icon={<TrendingUp className="h-5 w-5" />}
+                    asOfDate={depositBetaMetrics?.as_of_date ? String(depositBetaMetrics.as_of_date) : undefined}
                     dataSource="Unity Catalog: cfo_banking_demo.ml_models.deposit_beta_predictions (AVG predicted_beta) → /api/data/deposit-beta-metrics"
                     insight="Approach 1 beta is the static pass-through estimate of how much deposit pricing moves for a 100 bps market rate move. Lower beta generally means stickier, more stable funding."
                   />
                   <MetricCard
                     title="Latest PPNR"
                     value={ppnrLatest?.ppnr != null ? `$${(Number(ppnrLatest.ppnr) / 1e9).toFixed(2)}B` : '—'}
-                    change="Monthly forecast"
-                    trend="up"
+                    change={formatWow(ppnrWowPct)}
+                    trend={(ppnrWowPct ?? 0) > 0 ? 'up' : (ppnrWowPct ?? 0) < 0 ? 'down' : 'neutral'}
+                    changeNote="Week-over-week vs snapshot from 7 days prior"
                     icon={<TrendingUp className="h-5 w-5" />}
+                    asOfDate={ppnrAsOfDate || undefined}
                     dataSource="Unity Catalog: cfo_banking_demo.ml_models.ppnr_forecasts (latest month) → /api/data/ppnr-forecasts"
                     insight="PPNR (pre-provision net revenue) is core earnings before credit loss provisions and taxes. Positive and stable PPNR indicates stronger earnings absorption capacity."
                   />
@@ -759,17 +902,30 @@ function DashboardContent() {
             )}
 
             {activeSection === 'deposits' && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center">
-                    <CardTitle>Deposit Portfolio by Product</CardTitle>
-                    <DataSourceTooltip source="Unity Catalog: cfo_banking_demo.bronze_core_banking.deposit_accounts → Aggregated by product_type with current_balance and stated_rate" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <DepositPortfolioBreakdown />
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center">
+                      <CardTitle>Deposit Portfolio by Product</CardTitle>
+                      <DataSourceTooltip source="Unity Catalog: deposit accounts aggregated by product_type, with current_balance and stated_rate" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <DepositPortfolioBreakdown />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center">
+                      <CardTitle>Retail vs Institutional/Commercial</CardTitle>
+                      <DataSourceTooltip source="Unity Catalog: deposit accounts grouped by customer_segment and product_type into Retail vs Corporate/Institutional/Commercial via /api/data/deposit-client-mix" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <DepositClientMixView />
+                  </CardContent>
+                </Card>
+              </div>
             )}
 
             {activeSection === 'deposit-beta' && <DepositBetaDashboard />}

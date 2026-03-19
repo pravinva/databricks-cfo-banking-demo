@@ -36,10 +36,24 @@ interface AtRiskAccount {
   relationship_category: string
 }
 
+interface RepricingOpportunity {
+  account_id: string
+  product_type: string
+  current_balance: number
+  stated_rate: number
+  market_rate: number
+  generous_spread: number
+  predicted_beta: number
+  relationship_category: string
+  recommended_cut_bps: number
+  annual_income_uplift_usd: number
+}
+
 export default function DepositBetaDashboard() {
   const [metrics, setMetrics] = useState<BetaMetrics | null>(null)
   const [distribution, setDistribution] = useState<BetaDistribution[]>([])
   const [atRiskAccounts, setAtRiskAccounts] = useState<AtRiskAccount[]>([])
+  const [repricingOpportunities, setRepricingOpportunities] = useState<RepricingOpportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -49,22 +63,31 @@ export default function DepositBetaDashboard() {
 
   const fetchData = async () => {
     try {
-      const [metricsRes, distributionRes, atRiskRes] = await Promise.all([
+      const [metricsRes, distributionRes, atRiskRes, repricingRes] = await Promise.all([
         apiFetch('/api/data/deposit-beta-metrics'),
         apiFetch('/api/data/deposit-beta-distribution'),
-        apiFetch('/api/data/at-risk-deposits')
+        apiFetch('/api/data/at-risk-deposits'),
+        apiFetch('/api/data/repricing-opportunities')
       ])
 
       const metricsData = await metricsRes.json()
       const distributionData = await distributionRes.json()
       const atRiskData = await atRiskRes.json()
+      const repricingData = await repricingRes.json()
 
       if (metricsData.success) setMetrics(metricsData.data)
       if (distributionData.success) setDistribution(distributionData.data)
       if (atRiskData.success) setAtRiskAccounts(atRiskData.data)
+      if (repricingData.success) setRepricingOpportunities(repricingData.data)
 
-      if (!metricsData.success && !distributionData.success && !atRiskData.success) {
-        setLoadError(metricsData.error || distributionData.error || atRiskData.error || 'Failed to load deposit beta data')
+      if (!metricsData.success && !distributionData.success && !atRiskData.success && !repricingData.success) {
+        setLoadError(
+          metricsData.error ||
+          distributionData.error ||
+          atRiskData.error ||
+          repricingData.error ||
+          'Failed to load deposit beta data'
+        )
       } else {
         setLoadError(null)
       }
@@ -181,74 +204,24 @@ export default function DepositBetaDashboard() {
         </Card>
       </div>
 
-      {/* Beta Distribution by Product & Relationship */}
-      <div className="grid grid-cols-2 gap-6">
-        <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
+      {/* Priority layout: repricing opportunities get primary space */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* Repricing Opportunities (Prominent) */}
+        <Card className="xl:col-span-8 border-2 border-bloomberg-green/60 bg-bloomberg-surface shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
-              BETA DISTRIBUTION BY PRODUCT
+            <CardTitle className="text-xl font-bold text-bloomberg-green tracking-wider font-mono">
+              TOP 10 LOW-RISK REPRICING OPPORTUNITIES
             </CardTitle>
-            <p className="text-xs text-bloomberg-text-dim font-mono">Rate sensitivity by deposit type</p>
+            <p className="text-xs text-bloomberg-text-dim font-mono">
+              Generous-rate accounts where terms can be tightened with lower expected runoff risk
+            </p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {distribution.map((item, index) => (
+            <div className="space-y-2 max-h-[560px] overflow-y-auto">
+              {repricingOpportunities.slice(0, 10).map((account, index) => (
                 <div
                   key={index}
-                  className="p-4 border border-bloomberg-border rounded-lg bg-slate-50 hover:border-bloomberg-orange/70 transition-colors"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="font-bold text-bloomberg-orange font-mono text-sm">{item.product_type}</div>
-                      <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
-                        {item.account_count.toLocaleString()} accounts
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-bloomberg-text font-mono text-xl">
-                        <span className="inline-flex items-center gap-1">
-                          {item.avg_beta.toFixed(3)}
-                          <InsightTooltip
-                            title={`${item.product_type} beta takeaway`}
-                            text="Product-level beta indicates likely repricing pressure for this deposit type under rate moves."
-                          />
-                        </span>
-                      </div>
-                      <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
-                        ${(item.total_balance / 1e9).toFixed(2)}B
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    className="h-2 rounded-full mt-2"
-                    style={{
-                      width: `${(item.avg_beta / 1.0) * 100}%`,
-                      backgroundColor: relationshipColors[item.relationship_category as keyof typeof relationshipColors] || '#666'
-                    }}
-                  />
-                  <div className="text-xs font-mono mt-2" style={{ color: relationshipColors[item.relationship_category as keyof typeof relationshipColors] }}>
-                    {item.relationship_category}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* At-Risk Accounts Table */}
-        <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
-              TOP 10 AT-RISK ACCOUNTS
-            </CardTitle>
-            <p className="text-xs text-bloomberg-text-dim font-mono">Accounts priced below market</p>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-[500px] overflow-y-auto">
-              {atRiskAccounts.slice(0, 10).map((account, index) => (
-                <div
-                  key={index}
-                  className="p-3 border border-bloomberg-border rounded-lg bg-slate-50 hover:border-bloomberg-red/70 transition-colors"
+                  className="p-3 border border-bloomberg-border rounded-lg bg-slate-50 hover:border-bloomberg-green/70 transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div>
@@ -261,26 +234,14 @@ export default function DepositBetaDashboard() {
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-bloomberg-text font-mono text-sm">
-                        <span className="inline-flex items-center gap-1">
-                          ${(account.current_balance / 1e6).toFixed(2)}M
-                          <InsightTooltip
-                            title="Account balance takeaway"
-                            text="Larger at-risk balances have outsized impact on repricing cost and runoff sensitivity."
-                          />
-                        </span>
+                        ${(account.current_balance / 1e6).toFixed(2)}M
                       </div>
-                      <div className="text-xs text-bloomberg-red font-mono font-bold mt-1">
-                        <span className="inline-flex items-center gap-1">
-                          β = {account.predicted_beta.toFixed(3)}
-                          <InsightTooltip
-                            title="Predicted beta takeaway"
-                            text="Higher account beta indicates faster rate pass-through and greater likelihood of needing competitive repricing."
-                          />
-                        </span>
+                      <div className="text-xs text-bloomberg-green font-mono font-bold mt-1">
+                        +${(account.annual_income_uplift_usd / 1e3).toFixed(0)}K/yr
                       </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                  <div className="grid grid-cols-4 gap-2 text-xs font-mono">
                     <div>
                       <span className="text-bloomberg-text-dim">Our Rate:</span>
                       <br />
@@ -292,10 +253,17 @@ export default function DepositBetaDashboard() {
                       <span className="text-bloomberg-text">{(account.market_rate * 100).toFixed(2)}%</span>
                     </div>
                     <div>
-                      <span className="text-bloomberg-text-dim">Gap:</span>
+                      <span className="text-bloomberg-text-dim">Cut:</span>
                       <br />
-                      <span className="text-bloomberg-red font-bold">
-                        {(account.rate_gap * 100).toFixed(0)} bps
+                      <span className="text-bloomberg-green font-bold">
+                        {account.recommended_cut_bps.toFixed(0)} bps
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-bloomberg-text-dim">Beta:</span>
+                      <br />
+                      <span className="text-bloomberg-green font-bold">
+                        {account.predicted_beta.toFixed(3)}
                       </span>
                     </div>
                   </div>
@@ -310,7 +278,114 @@ export default function DepositBetaDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Compact beta distribution tile */}
+        <Card className="xl:col-span-4 border-2 border-bloomberg-border bg-bloomberg-surface">
+          <CardHeader>
+            <CardTitle className="text-base font-bold text-bloomberg-orange tracking-wider font-mono">
+              BETA DISTRIBUTION BY PRODUCT
+            </CardTitle>
+            <p className="text-xs text-bloomberg-text-dim font-mono">Compact product sensitivity tile</p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {distribution.slice(0, 6).map((item, index) => (
+                <div key={index} className="p-2 border border-bloomberg-border rounded bg-slate-50">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="font-bold text-bloomberg-orange">{item.product_type}</span>
+                    <span className="text-bloomberg-text">{item.avg_beta.toFixed(3)}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full mt-2 bg-slate-200">
+                    <div
+                      className="h-1.5 rounded-full"
+                      style={{
+                        width: `${(item.avg_beta / 1.0) * 100}%`,
+                        backgroundColor: relationshipColors[item.relationship_category as keyof typeof relationshipColors] || '#666',
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* At-Risk Accounts (secondary) */}
+      <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
+        <CardHeader>
+          <CardTitle className="text-lg font-bold text-bloomberg-orange tracking-wider font-mono">
+            TOP 10 AT-RISK ACCOUNTS
+          </CardTitle>
+          <p className="text-xs text-bloomberg-text-dim font-mono">Accounts priced below market</p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 max-h-[320px] overflow-y-auto">
+            {atRiskAccounts.slice(0, 10).map((account, index) => (
+              <div
+                key={index}
+                className="p-3 border border-bloomberg-border rounded-lg bg-slate-50 hover:border-bloomberg-red/70 transition-colors"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="font-bold text-bloomberg-text font-mono text-xs">
+                      {account.account_id}
+                    </div>
+                    <div className="text-xs text-bloomberg-text-dim font-mono mt-1">
+                      {account.product_type}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-bloomberg-text font-mono text-sm">
+                      <span className="inline-flex items-center gap-1">
+                        ${(account.current_balance / 1e6).toFixed(2)}M
+                        <InsightTooltip
+                          title="Account balance takeaway"
+                          text="Larger at-risk balances have outsized impact on repricing cost and runoff sensitivity."
+                        />
+                      </span>
+                    </div>
+                    <div className="text-xs text-bloomberg-red font-mono font-bold mt-1">
+                      <span className="inline-flex items-center gap-1">
+                        β = {account.predicted_beta.toFixed(3)}
+                        <InsightTooltip
+                          title="Predicted beta takeaway"
+                          text="Higher account beta indicates faster rate pass-through and greater likelihood of needing competitive repricing."
+                        />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                  <div>
+                    <span className="text-bloomberg-text-dim">Our Rate:</span>
+                    <br />
+                    <span className="text-bloomberg-text">{(account.stated_rate * 100).toFixed(2)}%</span>
+                  </div>
+                  <div>
+                    <span className="text-bloomberg-text-dim">Market:</span>
+                    <br />
+                    <span className="text-bloomberg-text">{(account.market_rate * 100).toFixed(2)}%</span>
+                  </div>
+                  <div>
+                    <span className="text-bloomberg-text-dim">Gap:</span>
+                    <br />
+                    <span className="text-bloomberg-red font-bold">
+                      {(account.rate_gap * 100).toFixed(0)} bps
+                    </span>
+                  </div>
+                </div>
+                <div
+                  className="text-xs font-mono font-bold mt-2"
+                  style={{ color: relationshipColors[account.relationship_category as keyof typeof relationshipColors] }}
+                >
+                  {account.relationship_category}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Model Performance Metrics */}
       <Card className="border-2 border-bloomberg-border bg-bloomberg-surface">
