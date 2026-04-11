@@ -1,6 +1,6 @@
 env:
   - name: DATABRICKS_WAREHOUSE_ID
-    value: "4b9b953939869799"
+    value: "AUTO"
   - name: MLFLOW_TRACKING_URI
     value: "databricks"
 

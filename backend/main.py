@@ -24,8 +24,30 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "outputs"))
 # Files API is "public preview" and may require enabling experimental client features.
 os.environ.setdefault("DATABRICKS_ENABLE_EXPERIMENTAL_FILES_API_CLIENT", "true")
 
-# Get warehouse ID from environment or use default
-WAREHOUSE_ID = os.getenv("DATABRICKS_WAREHOUSE_ID", "4b9b953939869799")
+def _resolve_sql_warehouse_id() -> str:
+    """Explicit env id, or first existing warehouse (FINS-Apps then Serverless Starter on fevm-fins-demo)."""
+    raw = (os.getenv("DATABRICKS_WAREHOUSE_ID") or "AUTO").strip()
+    if raw.upper() != "AUTO":
+        return raw
+    candidates = (
+        "d5080ca821238922",  # FINS-Apps
+        "05dad35197134270",  # Serverless Starter Warehouse
+    )
+    try:
+        ws = WorkspaceClient()
+        for wid in candidates:
+            try:
+                ws.warehouses.get(wid)
+                return wid
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return candidates[0]
+
+
+# Get warehouse ID from environment or resolve against workspace (AUTO)
+WAREHOUSE_ID = _resolve_sql_warehouse_id()
 DATA_CATALOG = os.getenv("CFO_DATA_CATALOG", "banking_cfo_treasury")
 SCHEMA_PREFIX = os.getenv("CFO_SCHEMA_PREFIX", "deposit_ppnr").strip().strip("_")
 

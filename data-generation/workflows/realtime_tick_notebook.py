@@ -9,12 +9,35 @@ from databricks.sdk import WorkspaceClient
 import re
 import time
 
-dbutils.widgets.text("warehouse_id", "192fe959f141d27c")
+dbutils.widgets.text("warehouse_id", "AUTO")
 dbutils.widgets.text("catalog", "banking_cfo_treasury")
 dbutils.widgets.text("schema_prefix", "deposit_ppnr")
 dbutils.widgets.text("sql_file_path", "dbfs:/FileStore/cfo-data-generation/sql/50_realtime_tick.sql")
 
-warehouse_id = dbutils.widgets.get("warehouse_id")
+
+def _resolve_sql_warehouse(raw: str) -> str:
+    """Use widget value, or first existing warehouse among FINS-Apps then Serverless Starter."""
+    raw = (raw or "").strip()
+    if raw.upper() != "AUTO":
+        return raw
+    candidates = (
+        "d5080ca821238922",  # FINS-Apps (fevm-fins-demo)
+        "05dad35197134270",  # Serverless Starter Warehouse
+    )
+    ws = WorkspaceClient()
+    for wid in candidates:
+        try:
+            ws.warehouses.get(wid)
+            return wid
+        except Exception:
+            continue
+    raise RuntimeError(
+        "Could not resolve SQL warehouse: set warehouse_id explicitly or ensure "
+        "FINS-Apps or Serverless Starter Warehouse exists in this workspace."
+    )
+
+
+warehouse_id = _resolve_sql_warehouse(dbutils.widgets.get("warehouse_id"))
 catalog = dbutils.widgets.get("catalog")
 schema_prefix = dbutils.widgets.get("schema_prefix")
 sql_file_path = dbutils.widgets.get("sql_file_path")
