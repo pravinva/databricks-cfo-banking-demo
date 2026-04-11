@@ -31,6 +31,7 @@ Complete documentation for the Databricks Treasury Modeling Demo focused on depo
 **Location:** `guides/`
 
 - **[STRESS_TEST_TERMINOLOGY.md](guides/STRESS_TEST_TERMINOLOGY.md)** - CCAR terminology + stress-testing terms
+- **[JOBS_AND_SQL_WAREHOUSE_TROUBLESHOOTING.md](guides/JOBS_AND_SQL_WAREHOUSE_TROUBLESHOOTING.md)** - Deployment checklist: SQL warehouses, Apps vs `app.yml`, jobs, upstream failures, audit
 - **[UPDATE_NOTEBOOKS.md](guides/UPDATE_NOTEBOOKS.md)** - Notebook naming/renames and alignment notes
 - **[UC_VOLUMES_MIGRATION.md](guides/UC_VOLUMES_MIGRATION.md)** - UC volumes migration notes
 - **[DEPOSIT_MODELING_PPNR_MODELER_PLAYBOOK.md](guides/DEPOSIT_MODELING_PPNR_MODELER_PLAYBOOK.md)** - Modeler playbook + approach selection guidance
