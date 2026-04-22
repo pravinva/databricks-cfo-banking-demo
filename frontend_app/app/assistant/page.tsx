@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
+import AssistantMessageContent from '@/components/AssistantMessageContent'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -97,11 +98,57 @@ export default function AIAssistant() {
     }
   }
 
-  const exampleQueries = [
-    'Current 10Y Treasury yield',
-    'Rate shock: +50 bps on MMDA',
-    'LCR status',
-    'Portfolio summary'
+  const quickQueries = [
+    {
+      label: 'CCAR Scenario Summary',
+      prompt:
+        'Give me a summary of all stress test scenarios - what rate shock each assumes, how depositor behavior changes under stress, the NII impact, and whether we pass the regulatory capital test.',
+    },
+    {
+      label: 'Stable vs Vulnerable',
+      prompt:
+        'How is our deposit base distributed across rate sensitivity levels - how much of our funding is stable vs vulnerable to a rate move?',
+    },
+    {
+      label: 'Profitability Trend 12M',
+      prompt:
+        'How has our operating profitability trended over the last 12 months and are we managing expenses efficiently relative to revenue?',
+    },
+    {
+      label: 'Yield Curve Shape',
+      prompt:
+        'What does the current yield curve look like across short, medium, and long tenors - and what is it telling us about the rate environment?',
+    },
+    {
+      label: 'At-Risk Accounts Top10',
+      prompt:
+        'Which specific customer relationships are most at risk of leaving today - who are our top 10 most vulnerable accounts and how far below market are we paying them?',
+    },
+    {
+      label: 'Product Concentration Mix',
+      prompt:
+        'How is our current deposit base distributed across product types - where is our funding concentrated?',
+    },
+    {
+      label: 'Portfolio Beta Today',
+      prompt:
+        'What is our total deposit portfolio beta today - how rate-sensitive is our entire funding base?',
+    },
+    {
+      label: 'Runoff Concentration 3Y',
+      prompt:
+        'How much of our deposit base do we expect to lose over the next three years by each segment, and where is the runoff most concentrated?',
+    },
+    {
+      label: 'Baseline vs Adverse',
+      prompt:
+        'Show me baseline deposit runoff, NII, and PPNR over the next two quarters and how these metrics change under the adverse scenario.',
+    },
+    {
+      label: 'All Scenario NII',
+      prompt:
+        'How does NII change across all four rate scenarios over the next two quarters - and which scenario produces the largest compression?',
+    },
   ]
 
   return (
@@ -136,20 +183,21 @@ export default function AIAssistant() {
             </div>
           </div>
 
-          {/* Example Queries */}
+          {/* Quick Queries (always visible) */}
           <div className="bg-slate-50 p-4 border-b border-slate-200">
             <p className="text-xs font-medium text-black mb-2">Quick queries:</p>
             <div className="flex gap-2 flex-wrap">
-              {exampleQueries.map(query => (
+              {quickQueries.map((query) => (
                 <motion.button
-                  key={query}
-                  onClick={() => setInput(query)}
+                  key={query.label}
+                  onClick={() => setInput(query.prompt)}
+                  title={query.prompt}
                   style={{ color: '#000000' }}
                   className="text-xs px-3 py-1.5 rounded-md bg-white border-2 border-slate-400 font-semibold hover:border-blue-500 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {query}
+                  {query.label}
                 </motion.button>
               ))}
             </div>
@@ -183,9 +231,10 @@ export default function AIAssistant() {
                         : 'bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-300 text-slate-900 shadow-sm'
                     }`}
                   >
-                    <div className="prose prose-sm max-w-none">
-                      <pre className={`whitespace-pre-wrap font-sans ${message.role === 'assistant' ? 'text-slate-800' : 'text-white'}`}>{message.content}</pre>
-                    </div>
+                    <AssistantMessageContent
+                      content={message.content}
+                      isUser={message.role === 'user'}
+                    />
                     <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-blue-200' : 'text-slate-600'}`}>
                       {message.timestamp.toLocaleTimeString()}
                     </p>

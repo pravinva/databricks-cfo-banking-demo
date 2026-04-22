@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Loader2, Sparkles, X, Minimize2 } from 'lucide-react'
+import { Send, Loader2, Sparkles, X, Minimize2, Maximize2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { apiFetch } from '@/lib/api'
+import AssistantMessageContent from '@/components/AssistantMessageContent'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -16,10 +17,12 @@ interface Message {
 export default function FloatingAIAssistant() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string>('')
+  const [roomDisplayName, setRoomDisplayName] = useState<string>('Treasury Genie')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -45,12 +48,29 @@ export default function FloatingAIAssistant() {
     const openHandler = () => {
       setIsOpen(true)
       setIsMinimized(false)
+      setIsExpanded(false)
     }
 
     window.addEventListener('open-treasury-genie', openHandler)
     return () => {
       window.removeEventListener('open-treasury-genie', openHandler)
     }
+  }, [])
+
+  useEffect(() => {
+    const fetchRoomInfo = async () => {
+      try {
+        const response = await apiFetch('/api/genie/space')
+        const data = await response.json()
+        if (response.ok && data?.success && typeof data.display_name === 'string' && data.display_name.trim()) {
+          setRoomDisplayName(data.display_name.trim())
+        }
+      } catch {
+        // Keep default fallback room display name.
+      }
+    }
+
+    fetchRoomInfo()
   }, [])
 
   const handleSend = async () => {
@@ -110,11 +130,57 @@ export default function FloatingAIAssistant() {
     }
   }
 
-  const exampleQueries = [
-    'Latest PPNR forecast',
-    'Show Q9 delta attribution for market shock scenario',
-    'Which scenario has the highest cumulative 9Q PPNR?',
-    'Current 10Y Treasury yield',
+  const quickQueries = [
+    {
+      label: 'CCAR Scenario Summary',
+      prompt:
+        'Give me a summary of all stress test scenarios - what rate shock each assumes, how depositor behavior changes under stress, the NII impact, and whether we pass the regulatory capital test.',
+    },
+    {
+      label: 'Stable vs Vulnerable',
+      prompt:
+        'How is our deposit base distributed across rate sensitivity levels - how much of our funding is stable vs vulnerable to a rate move?',
+    },
+    {
+      label: 'Profitability Trend 12M',
+      prompt:
+        'How has our operating profitability trended over the last 12 months and are we managing expenses efficiently relative to revenue?',
+    },
+    {
+      label: 'Yield Curve Shape',
+      prompt:
+        'What does the current yield curve look like across short, medium, and long tenors - and what is it telling us about the rate environment?',
+    },
+    {
+      label: 'At-Risk Accounts Top10',
+      prompt:
+        'Which specific customer relationships are most at risk of leaving today - who are our top 10 most vulnerable accounts and how far below market are we paying them?',
+    },
+    {
+      label: 'Product Concentration Mix',
+      prompt:
+        'How is our current deposit base distributed across product types - where is our funding concentrated?',
+    },
+    {
+      label: 'Portfolio Beta Today',
+      prompt:
+        'What is our total deposit portfolio beta today - how rate-sensitive is our entire funding base?',
+    },
+    {
+      label: 'Runoff Concentration 3Y',
+      prompt:
+        'How much of our deposit base do we expect to lose over the next three years by each segment, and where is the runoff most concentrated?',
+    },
+    {
+      label: 'Baseline vs Adverse',
+      prompt:
+        'Show me baseline deposit runoff, NII, and PPNR over the next two quarters and how these metrics change under the adverse scenario.',
+    },
+    {
+      label: 'All Scenario NII',
+      prompt:
+        'How does NII change across all four rate scenarios over the next two quarters - and which scenario produces the largest compression?',
+    },
   ]
 
   return (
@@ -155,11 +221,11 @@ export default function FloatingAIAssistant() {
               opacity: 1,
               y: 0,
               scale: isMinimized ? 0.95 : 1,
-              height: isMinimized ? 60 : 600
+              height: isMinimized ? 60 : isExpanded ? 760 : 600
             }}
             exit={{ opacity: 0, y: 100, scale: 0.8 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 right-6 w-96 z-50"
+            className={`fixed bottom-6 right-6 z-50 ${isExpanded ? 'w-[min(92vw,1100px)]' : 'w-96'}`}
           >
             <Card className="border-slate-200 shadow-2xl overflow-hidden">
               {/* Header */}
@@ -174,13 +240,28 @@ export default function FloatingAIAssistant() {
                     </motion.div>
                     <div>
                       <h3 className="text-sm font-semibold text-white">Treasury Genie</h3>
-                      <p className="text-xs text-blue-100">Room: 01f1239a9856100fa09ae924f9e5f401</p>
+                      <p className="text-xs text-blue-100">Room: {roomDisplayName}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    {!isMinimized && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="hover:bg-blue-500/20 text-white p-1 h-7 w-7"
+                        title={isExpanded ? 'Restore default size' : 'Expand window'}
+                      >
+                        {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
-                      onClick={() => setIsMinimized(!isMinimized)}
+                      onClick={() => {
+                        if (!isMinimized) {
+                          setIsExpanded(false)
+                        }
+                        setIsMinimized(!isMinimized)
+                      }}
                       className="hover:bg-blue-500/20 text-white p-1 h-7 w-7"
                     >
                       <Minimize2 className="h-4 w-4" />
@@ -198,24 +279,23 @@ export default function FloatingAIAssistant() {
 
               {/* Content - Hidden when minimized */}
               {!isMinimized && (
-                <div className="flex flex-col h-[536px]">
-                  {/* Example Queries */}
-                  {messages.length === 0 && (
-                    <div className="bg-slate-50 p-3 border-b border-slate-200 flex-shrink-0">
-                      <p className="text-xs font-medium text-slate-700 mb-2">Quick queries:</p>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {exampleQueries.map(query => (
-                          <button
-                            key={query}
-                            onClick={() => setInput(query)}
-                            className="text-xs px-2 py-1 rounded bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50 transition-colors text-slate-700 hover:text-blue-700"
-                          >
-                            {query}
-                          </button>
-                        ))}
-                      </div>
+                <div className={`flex flex-col ${isExpanded ? 'h-[696px]' : 'h-[536px]'}`}>
+                  {/* Quick Queries (always visible) */}
+                  <div className="bg-slate-50 p-3 border-b border-slate-200 flex-shrink-0">
+                    <p className="text-xs font-medium text-slate-700 mb-2">Quick queries:</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {quickQueries.map((query) => (
+                        <button
+                          key={query.label}
+                          onClick={() => setInput(query.prompt)}
+                          title={query.prompt}
+                          className="text-xs px-2 py-1 rounded bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50 transition-colors text-slate-700 hover:text-blue-700"
+                        >
+                          {query.label}
+                        </button>
+                      ))}
                     </div>
-                  )}
+                  </div>
 
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
@@ -244,9 +324,10 @@ export default function FloatingAIAssistant() {
                                 : 'bg-slate-100 border border-slate-200 text-slate-900'
                             }`}
                           >
-                            <pre className={`whitespace-pre-wrap font-sans text-xs ${message.role === 'assistant' ? 'text-slate-800' : 'text-white'}`}>
-                              {message.content}
-                            </pre>
+                            <AssistantMessageContent
+                              content={message.content}
+                              isUser={message.role === 'user'}
+                            />
                             <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-blue-200' : 'text-slate-500'}`}>
                               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>

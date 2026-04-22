@@ -14,7 +14,7 @@ import sys
 import os
 from pathlib import Path
 import re
-from typing import Optional
+from typing import Optional, Any
 import time
 from functools import wraps
 
@@ -243,6 +243,33 @@ class GenieChatRequest(BaseModel):
     conversation_id: Optional[str] = None
 
 
+@app.get("/api/genie/space")
+async def genie_space_info():
+    """Return Genie space metadata (id + display name)."""
+    try:
+        w = WorkspaceClient()
+        resp = w.api_client.do("GET", f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}")
+        if not isinstance(resp, dict):
+            resp = {}
+
+        return {
+            "success": True,
+            "space_id": resp.get("space_id") or GENIE_SPACE_ID,
+            "display_name": resp.get("display_name") or resp.get("title") or resp.get("name") or "Treasury Genie",
+            "raw": resp,
+        }
+    except Exception as e:
+        return JSONResponse(
+            {
+                "success": False,
+                "space_id": GENIE_SPACE_ID,
+                "display_name": "Treasury Genie",
+                "error": str(e),
+            },
+            status_code=500,
+        )
+
+
 def _discover_exec_report_job_id(w: WorkspaceClient) -> Optional[int]:
     """
     Best-effort discovery of the Executive report Job ID in the current workspace.
@@ -417,6 +444,115 @@ def _genie_extract_text(message: dict) -> str:
     if chunks:
         return "\n\n".join(chunks)
     return ""
+
+
+def _stringify_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    text = str(value)
+    # Keep markdown tables well-formed.
+    return text.replace("|", "\\|").replace("\n", " ").strip()
+
+
+def _format_numeric_for_table(value: Any) -> str:
+    try:
+        n = float(value)
+    except Exception:
+        return _stringify_cell(value)
+
+    if abs(n - int(n)) < 1e-9:
+        return f"{int(n):,}"
+    if abs(n) >= 1000:
+        return f"{n:,.2f}"
+    if abs(n) >= 1:
+        return f"{n:.4f}".rstrip("0").rstrip(".")
+    return f"{n:.6f}".rstrip("0").rstrip(".")
+
+
+def _is_numeric_like(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, str):
+        v = value.strip().replace(",", "").replace("$", "").replace("%", "")
+        if not v:
+            return False
+        try:
+            float(v)
+            return True
+        except ValueError:
+            return False
+    return False
+
+
+def _markdown_table(headers: list[str], rows: list[list[Any]]) -> str:
+    if not headers:
+        return ""
+
+    numeric_cols: list[bool] = []
+    for col_idx in range(len(headers)):
+        values = [r[col_idx] if col_idx < len(r) else None for r in rows[:20]]
+        present = [v for v in values if v is not None and str(v).strip() != ""]
+        numeric_cols.append(bool(present) and all(_is_numeric_like(v) for v in present))
+
+    header_line = "| " + " | ".join(_stringify_cell(h) for h in headers) + " |"
+    align_line = (
+        "| "
+        + " | ".join("---:" if numeric_cols[i] else "---" for i in range(len(headers)))
+        + " |"
+    )
+    body_lines = []
+    for row in rows:
+        row_vals = []
+        for i in range(len(headers)):
+            cell = row[i] if i < len(row) else ""
+            if numeric_cols[i] and cell not in (None, ""):
+                row_vals.append(_format_numeric_for_table(cell))
+            else:
+                row_vals.append(_stringify_cell(cell))
+        body_lines.append("| " + " | ".join(row_vals) + " |")
+
+    return "\n".join([header_line, align_line, *body_lines])
+
+
+def _fetch_statement_table_markdown(
+    w: WorkspaceClient,
+    statement_id: Optional[str],
+    max_rows: int = 12,
+) -> str:
+    if not statement_id:
+        return ""
+
+    try:
+        resp = w.api_client.do(
+            "GET",
+            f"/api/2.0/sql/statements/{statement_id}",
+            query={"format": "JSON_ARRAY"},
+        )
+        if not isinstance(resp, dict):
+            return ""
+
+        result = resp.get("result") or {}
+        rows = result.get("data_array") or []
+        manifest = resp.get("manifest") or result.get("manifest") or {}
+        schema = manifest.get("schema") or {}
+        columns = schema.get("columns") or []
+        headers = [str(c.get("name")) for c in columns if isinstance(c, dict) and c.get("name")]
+        if not headers and rows:
+            headers = [f"col_{i + 1}" for i in range(len(rows[0]))]
+
+        if not headers or not rows:
+            return ""
+
+        clipped = rows[: max(1, int(max_rows))]
+        table_md = _markdown_table(headers, clipped)
+        total_rows = len(rows)
+        if total_rows > len(clipped):
+            table_md += f"\n\n_Showing {len(clipped)} of {total_rows} rows._"
+        return table_md
+    except Exception:
+        return ""
 
 
 @app.get("/api/reports/executive/latest")
@@ -632,6 +768,18 @@ async def genie_chat(payload: GenieChatRequest):
         response_text = _genie_extract_text(final_message)
         if not response_text:
             response_text = "Genie completed your request. Query and result attachments are available."
+
+        statement_id = None
+        for att in (final_message.get("attachments") or []):
+            if isinstance(att, dict):
+                q = att.get("query")
+                if isinstance(q, dict) and q.get("statement_id"):
+                    statement_id = str(q["statement_id"])
+                    break
+
+        table_md = _fetch_statement_table_markdown(w, statement_id)
+        if table_md:
+            response_text = f"{response_text}\n\n### Result Table\n\n{table_md}"
 
         return {
             "success": True,
